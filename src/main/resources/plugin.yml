@@ -1,0 +1,19 @@
+name: SkyCity
+version: 1.0-SNAPSHOT
+main: de.mcbesser.skycity.SkyCityPlugin
+api-version: "1.20"
+load: STARTUP
+author: Codex
+commands:
+  spawn:
+    description: Teleportiert zum Spawn
+  is:
+    description: Inselmen\u00fc und Inselbefehle
+    aliases: [island]
+  warp:
+    description: Teleportiert zu einem Inselwarp
+permissions:
+  skycity.admin:
+    default: op
+
+
