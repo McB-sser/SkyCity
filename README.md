@@ -451,16 +451,6 @@ Ein normaler Spieler nutzt SkyCity meist so:
 8. Inselwert und Upgrades ueber den Core verbessern.
 9. Titel, Warps, Besucherrechte und Biome anpassen.
 
-## Fuer wen das Plugin gedacht ist
-
-SkyCity eignet sich fuer Server, die:
-
-- ein eigenes Skyblock-/Inselkonzept wollen
-- Citybuild-Elemente mit feinen Rechtesystemen kombinieren moechten
-- Grundstuecke innerhalb von Inseln brauchen
-- kontrollierte Performance-Grenzen wichtig finden
-- ein menuegestuetztes statt rein befehlsbasiertes System bevorzugen
-
 ## Technischer Hinweis
 
 Laut `plugin.yml` ist das Plugin fuer `api-version: 1.20` ausgelegt. Hauptbefehle sind:
