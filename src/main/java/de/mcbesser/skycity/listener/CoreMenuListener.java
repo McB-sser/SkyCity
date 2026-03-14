@@ -287,7 +287,7 @@ public class CoreMenuListener implements Listener {
             case 10 -> {
                 var parcel = islandService.getParcelAt(island, player.getLocation());
                 if (parcel == null) {
-                    player.sendMessage(ChatColor.YELLOW + "Du stehst aktuell in keinem GrundstÃ¼ck.");
+                    player.sendMessage(ChatColor.YELLOW + "Du stehst aktuell in keinem Grundst\u00fcck.");
                     player.openInventory(coreService.createParcelsMenu(player, island));
                     return;
                 }
@@ -296,15 +296,15 @@ public class CoreMenuListener implements Listener {
                 openParcelMenu(player, island, relX, relZ);
             }
             case 12 -> {
-                player.sendMessage(ChatColor.GOLD + "GrundstÃ¼ck erstellen:");
-                player.sendMessage(ChatColor.YELLOW + "1) GrundstÃ¼cks-Stab holen");
+                player.sendMessage(ChatColor.GOLD + "Grundst\u00fcck erstellen:");
+                player.sendMessage(ChatColor.YELLOW + "1) Grundst\u00fccks-Stab holen");
                 player.sendMessage(ChatColor.YELLOW + "2) Pos1/Pos2 setzen");
                 player.sendMessage(ChatColor.YELLOW + "3) /is plot create");
                 player.openInventory(coreService.createParcelsMenu(player, island));
             }
             case 14 -> {
                 player.getInventory().addItem(islandService.createPlotWand());
-                player.sendMessage(ChatColor.GREEN + "GrundstÃ¼cks-Stab erhalten.");
+                player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
                 player.sendMessage(ChatColor.GRAY + "Setze Pos1/Pos2 und nutze /is plot create.");
                 player.openInventory(coreService.createParcelsMenu(player, island));
             }
@@ -446,8 +446,8 @@ public class CoreMenuListener implements Listener {
                         default -> player.sendMessage(ChatColor.RED + "Chunk konnte nicht freigeschaltet werden.");
                     }
                   } else if (islandService.getParcel(island, relX, relZ) == null) {
-                      player.sendMessage(ChatColor.YELLOW + "In diesem Chunk ist noch kein GrundstÃ¼ck.");
-                      player.sendMessage(ChatColor.GRAY + "Nutze /is plot wand und /is plot create fÃ¼r freie Quader.");
+                      player.sendMessage(ChatColor.YELLOW + "In diesem Chunk ist noch kein Grundst\u00fcck.");
+                      player.sendMessage(ChatColor.GRAY + "Nutze /is plot wand und /is plot create f\u00fcr freie Quader.");
                       openParcelMenu(player, island, relX, relZ);
                       return;
                   } else {
@@ -488,7 +488,7 @@ public class CoreMenuListener implements Listener {
                 if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) {
                     long cost = islandService.getBiomeChangeCost(true);
                     if (island.getStoredExperience() < cost) {
-                        player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+                        player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                         return;
                     }
                     if (!islandService.spendStoredExperience(island, cost)) {
@@ -497,7 +497,7 @@ public class CoreMenuListener implements Listener {
                     }
                     int changed = islandService.setBiomeForIsland(island, biome, true);
                     player.sendMessage(ChatColor.GREEN + "Biom gesetzt: " + coreService.biomeDisplayNameDe(biome)
-                            + " fÃ¼r " + changed + " freigeschaltete Chunks. Kosten: " + cost);
+                            + " f\u00fcr " + changed + " freigeschaltete Chunks. Kosten: " + cost);
                 } else {
                     if (!islandService.isChunkUnlocked(island, holder.relChunkX(), holder.relChunkZ())) {
                         player.sendMessage(ChatColor.RED + "Ziel-Chunk ist gesperrt.");
@@ -505,7 +505,7 @@ public class CoreMenuListener implements Listener {
                     }
                     long cost = islandService.getBiomeChangeCost(false);
                     if (island.getStoredExperience() < cost) {
-                        player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+                        player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                         return;
                     }
                     if (!islandService.spendStoredExperience(island, cost)) {
@@ -516,7 +516,7 @@ public class CoreMenuListener implements Listener {
                     int displayX = islandService.displayChunkX(holder.relChunkX());
                     int displayZ = islandService.displayChunkZ(holder.relChunkZ());
                     player.sendMessage(ChatColor.GREEN + "Biom gesetzt: " + coreService.biomeDisplayNameDe(biome)
-                            + " fÃ¼r Chunk " + displayX + ":" + displayZ + ". Kosten: " + cost);
+                            + " f\u00fcr Chunk " + displayX + ":" + displayZ + ". Kosten: " + cost);
                 }
                 player.openInventory(coreService.createBiomeMenu(player, island, holder.page(), holder.relChunkX(), holder.relChunkZ(), holder.returnPage()));
                 return;
@@ -598,7 +598,7 @@ public class CoreMenuListener implements Listener {
         }
         long cost = islandService.getTimeModeChangeCost();
         if (!islandService.spendStoredExperience(island, cost)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
         islandService.setIslandTimeMode(island, target);
@@ -645,7 +645,7 @@ public class CoreMenuListener implements Listener {
         switch (event.getRawSlot()) {
             case 22 -> {
                 player.getInventory().addItem(islandService.createPlotWand());
-                player.sendMessage(ChatColor.GREEN + "GrundstÃ¼cks-Stab erhalten.");
+                player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
                 player.sendMessage(ChatColor.GRAY + "Setze Pos1/Pos2 und nutze /is plot create.");
             }
             case 10 -> {
@@ -859,7 +859,7 @@ public class CoreMenuListener implements Listener {
         boolean changed = event.isRightClick()
                 ? islandService.revokeTrust(island, target.getUniqueId(), permission)
                 : islandService.grantTrust(island, target.getUniqueId(), permission);
-        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine Ã„nderung.");
+        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
         islandService.save();
         player.openInventory(coreService.createIslandTrustMenu(player, island, permission, holder.page(), holder.filter()));
     }
@@ -894,7 +894,7 @@ public class CoreMenuListener implements Listener {
         boolean changed = event.isRightClick()
                 ? islandService.revokeIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId())
                 : islandService.grantIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine Ã„nderung.");
+        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
         player.openInventory(coreService.createIslandOwnersMenu(player, island, holder.page(), holder.filter()));
     }
 
@@ -920,7 +920,7 @@ public class CoreMenuListener implements Listener {
                     player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
                     player.teleport(islandService.getSpawnLocation());
                 } else {
-                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zusÃ¤tzlicher Master.");
+                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master.");
                 }
                 IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
                 if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
@@ -966,8 +966,8 @@ public class CoreMenuListener implements Listener {
         String targetName = target != null ? target.getName() : String.valueOf(targetId);
         player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + targetName + ".");
         if (target != null) {
-            target.sendMessage(ChatColor.GOLD + player.getName() + " mÃ¶chte dich als Master einladen.");
-            target.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept zum BestÃ¤tigen.");
+            target.sendMessage(ChatColor.GOLD + player.getName() + " m\u00f6chte dich als Master einladen.");
+            target.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept zum Best\u00e4tigen.");
         }
         player.openInventory(coreService.createIslandMasterInviteMenu(player, island, holder.page()));
     }
@@ -1005,7 +1005,7 @@ public class CoreMenuListener implements Listener {
         boolean changed = event.isRightClick()
                 ? islandService.revokeParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role)
                 : islandService.grantParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role);
-        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine Ã„nderung.");
+        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
         player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), role, holder.page(), holder.filter()));
     }
 
@@ -1059,14 +1059,14 @@ public class CoreMenuListener implements Listener {
                     if (target != null) islandService.kickFromParcel(island, parcel, target);
                     player.sendMessage(ChatColor.GREEN + "Spieler vom GS gebannt.");
                 } else {
-                    player.sendMessage(ChatColor.YELLOW + "Keine Ã„nderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 }
             }
             case UNBAN -> {
                 if (islandService.setParcelBan(island, parcel, player.getUniqueId(), targetId, false)) {
                     player.sendMessage(ChatColor.YELLOW + "Spieler vom GS entbannt.");
                 } else {
-                    player.sendMessage(ChatColor.YELLOW + "Keine Ã„nderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 }
             }
         }

@@ -287,7 +287,7 @@ public class PlayerListener implements Listener {
 
         stopParcelBanCountdown(playerId);
         parcelBanCountdownKeys.put(playerId, parcelKey);
-        player.sendMessage(ChatColor.RED + "Du bist auf diesem GrundstÃ¼ck gebannt.");
+        player.sendMessage(ChatColor.RED + "Du bist auf diesem Grundst\u00fcck gebannt.");
         player.sendMessage(ChatColor.YELLOW + "Verlasse es in 5 Sekunden, sonst wirst du teleportiert.");
 
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, new Runnable() {
@@ -308,7 +308,7 @@ public class PlayerListener implements Listener {
                 boolean stillInBannedParcel = nowKey != null && nowKey.equals(parcelKey) && nowParcel.getBanned().contains(playerId);
 
                 if (!stillInBannedParcel) {
-                    live.sendMessage(ChatColor.GREEN + "Du hast das gebannte GrundstÃ¼ck verlassen.");
+                    live.sendMessage(ChatColor.GREEN + "Du hast das gebannte Grundst\u00fcck verlassen.");
                     stopParcelBanCountdown(playerId);
                     return;
                 }
@@ -320,12 +320,12 @@ public class PlayerListener implements Listener {
                             ? own.getIslandSpawn()
                             : islandService.getSpawnLocation();
                     live.teleport(target);
-                    live.sendMessage(ChatColor.RED + "Du wurdest vom GrundstÃ¼ck entfernt.");
+                    live.sendMessage(ChatColor.RED + "Du wurdest vom Grundst\u00fcck entfernt.");
                     stopParcelBanCountdown(playerId);
                     return;
                 }
 
-                live.sendMessage(ChatColor.YELLOW + "Verlasse das GrundstÃ¼ck in " + secondsLeft + "...");
+                live.sendMessage(ChatColor.YELLOW + "Verlasse das Grundst\u00fcck in " + secondsLeft + "...");
             }
         }, 20L, 20L);
         parcelBanCountdownTasks.put(playerId, taskId);
@@ -436,7 +436,7 @@ public class PlayerListener implements Listener {
 
         stopParcelPvpExitCountdown(playerId);
         parcelPvpExitCountdownKeys.put(playerId, parcelKey);
-        player.sendMessage(ChatColor.RED + "Du bist nicht auf der PvP-Whitelist dieses GrundstÃ¼cks.");
+        player.sendMessage(ChatColor.RED + "Du bist nicht auf der PvP-Whitelist dieses Grundst\u00fccks.");
         player.sendMessage(ChatColor.YELLOW + "Verlasse die Zone in 5 Sekunden, sonst wirst du teleportiert.");
 
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, new Runnable() {
@@ -505,7 +505,7 @@ public class PlayerListener implements Listener {
             parcelPvpStates.remove(playerId);
             islandService.clearParcelPvpConsent(playerId);
             clearPvpScoreboard(player);
-            player.sendMessage(ChatColor.GREEN + "Du verlÃ¤sst die PvP-Zone.");
+            player.sendMessage(ChatColor.GREEN + "Du verl\u00e4sst die PvP-Zone.");
             broadcastParcelPvpMessage(ChatColor.GRAY + player.getName() + " hat die PvP-Zone verlassen.");
         }
         if (nextKey == null || nextKey.equals(previousKey)) {
@@ -515,8 +515,8 @@ public class PlayerListener implements Listener {
         islandService.grantParcelPvpConsent(playerId, island, parcel);
         showParcelPvpScoreboard(player, island, parcel);
         String parcelName = islandService.getParcelDisplayName(parcel);
-        player.sendMessage(ChatColor.RED + "Du trittst PvP auf dem GrundstÃ¼ck " + parcelName + " bei.");
-        player.sendMessage(ChatColor.YELLOW + "Du kannst jetzt kÃ¤mpfen und angegriffen werden, solange du in der Zone bist.");
+        player.sendMessage(ChatColor.RED + "Du trittst PvP auf dem Grundst\u00fcck " + parcelName + " bei.");
+        player.sendMessage(ChatColor.YELLOW + "Du kannst jetzt k\u00e4mpfen und angegriffen werden, solange du in der Zone bist.");
         broadcastParcelPvpMessage(ChatColor.GOLD + player.getName() + ChatColor.GRAY + " ist der PvP-Zone " + parcelName + " beigetreten.");
     }
 
@@ -731,7 +731,7 @@ public class PlayerListener implements Listener {
         if (forceRefreshStateOnly) return;
 
         if (prev.startsWith("island:") && !current.startsWith("island:")) {
-            player.sendMessage(ChatColor.GRAY + "Du verlÃ¤sst die Insel.");
+            player.sendMessage(ChatColor.GRAY + "Du verl\u00e4sst die Insel.");
             return;
         }
         if (!prev.startsWith("island:") && current.startsWith("island:")) {
@@ -743,7 +743,7 @@ public class PlayerListener implements Listener {
         }
         if (prev.startsWith("island:") && current.startsWith("island:")) {
             IslandData island = islandService.getIslandAt(at);
-            player.sendMessage(ChatColor.GRAY + "Du verlÃ¤sst die Insel.");
+            player.sendMessage(ChatColor.GRAY + "Du verl\u00e4sst die Insel.");
             if (island != null) {
                 player.sendMessage(ChatColor.GOLD + "Du betrittst die Insel " + ChatColor.YELLOW + islandService.getIslandTitleDisplay(island));
             }

@@ -69,7 +69,7 @@ public class PlotWandListener implements Listener {
         boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island);
         boolean hasParcelRights = currentParcel != null && islandService.isParcelUser(island, currentParcel, player.getUniqueId());
         if (!hasBuild && !hasParcelRights) {
-            player.sendMessage(ChatColor.RED + "Keine Rechte fÃ¼r den GrundstÃ¼cks-Stab an diesem Standort.");
+            player.sendMessage(ChatColor.RED + "Keine Rechte f\u00fcr den Grundst\u00fccks-Stab an diesem Standort.");
             event.setCancelled(true);
             return;
         }
@@ -82,7 +82,7 @@ public class PlotWandListener implements Listener {
         if (!hasBuild) {
             ParcelData targetParcel = islandService.getParcelAt(island, target);
             if (targetParcel == null || !islandService.isParcelUser(island, targetParcel, player.getUniqueId())) {
-                player.sendMessage(ChatColor.RED + "Nur innerhalb eines GrundstÃ¼cks mit deinen Rechten.");
+                player.sendMessage(ChatColor.RED + "Nur innerhalb eines Grundst\u00fccks mit deinen Rechten.");
                 event.setCancelled(true);
                 return;
             }

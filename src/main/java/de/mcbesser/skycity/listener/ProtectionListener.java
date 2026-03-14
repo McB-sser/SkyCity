@@ -69,7 +69,7 @@ public class ProtectionListener implements Listener {
         }
         if (islandService.isInSpawnPlot(block.getLocation())) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Spawn ist geschÃ¼tzt.");
+            player.sendMessage(ChatColor.RED + "Spawn ist gesch\u00fctzt.");
             return;
         }
         IslandData island = islandService.getIslandAt(block.getLocation());
@@ -342,7 +342,7 @@ public class ProtectionListener implements Listener {
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isDoors();
             if (!allowed) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "TÃ¼ren sind hier gesperrt.");
+                player.sendMessage(ChatColor.RED + "T\u00fcren sind hier gesperrt.");
                 return;
             }
         }

@@ -385,7 +385,7 @@ public class IslandService {
                 try {
                     callback.accept(island);
                 } catch (Exception ex) {
-                    plugin.getLogger().warning("Fehler in Insel-Callback fÃ¼r " + playerId + ": " + ex.getMessage());
+                    plugin.getLogger().warning("Fehler in Insel-Callback f\u00fcr " + playerId + ": " + ex.getMessage());
                 }
             }
         }
@@ -474,7 +474,7 @@ public class IslandService {
         }
         for (IslandData island : toDelete) {
             deleteIslandData(island, true);
-            plugin.getLogger().info("Inaktive Insel gelÃ¶scht (Punkte<1000, >1 Jahr inaktiv): " + island.getOwner());
+            plugin.getLogger().info("Inaktive Insel gel\u00f6scht (Punkte<1000, >1 Jahr inaktiv): " + island.getOwner());
         }
         if (!toDelete.isEmpty()) save();
     }
@@ -518,7 +518,7 @@ public class IslandService {
             try {
                 callback.accept(island);
             } catch (Exception ex) {
-                plugin.getLogger().warning("Fehler in Insel-Ready-Callback fÃ¼r " + island.getOwner() + ": " + ex.getMessage());
+                plugin.getLogger().warning("Fehler in Insel-Ready-Callback f\u00fcr " + island.getOwner() + ": " + ex.getMessage());
             }
         }
     }
@@ -823,7 +823,7 @@ public class IslandService {
             w.getBlockAt(x + dx, floorY + height, z).setType(frame, false);
         }
 
-        // "PortalflÃ¤che" bleibt leer (deko only)
+        // "Portalfl\u00e4che" bleibt leer (deko only)
         for (int dx = 1; dx <= width - 2; dx++) {
             for (int dy = 2; dy <= height - 1; dy++) {
                 w.getBlockAt(x + dx, floorY + dy, z).setType(Material.AIR, false);
@@ -1219,7 +1219,7 @@ public class IslandService {
 
     public boolean grantIslandOwnerRole(IslandData island, UUID actor, UUID target) {
         if (island == null || actor == null || target == null) return false;
-        if (!isIslandOwner(island, actor)) return false; // Master oder Owner darf Owner hinzufÃ¼gen
+        if (!isIslandOwner(island, actor)) return false; // Master oder Owner darf Owner hinzuf\u00fcgen
         if (isIslandMaster(island, target)) return false;
         boolean changed = island.getIslandOwners().add(target);
         if (changed) {
@@ -1380,9 +1380,9 @@ public class IslandService {
             for (UUID approverId : getNeighborApprovers(neighborIsland)) {
                 Player online = Bukkit.getPlayer(approverId);
                 if (online == null || !online.isOnline()) continue;
-                online.sendMessage(ChatColor.GOLD + by + ChatColor.YELLOW + " mÃ¶chte Grenz-Chunk " + ChatColor.WHITE + displayX + ":" + displayZ
+                online.sendMessage(ChatColor.GOLD + by + ChatColor.YELLOW + " m\u00f6chte Grenz-Chunk " + ChatColor.WHITE + displayX + ":" + displayZ
                         + ChatColor.YELLOW + " auf " + ChatColor.GOLD + requesterTitle + ChatColor.YELLOW + " freischalten.");
-                online.sendMessage(ChatColor.GRAY + "Risiko: verbundene Grenze erlaubt Ãœbertritt von FlÃ¼ssigkeiten, Items und Mobs.");
+                online.sendMessage(ChatColor.GRAY + "Risiko: verbundene Grenze erlaubt \u00dcbertritt von Fl\u00fcssigkeiten, Items und Mobs.");
 
                 TextComponent approve = new TextComponent(ChatColor.GREEN + "[Freigeben]");
                 approve.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
@@ -2668,13 +2668,13 @@ public class IslandService {
     public ItemStack createPlotWand() {
         ItemStack wand = new ItemStack(Material.STICK);
         ItemMeta meta = wand.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "GrundstÃ¼cks-Stab");
+        meta.setDisplayName(ChatColor.GOLD + "Grundst\u00fccks-Stab");
         meta.setLore(List.of(
                 ChatColor.GRAY + "Linksklick Block = Pos1",
                 ChatColor.GRAY + "Rechtsklick Block = Pos2",
-                ChatColor.AQUA + "Mittelklick = GrundstÃ¼cks-MenÃ¼ Ã¶ffnen",
-                ChatColor.YELLOW + "/is plot create erstellt das GrundstÃ¼ck",
-                ChatColor.YELLOW + "/is plot delete lÃ¶scht GrundstÃ¼ck am Standort"
+                ChatColor.AQUA + "Mittelklick = Grundst\u00fccks-Men\u00fc \u00f6ffnen",
+                ChatColor.YELLOW + "/is plot create erstellt das Grundst\u00fcck",
+                ChatColor.YELLOW + "/is plot delete l\u00f6scht Grundst\u00fcck am Standort"
         ));
         meta.getPersistentDataContainer().set(plotWandKey, PersistentDataType.BYTE, (byte) 1);
         meta.addEnchant(Enchantment.LUCK, 1, true);

@@ -115,7 +115,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                         case NO_UNLOCKS_LEFT -> player.sendMessage(ChatColor.RED + "Chunk konnte nicht freigeschaltet werden (keine Unlocks frei).");
                         case NEEDS_NEIGHBOR_APPROVAL -> {
                             player.sendMessage(ChatColor.GOLD + "Grenz-Chunk: Anfrage an Nachbar gesendet.");
-                            player.sendMessage(ChatColor.GRAY + "Risiko bei Verbindung: FlÃ¼ssigkeiten, Items und Mobs kÃ¶nnen Ã¼bertreten.");
+                            player.sendMessage(ChatColor.GRAY + "Risiko bei Verbindung: Fl\u00fcssigkeiten, Items und Mobs k\u00f6nnen \u00fcbertreten.");
                         }
                         case PENDING_NEIGHBOR_APPROVAL -> player.sendMessage(ChatColor.YELLOW + "Freigabe vom Nachbarn steht noch aus.");
                         default -> player.sendMessage(ChatColor.RED + "Chunk konnte nicht freigeschaltet werden.");
@@ -138,17 +138,17 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     relX = Integer.parseInt(args[2]);
                     relZ = Integer.parseInt(args[3]);
                 } catch (Exception ex) {
-                    player.sendMessage(ChatColor.RED + "UngÃ¼ltige Parameter.");
+                    player.sendMessage(ChatColor.RED + "Ung\u00fcltige Parameter.");
                     return true;
                 }
                 IslandService.ChunkUnlockResult result = islandService.approveBorderChunkUnlock(player.getUniqueId(), requesterOwner, relX, relZ);
                 switch (result) {
                     case SUCCESS -> player.sendMessage(ChatColor.GREEN + "Freigabe erteilt. Chunk wurde sofort freigeschaltet.");
                     case APPROVAL_RECORDED -> player.sendMessage(ChatColor.GREEN + "Freigabe gespeichert. Weitere Nachbar-Freigaben fehlen noch.");
-                    case NO_PENDING_REQUEST -> player.sendMessage(ChatColor.YELLOW + "Keine offene Anfrage fÃ¼r diesen Chunk.");
+                    case NO_PENDING_REQUEST -> player.sendMessage(ChatColor.YELLOW + "Keine offene Anfrage f\u00fcr diesen Chunk.");
                     case NOT_AUTHORIZED -> player.sendMessage(ChatColor.RED + "Du darfst diese Anfrage nicht freigeben.");
                     case ALREADY_UNLOCKED -> player.sendMessage(ChatColor.YELLOW + "Chunk ist bereits freigeschaltet.");
-                    case NO_UNLOCKS_LEFT -> player.sendMessage(ChatColor.RED + "Anfrage ist ungÃ¼ltig: keine freien Unlocks beim Anfrager.");
+                    case NO_UNLOCKS_LEFT -> player.sendMessage(ChatColor.RED + "Anfrage ist ungueltig: keine freien Unlocks beim Anfrager.");
                     default -> player.sendMessage(ChatColor.RED + "Freigabe konnte nicht verarbeitet werden.");
                 }
             }
@@ -178,7 +178,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         if ("clear".equalsIgnoreCase(args[1])) {
             island.setTitle(null);
             islandService.save();
-            player.sendMessage(ChatColor.GREEN + "Inseltitel zurÃ¼ckgesetzt.");
+            player.sendMessage(ChatColor.GREEN + "Inseltitel zur\u00fcckgesetzt.");
             return;
         }
         String title = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length)).trim();
@@ -237,7 +237,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 if (!islandService.isIslandMaster(island, player.getUniqueId())) {
-                    player.sendMessage(ChatColor.RED + "Nur Master kÃ¶nnen Master einladen.");
+                    player.sendMessage(ChatColor.RED + "Nur Master k\u00f6nnen Master einladen.");
                     return;
                 }
                 if (args.length < 2) {
@@ -253,11 +253,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + (target.getName() == null ? "?" : target.getName()) + ".");
                 Player online = Bukkit.getPlayer(target.getUniqueId());
                 if (online != null) {
-                    online.sendMessage(ChatColor.GOLD + player.getName() + " mÃ¶chte dich als Master auf seine Insel einladen.");
-                    online.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept (oder /is owneraccept) zum BestÃ¤tigen.");
+                    online.sendMessage(ChatColor.GOLD + player.getName() + " m\u00f6chte dich als Master auf seine Insel einladen.");
+                    online.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept (oder /is owneraccept) zum Best\u00e4tigen.");
                     online.sendMessage(ChatColor.RED + "WICHTIG: Als Master kannst du nur 1 Insel haben.");
-                    online.sendMessage(ChatColor.RED + "Wenn du aktuell Master einer anderen Insel bist, verlÃ¤sst du diese beim Annehmen.");
-                    online.sendMessage(ChatColor.RED + "Falls dort danach kein Master mehr Ã¼brig bleibt, wird diese Insel gelÃ¶scht.");
+                    online.sendMessage(ChatColor.RED + "Wenn du aktuell Master einer anderen Insel bist, verl\u00e4sst du diese beim Annehmen.");
+                    online.sendMessage(ChatColor.RED + "Falls dort danach kein Master mehr \u00fcbrig bleibt, wird diese Insel gel\u00f6scht.");
                 }
             }
             case "owneraccept" -> {
@@ -280,7 +280,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.teleport(islandService.getSpawnLocation());
                     player.sendMessage(ChatColor.YELLOW + "Nutze /is create um eine eigene Insel zu erstellen.");
                 } else {
-                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zusÃ¤tzlicher Master eingetragen oder bist nicht Master.");
+                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master eingetragen oder bist nicht Master.");
                 }
             }
             default -> {
@@ -296,13 +296,13 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         String action = args[1].toLowerCase(Locale.ROOT);
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
         if (target.getUniqueId().equals(player.getUniqueId()) && "remove".equals(action)) {
-            player.sendMessage(ChatColor.RED + "Owner kÃ¶nnen sich nicht selbst entfernen.");
+            player.sendMessage(ChatColor.RED + "Owner k\u00f6nnen sich nicht selbst entfernen.");
             return;
         }
         switch (action) {
             case "add" -> {
                 if (!islandService.isIslandOwner(island, player.getUniqueId())) {
-                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner kÃ¶nnen Owner hinzufÃ¼gen.");
+                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Owner hinzufuegen.");
                     return;
                 }
                 if (islandService.isIslandMaster(island, target.getUniqueId())) {
@@ -310,11 +310,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 boolean changed = islandService.grantIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-                player.sendMessage(changed ? ChatColor.GREEN + "Owner hinzugefÃ¼gt." : ChatColor.YELLOW + "Keine Ã„nderung.");
+                player.sendMessage(changed ? ChatColor.GREEN + "Owner hinzugef\u00fcgt." : ChatColor.YELLOW + "Keine \u00c4nderung.");
             }
             case "remove" -> {
                 if (!islandService.isIslandMaster(island, player.getUniqueId())) {
-                    player.sendMessage(ChatColor.RED + "Nur Master kÃ¶nnen Owner entfernen.");
+                    player.sendMessage(ChatColor.RED + "Nur Master k\u00f6nnen Owner entfernen.");
                     return;
                 }
                 boolean changed = islandService.revokeIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId());
@@ -335,7 +335,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
         if (islandService.isIslandOwner(island, target.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Insel-Owner/Co-Owner kÃ¶nnen nicht gebannt oder gekickt werden.");
+            player.sendMessage(ChatColor.RED + "Insel-Owner/Co-Owner k\u00f6nnen nicht gebannt oder gekickt werden.");
             return;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
@@ -399,7 +399,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         String sub = args[1].toLowerCase(Locale.ROOT);
         if ("wand".equals(sub)) {
             player.getInventory().addItem(islandService.createPlotWand());
-            player.sendMessage(ChatColor.GREEN + "GrundstÃ¼cks-Stab erhalten.");
+            player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
             return;
         }
         if ("create".equals(sub)) {
@@ -410,33 +410,33 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             Location pos1 = islandService.getPlotSelectionPos1(player.getUniqueId());
             Location pos2 = islandService.getPlotSelectionPos2(player.getUniqueId());
             if (pos1 == null || pos2 == null) {
-                player.sendMessage(ChatColor.RED + "Setze zuerst Pos1 und Pos2 mit dem GrundstÃ¼cks-Stab.");
+                player.sendMessage(ChatColor.RED + "Setze zuerst Pos1 und Pos2 mit dem Grundst\u00fccks-Stab.");
                 return;
             }
             var created = islandService.createParcelCuboidFromSelection(island, player.getUniqueId(), pos1, pos2);
             if (created == null) {
-                player.sendMessage(ChatColor.RED + "GrundstÃ¼ck konnte nicht erstellt werden.");
-                player.sendMessage(ChatColor.GRAY + "PrÃ¼fe: nur freigeschaltete Chunks, keine Ãœberschneidung, gleiche Insel.");
+                player.sendMessage(ChatColor.RED + "Grundst\u00fcck konnte nicht erstellt werden.");
+                player.sendMessage(ChatColor.GRAY + "Pr\u00fcfe: nur freigeschaltete Chunks, keine \u00dcberschneidung, gleiche Insel.");
                 return;
             }
             islandService.clearPlotSelection(player.getUniqueId());
-            player.sendMessage(ChatColor.GREEN + "GrundstÃ¼ck erstellt: " + islandService.getParcelDisplayName(created));
+            player.sendMessage(ChatColor.GREEN + "Grundst\u00fcck erstellt: " + islandService.getParcelDisplayName(created));
             return;
         }
         if ("delete".equals(sub)) {
             if (islandService.deleteParcelAt(island, player.getUniqueId(), player.getLocation())) {
-                player.sendMessage(ChatColor.GREEN + "GrundstÃ¼ck gelÃ¶scht.");
+                player.sendMessage(ChatColor.GREEN + "Grundst\u00fcck gel\u00f6scht.");
             } else {
-                player.sendMessage(ChatColor.RED + "Kein lÃ¶schbares GrundstÃ¼ck an deiner Position.");
+                player.sendMessage(ChatColor.RED + "Kein l\u00f6schbares Grundst\u00fcck an deiner Position.");
             }
             return;
         }
         if ("list".equals(sub)) {
             if (island.getParcels().isEmpty()) {
-                player.sendMessage(ChatColor.YELLOW + "Keine GrundstÃ¼cke vorhanden.");
+                player.sendMessage(ChatColor.YELLOW + "Keine Grundst\u00fccke vorhanden.");
                 return;
             }
-            player.sendMessage(ChatColor.GOLD + "GrundstÃ¼cke (" + island.getParcels().size() + "):");
+            player.sendMessage(ChatColor.GOLD + "Grundst\u00fccke (" + island.getParcels().size() + "):");
             for (var entry : island.getParcels().entrySet()) {
                 var p = entry.getValue();
                 player.sendMessage(ChatColor.AQUA + "- " + islandService.getParcelDisplayName(p) + ChatColor.DARK_GRAY + " (" + entry.getKey() + ")" + ChatColor.GRAY
@@ -476,7 +476,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         boolean changed = add
                 ? islandService.grantParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role)
                 : islandService.revokeParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role);
-        player.sendMessage(changed ? ChatColor.GREEN + "GS-Recht aktualisiert." : ChatColor.YELLOW + "Keine Ã„nderung.");
+        player.sendMessage(changed ? ChatColor.GREEN + "GS-Recht aktualisiert." : ChatColor.YELLOW + "Keine \u00c4nderung.");
     }
 
     private void handleTrustCommand(Player player, IslandData island, String[] args, boolean grant) {
@@ -510,12 +510,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 ? islandService.grantTrust(island, target.getUniqueId(), permission)
                 : islandService.revokeTrust(island, target.getUniqueId(), permission);
         if (!changed) {
-            player.sendMessage(ChatColor.YELLOW + "Keine Ã„nderung.");
+            player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
             return;
         }
         player.sendMessage((grant ? ChatColor.GREEN : ChatColor.YELLOW)
                 + (grant ? "Mitgliedsrecht vergeben: " : "Mitgliedsrecht entfernt: ")
-                + permission.name().toLowerCase(Locale.ROOT) + " fÃ¼r " + target.getName());
+                + permission.name().toLowerCase(Locale.ROOT) + " f\u00fcr " + target.getName());
     }
 
     @Override

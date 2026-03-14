@@ -558,7 +558,7 @@ public class CoreService {
             List.of(
                ChatColor.GREEN + "Insel-Level: " + ChatColor.WHITE + this.formatIslandLevel(this.islandService.calculateIslandLevelValue(island)),
                ChatColor.GRAY + "Klick: Blockwertigkeit anzeigen",
-               ChatColor.GRAY + "Shift-Klick: Eingelagerte InselblÃ¶cke"
+               ChatColor.GRAY + "Shift-Klick: Eingelagerte Inselbl\u00f6cke"
             )
          )
       );
@@ -580,7 +580,7 @@ public class CoreService {
          this.named(
             Material.CHEST,
             ChatColor.AQUA + "CoreBank",
-            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Upgrade wird priorisiert, Rest zÃ¤hlt als Insel-Level")
+            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Upgrade wird priorisiert, Rest z\u00e4hlt als Insel-Level")
          )
       );
       inv.setItem(
@@ -719,7 +719,7 @@ public class CoreService {
       lore.add(ChatColor.GREEN + "Golemlimit: " + ChatColor.WHITE + this.islandService.getGolemCount(island) + "/" + current.getGolemLimit());
       lore.add(ChatColor.GREEN + "Villagerlimit: " + ChatColor.WHITE + this.islandService.getVillagerCount(island) + "/" + current.getVillagerLimit());
       lore.add(ChatColor.GREEN + "Upgrade-Level: " + ChatColor.WHITE + upgradeLevel);
-      lore.add(ChatColor.GREEN + "BehÃ¤lter: " + ChatColor.WHITE + this.islandService.getCachedInventoryBlockCount(island) + "/100");
+      lore.add(ChatColor.GREEN + "Beh\u00e4lter: " + ChatColor.WHITE + this.islandService.getCachedInventoryBlockCount(island) + "/100");
       lore.add(ChatColor.GREEN + "Trichter: " + ChatColor.WHITE + this.islandService.getCachedHopperCount(island) + "/" + current.getHopperLimit());
       lore.add(ChatColor.GREEN + "Kolben: " + ChatColor.WHITE + this.islandService.getCachedPistonCount(island) + "/" + current.getPistonLimit());
       lore.add(ChatColor.GREEN + "Observer: " + ChatColor.WHITE + this.islandService.getCachedObserverCount(island) + "/" + current.getObserverLimit());
@@ -759,12 +759,12 @@ public class CoreService {
                + reqIslandLevel
          );
          lines.add(" ");
-         lines.add(ChatColor.GOLD + "BenÃ¶tigt");
+         lines.add(ChatColor.GOLD + "Ben\u00f6tigt");
          long reqXp = this.islandService.requiredExperienceForLevel(next.getLevel());
          ChatColor xpColor = island.getStoredExperience() >= reqXp ? ChatColor.GREEN : ChatColor.RED;
          lines.add(ChatColor.GREEN + "Erfahrung: " + xpColor + island.getStoredExperience() + ChatColor.WHITE + "/" + reqXp);
          lines.add(" ");
-         lines.add(ChatColor.GOLD + "BenÃ¶tigte GegenstÃ¤nde");
+         lines.add(ChatColor.GOLD + "Ben\u00f6tigte Gegenst\u00e4nde");
 
          for (Entry<Material, Integer> req : next.getRequirements().entrySet()) {
             int cur = island.getProgress(req.getKey());
@@ -848,7 +848,7 @@ public class CoreService {
          this.named(
             Material.WRITABLE_BOOK,
             ChatColor.YELLOW + "Owner-Rechte",
-            List.of(ChatColor.GRAY + "Owner add/remove", ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")
+            List.of(ChatColor.GRAY + "Owner add/remove", ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")
          )
       );
       inv.setItem(
@@ -856,7 +856,7 @@ public class CoreService {
          this.named(
             Material.NETHER_STAR,
             ChatColor.GOLD + "Master-Rechte",
-            List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten", ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")
+            List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten", ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")
          )
       );
       inv.setItem(
@@ -930,7 +930,7 @@ public class CoreService {
             ChatColor.GOLD + "Prototype-Standard",
             List.of(
                ChatColor.GRAY + "Default: " + ChatColor.WHITE + this.formatBlockValue(BLOCK_VALUE_DEFAULT),
-               ChatColor.GRAY + "Blacklist: " + ChatColor.WHITE + "Bedrock, Barrier, ErfahrungsflÃ¤schchen"
+               ChatColor.GRAY + "Blacklist: " + ChatColor.WHITE + "Bedrock, Barrier, Erfahrungsfl\u00e4schchen"
             )
          )
       );
@@ -938,9 +938,9 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.BARRIER, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(49, this.named(Material.BARRIER, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
       return inv;
@@ -957,7 +957,7 @@ public class CoreService {
       int totalPages = Math.max(1, (int)Math.ceil((double)entries.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
       Inventory inv = Bukkit.createInventory(
-         new CoreService.IslandBlocksInventoryHolder(island.getOwner(), safePage), 54, "InselblÃ¶cke " + (safePage + 1) + "/" + totalPages
+         new CoreService.IslandBlocksInventoryHolder(island.getOwner(), safePage), 54, "Inselbl\u00f6cke " + (safePage + 1) + "/" + totalPages
       );
       this.fillWithPanes(inv);
       int start = safePage * 45;
@@ -982,16 +982,16 @@ public class CoreService {
       }
 
       if (shown == 0) {
-         inv.setItem(22, this.named(Material.BARRIER, ChatColor.RED + "Noch keine InselblÃ¶cke", List.of(ChatColor.GRAY + "Lege Upgrade-Items in den Core.")));
+         inv.setItem(22, this.named(Material.BARRIER, ChatColor.RED + "Noch keine Inselbl\u00f6cke", List.of(ChatColor.GRAY + "Lege Upgrade-Items in den Core.")));
       }
 
       if (safePage > 0) {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
       return inv;
@@ -1094,13 +1094,13 @@ public class CoreService {
             lore.add(ChatColor.YELLOW + "Linksklick = freischalten");
          }
          if (unlocked && parcel == null) {
-            lore.add(ChatColor.YELLOW + "Linksklick = GrundstÃ¼ck claimen");
+            lore.add(ChatColor.YELLOW + "Linksklick = Grundst\u00fcck claimen");
          }
          if (unlocked) {
-            lore.add(ChatColor.AQUA + "Rechtsklick = Biom-MenÃ¼");
+            lore.add(ChatColor.AQUA + "Rechtsklick = Biom-Men\u00fc");
          }
          if (parcel != null) {
-            lore.add(ChatColor.GOLD + "Shift-Rechtsklick = GS-MenÃ¼");
+            lore.add(ChatColor.GOLD + "Shift-Rechtsklick = GS-Men\u00fc");
          }
          if (current) {
             lore.add(ChatColor.AQUA + "Du stehst hier");
@@ -1109,13 +1109,13 @@ public class CoreService {
          inv.setItem(GRID_SLOTS.get(i), this.named(mat, (unlocked ? ChatColor.GREEN : ChatColor.RED) + "Chunk " + displayX + ":" + displayZ, lore));
       }
 
-      inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       if (safeMode == CoreService.ChunkMapMode.ALL && safePage > 0) {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
       inv.setItem(49, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Freie Unlocks: " + island.getAvailableChunkUnlocks(), List.of()));
       if (safeMode == CoreService.ChunkMapMode.ALL && safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
       String switchText = safeMode == CoreService.ChunkMapMode.ALL ? "Modus: Umgebung" : "Modus: Alle Chunks";
       inv.setItem(53, this.named(Material.BEACON, ChatColor.AQUA + switchText, List.of(ChatColor.GRAY + "Klick = Modus wechseln")));
@@ -1161,7 +1161,7 @@ public class CoreService {
                      ChatColor.GRAY + "Ziel-Chunk: " + displayX + ":" + displayZ,
                      ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + biomeChunkCost,
                      ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + biomeIslandCost,
-                     ChatColor.YELLOW + "Linksklick = fÃ¼r Chunk setzen",
+                     ChatColor.YELLOW + "Linksklick = f\u00fcr Chunk setzen",
                      ChatColor.GOLD + "Rechtsklick = auf Insel anwenden"
                   )
                )
@@ -1169,12 +1169,12 @@ public class CoreService {
          }
       }
 
-      inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck zum Insel-Shop", List.of()));
+      inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck zum Insel-Shop", List.of()));
       if (safePage > 0) {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
       inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Aktueller Chunk " + displayX + ":" + displayZ, List.of(ChatColor.GRAY + "Rechtsklick auf ein Biom = inselweit")));
@@ -1218,8 +1218,8 @@ public class CoreService {
             )
          )
       );
-      inv.setItem(15, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-MenÃ¼", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
-      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(15, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-Men\u00fc", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       inv.setItem(10, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core \u00f6ffnen", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank")));
       inv.setItem(11, this.named(Material.CHEST_MINECART, ChatColor.AQUA + "Inselbl\u00f6cke", List.of(ChatColor.GRAY + "Gesammelte Core-Items / Mengen")));
       inv.setItem(12, this.named(Material.LECTERN, ChatColor.GOLD + "Blockwertigkeit", List.of(ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level")));
@@ -1348,7 +1348,7 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new CoreService.VisitorSettingsInventoryHolder(island.getOwner()), 36, "Besucherrechte Insel");
       this.fillWithPanes(inv);
       this.fillSettings(inv, island.getIslandVisitorSettings());
-      inv.setItem(35, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+      inv.setItem(35, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       return inv;
    }
 
@@ -1443,21 +1443,21 @@ public class CoreService {
             22,
             this.named(
                Material.STICK,
-               ChatColor.GOLD + "GrundstÃ¼cks-Stab holen",
+               ChatColor.GOLD + "Grundst\u00fccks-Stab holen",
                List.of(ChatColor.GRAY + "Freie Quader setzen statt Chunk-Claim", ChatColor.YELLOW + "Klick = Stab erhalten")
             )
          );
-         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       } else {
          inv.setItem(10, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "GS-Spawn setzen", List.of(ChatColor.GRAY + "Setzt Spawn auf deine Position")));
-         inv.setItem(12, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles fÃ¼r Fremde")));
-         inv.setItem(14, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")));
-         inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "User vergeben", List.of(ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")));
-         inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")));
-         inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")));
-         inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI Ã¶ffnen")));
-         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+         inv.setItem(12, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Fremde")));
+         inv.setItem(14, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "User vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       }
    }
@@ -1470,7 +1470,7 @@ public class CoreService {
          this.fillSettings(inv, parcel.getVisitorSettings());
       }
 
-      inv.setItem(35, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+      inv.setItem(35, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       return inv;
    }
 
@@ -1543,7 +1543,7 @@ public class CoreService {
       int totalPages = Math.max(1, (int)Math.ceil((double)targets.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
       Inventory inv = Bukkit.createInventory(
-         new CoreService.TeleportInventoryHolder(viewerId, safePage, safeFilter), 54, "Teleport-MenÃ¼ " + (safePage + 1) + "/" + totalPages
+         new CoreService.TeleportInventoryHolder(viewerId, safePage, safeFilter), 54, "Teleport-Men\u00fc " + (safePage + 1) + "/" + totalPages
       );
       this.fillWithPanes(inv);
       int start = safePage * 45;
@@ -1569,20 +1569,20 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
       inv.setItem(45, this.named(Material.HOPPER, ChatColor.AQUA + "Filter all", List.of(ChatColor.GRAY + "Alle Ziele")));
       inv.setItem(46, this.named(Material.COMPASS, ChatColor.AQUA + "Filter islands", List.of(ChatColor.GRAY + "Nur Inseln")));
-      inv.setItem(47, this.named(Material.NAME_TAG, ChatColor.AQUA + "Filter parcels", List.of(ChatColor.GRAY + "Nur GrundstÃ¼cke")));
+      inv.setItem(47, this.named(Material.NAME_TAG, ChatColor.AQUA + "Filter parcels", List.of(ChatColor.GRAY + "Nur Grundst\u00fccke")));
       inv.setItem(51, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Filter mine", List.of(ChatColor.GRAY + "Nur eigene")));
       return inv;
    }
 
    private void fillSettings(Inventory inv, AccessSettings settings) {
-      inv.setItem(10, this.toggleItem(Material.OAK_DOOR, "TÃ¼ren", settings.isDoors()));
+      inv.setItem(10, this.toggleItem(Material.OAK_DOOR, "T\u00fcren", settings.isDoors()));
       inv.setItem(11, this.toggleItem(Material.OAK_TRAPDOOR, "Trapdoors", settings.isTrapdoors()));
       inv.setItem(12, this.toggleItem(Material.OAK_FENCE_GATE, "Zauntore", settings.isFenceGates()));
       inv.setItem(13, this.toggleItem(Material.STONE_BUTTON, "Buttons", settings.isButtons()));
@@ -1608,7 +1608,7 @@ public class CoreService {
       );
       this.fillWithPanes(inv);
       if (parcel == null) {
-         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       }
 
@@ -1680,9 +1680,9 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zum GrundstÃ¼cks-MenÃ¼")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fccks-Men\u00fc")));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
       return inv;
    }
@@ -1746,9 +1746,9 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
       inv.setItem(
@@ -1759,7 +1759,7 @@ public class CoreService {
             List.of(ChatColor.GRAY + "Build / Container / Redstone / All")
          )
       );
-      inv.setItem(53, this.named(Material.COMPARATOR, ChatColor.YELLOW + "Recht wechseln", List.of(ChatColor.GRAY + "Klick = nÃ¤chstes Recht")));
+      inv.setItem(53, this.named(Material.COMPARATOR, ChatColor.YELLOW + "Recht wechseln", List.of(ChatColor.GRAY + "Klick = n\u00e4chstes Recht")));
       return inv;
    }
 
@@ -1806,9 +1806,9 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
       return inv;
    }
@@ -1817,10 +1817,10 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandMasterMenuInventoryHolder(island.getOwner()), 27, "Master-Rechte");
       this.fillWithPanes(inv);
       boolean hasInvite = this.islandService.getPendingCoOwnerInviteIsland(viewer.getUniqueId()) != null;
-      inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler wÃ¤hlen")));
+      inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler w\u00e4hlen")));
       inv.setItem(13, this.named(Material.EMERALD, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung vorhanden" : "Keine offene Einladung"), ChatColor.YELLOW + "Klick = annehmen")));
       inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + "Als Master austreten", List.of(ChatColor.YELLOW + "Klick = austreten")));
-      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       return inv;
    }
 
@@ -1851,9 +1851,9 @@ public class CoreService {
       if (safePage > 0) {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of(ChatColor.GRAY + "Zu Master-Rechte")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Master-Rechte")));
       if (safePage < totalPages - 1) {
-         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+         inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
       return inv;
    }
@@ -1924,7 +1924,7 @@ public class CoreService {
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + "Online: " + (p.isOnline() ? "ja" : "nein"));
             lore.add(ChatColor.GRAY + "Status: " + (member ? "hat Rolle" : "hat keine Rolle"));
-            lore.add(ChatColor.YELLOW + "Linksklick = hinzufÃ¼gen");
+            lore.add(ChatColor.YELLOW + "Linksklick = hinzuf\u00fcgen");
             lore.add(ChatColor.YELLOW + "Rechtsklick = entfernen");
             if (self) {
                lore.add(ChatColor.DARK_GRAY + "Du selbst");
@@ -1943,9 +1943,9 @@ public class CoreService {
             inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
          }
 
-         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "ZurÃ¼ck", List.of()));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          if (safePage < totalPages - 1) {
-            inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "NÃ¤chste Seite", List.of()));
+            inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
          }
 
          return inv;
@@ -2001,7 +2001,7 @@ public class CoreService {
          player.closeInventory();
          player.sendMessage(ChatColor.GOLD + "Inseltitel-Eingabe gestartet.");
          player.sendMessage(ChatColor.YELLOW + "Schreibe jetzt den Titel in den Chat.");
-         player.sendMessage(ChatColor.GRAY + "Mit 'clear' lÃ¶schst du den Titel, mit 'abbrechen' brichst du ab.");
+         player.sendMessage(ChatColor.GRAY + "Mit 'clear' l\u00f6schst du den Titel, mit 'abbrechen' brichst du ab.");
       }
    }
 
@@ -2029,7 +2029,7 @@ public class CoreService {
          player.closeInventory();
          player.sendMessage(ChatColor.GOLD + "GS-Umbenennung gestartet.");
          player.sendMessage(ChatColor.YELLOW + "Schreibe jetzt den neuen GS-Namen in den Chat.");
-         player.sendMessage(ChatColor.GRAY + "Mit 'reset' setzt du auf den Chunknamen zurÃƒÂ¼ck, mit 'abbrechen' brichst du ab.");
+         player.sendMessage(ChatColor.GRAY + "Mit 'reset' setzt du auf den Chunknamen zur\u00fcck, mit 'abbrechen' brichst du ab.");
       }
    }
 
@@ -2053,7 +2053,7 @@ public class CoreService {
                } else if (msg.equalsIgnoreCase("clear")) {
                   island.setTitle(null);
                   this.islandService.save();
-                  player.sendMessage(ChatColor.GREEN + "Inseltitel zurÃ¼ckgesetzt.");
+                  player.sendMessage(ChatColor.GREEN + "Inseltitel zur\u00fcckgesetzt.");
                } else if (msg.isBlank()) {
                   player.sendMessage(ChatColor.RED + "Titel darf nicht leer sein.");
                } else if (msg.length() > 40) {
@@ -2170,20 +2170,20 @@ public class CoreService {
       }
       int split = target.lastIndexOf(':');
       if (split <= 0 || split >= target.length() - 1) {
-         player.sendMessage(ChatColor.RED + "GrundstÃƒÂ¼ck nicht gefunden.");
+         player.sendMessage(ChatColor.RED + "Grundst\u00fcck nicht gefunden.");
          return;
       }
       UUID islandOwner;
       try {
          islandOwner = UUID.fromString(target.substring(0, split));
       } catch (IllegalArgumentException ex) {
-         player.sendMessage(ChatColor.RED + "GrundstÃƒÂ¼ck nicht gefunden.");
+         player.sendMessage(ChatColor.RED + "Grundst\u00fcck nicht gefunden.");
          return;
       }
       IslandData island = this.islandService.getIsland(islandOwner).orElse(null);
       ParcelData parcel = island == null ? null : island.getParcels().get(target.substring(split + 1));
       if (island == null || parcel == null) {
-         player.sendMessage(ChatColor.RED + "GrundstÃƒÂ¼ck nicht gefunden.");
+         player.sendMessage(ChatColor.RED + "Grundst\u00fcck nicht gefunden.");
       } else if (!this.islandService.isParcelOwner(island, parcel, player.getUniqueId()) && !player.isOp()) {
          player.sendMessage(ChatColor.RED + "Nur GS-Owner.");
       } else {
@@ -2193,7 +2193,7 @@ public class CoreService {
          } else if (msg.equalsIgnoreCase("reset") || msg.equalsIgnoreCase("clear")) {
             parcel.setName(parcel.getChunkKey());
             this.islandService.save();
-            player.sendMessage(ChatColor.GREEN + "GS-Name zurÃƒÂ¼ckgesetzt: " + ChatColor.GOLD + parcel.getChunkKey());
+            player.sendMessage(ChatColor.GREEN + "GS-Name zur\u00fcckgesetzt: " + ChatColor.GOLD + parcel.getChunkKey());
          } else if (msg.isBlank()) {
             player.sendMessage(ChatColor.RED + "Name darf nicht leer sein.");
          } else if (msg.length() > 32) {
@@ -2332,7 +2332,7 @@ public class CoreService {
       if (player != null && material != null) {
          Component message = ((TextComponent)Component.text(Math.max(0, amount) + "x ", NamedTextColor.RED)
                .append(Component.translatable(material.translationKey(), NamedTextColor.RED)))
-            .append(Component.text(" wird aktuell nicht benÃ¶tigt.", NamedTextColor.RED));
+            .append(Component.text(" wird aktuell nicht ben\u00f6tigt.", NamedTextColor.RED));
          player.sendMessage(message);
       }
    }
@@ -2909,24 +2909,7 @@ public class CoreService {
    }
 
    private String sanitizeLegacyText(String text) {
-      if (text == null || text.isEmpty()) {
-         return text;
-      }
-      return text
-         .replace("Ã¤", "Ã¤")
-         .replace("Ã¶", "Ã¶")
-         .replace("Ã¼", "Ã¼")
-         .replace("Ã„", "Ã„")
-         .replace("Ã–", "Ã–")
-         .replace("Ãœ", "Ãœ")
-         .replace("ÃŸ", "ÃŸ")
-         .replace("Ã¤", "Ã¤")
-         .replace("Ã¶", "Ã¶")
-         .replace("Ã¼", "Ã¼")
-         .replace("Ã„", "Ã„")
-         .replace("Ã–", "Ã–")
-         .replace("Ãœ", "Ãœ")
-         .replace("ÃŸ", "ÃŸ");
+      return cleanDisplayText(text);
    }
 
    static {
@@ -2950,7 +2933,7 @@ public class CoreService {
       DE_BIOME_NAMES.put(Biome.TAIGA, "Taiga");
       DE_BIOME_NAMES.put(Biome.SNOWY_PLAINS, "Schneebene");
       DE_BIOME_NAMES.put(Biome.ICE_SPIKES, "Eiszapfen");
-      DE_BIOME_NAMES.put(Biome.DESERT, "WÃ¼ste");
+      DE_BIOME_NAMES.put(Biome.DESERT, "W\u00fcste");
       DE_BIOME_NAMES.put(Biome.SAVANNA, "Savanne");
       DE_BIOME_NAMES.put(Biome.SAVANNA_PLATEAU, "Savannenplateau");
       DE_BIOME_NAMES.put(Biome.BADLANDS, "Badlands");
@@ -2961,7 +2944,7 @@ public class CoreService {
       DE_BIOME_NAMES.put(Biome.MEADOW, "Blumenwiese");
       DE_BIOME_NAMES.put(Biome.GROVE, "Schneehain");
       DE_BIOME_NAMES.put(Biome.CHERRY_GROVE, "Kirschhain");
-      DE_BIOME_NAMES.put(Biome.WINDSWEPT_HILLS, "Windige HÃ¼gel");
+      DE_BIOME_NAMES.put(Biome.WINDSWEPT_HILLS, "Windige H\u00fcgel");
       DE_BIOME_NAMES.put(Biome.WINDSWEPT_FOREST, "Windiger Wald");
       DE_BIOME_NAMES.put(Biome.STONY_PEAKS, "Steingipfel");
       DE_BIOME_NAMES.put(Biome.JAGGED_PEAKS, "Zackige Gipfel");
