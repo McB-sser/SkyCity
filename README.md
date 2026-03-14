@@ -460,3 +460,23 @@ Laut `plugin.yml` ist das Plugin fuer `api-version: 1.20` ausgelegt. Hauptbefehl
 - `/warp`
 
 Die Permission `skycity.admin` ist fuer administrative Eingriffe vorgesehen.
+
+## Server-Konfiguration
+
+Fuer einen SkyCity-Server sollte die Weltkonfiguration passend gesetzt werden.
+
+In der `server.properties`:
+
+```properties
+level-name=skycity_world
+```
+
+In der `bukkit.yml` zusaetzlich:
+
+```yml
+worlds:
+  skycity_world:
+    generator: SkyCity
+```
+
+Damit startet der Server direkt mit der vorgesehenen SkyCity-Welt und verwendet den Generator des Plugins fuer diese Welt.
