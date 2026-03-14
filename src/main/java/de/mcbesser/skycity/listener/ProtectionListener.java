@@ -6,6 +6,7 @@ import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.SkyWorldService;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
@@ -13,6 +14,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Monster;
@@ -22,6 +24,7 @@ import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.Event.Result;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
@@ -41,6 +44,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
 
@@ -302,6 +306,55 @@ public class ProtectionListener implements Listener {
         Block block = event.getClickedBlock();
         Player player = event.getPlayer();
         if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
+
+        if (event.getItem() != null && event.getItem().getType() == Material.ARMOR_STAND) {
+            if (player.isOp()) return;
+            Location placeLocation = block.getRelative(event.getBlockFace()).getLocation();
+            if (islandService.isInSpawnPlot(placeLocation)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Spawn ist geschuetzt.");
+                return;
+            }
+            IslandData island = islandService.getIslandAt(placeLocation);
+            if (island == null) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Nur auf Inseln bauen.");
+                return;
+            }
+            ParcelData parcel = islandService.getParcelAt(island, placeLocation);
+            if (parcel != null && parcel.isPvpEnabled()) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "In einer aktiven PvP-Zone ist Bauen deaktiviert.");
+                return;
+            }
+            boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island)
+                    || (parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId()));
+            if (!hasBuild) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Keine Baurechte.");
+                return;
+            }
+            if (!islandService.isChunkUnlocked(island, placeLocation)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Chunk gesperrt.");
+                return;
+            }
+            if (!islandService.isWithinArmorStandLimit(island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Ruestungsstaenderlimit erreicht: " + islandService.getCurrentLevelDef(island).getArmorStandLimit());
+                return;
+            }
+            if (!placeArmorStand(player, event.getHand(), placeLocation)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Hier kann kein Ruestungsstaender platziert werden.");
+                return;
+            }
+            event.setCancelled(true);
+            event.setUseInteractedBlock(Result.DENY);
+            event.setUseItemInHand(Result.DENY);
+            islandService.markIslandActivity(player.getUniqueId());
+            return;
+        }
 
         if (coreService.isCoreBlock(block)) {
             IslandData island = islandService.findIslandByCoreLocation(block.getLocation()).orElse(null);
@@ -590,6 +643,35 @@ public class ProtectionListener implements Listener {
         if (event.getDamager() instanceof Player player) return player;
         if (event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) return player;
         return null;
+    }
+
+    private boolean placeArmorStand(Player player, EquipmentSlot hand, Location baseLocation) {
+        if (baseLocation.getWorld() == null) return false;
+        Block targetBlock = baseLocation.getBlock();
+        if (!targetBlock.isPassable()) return false;
+
+        Location spawnLocation = targetBlock.getLocation().add(0.5, 0.0, 0.5);
+        if (!baseLocation.getWorld().getNearbyEntities(spawnLocation.clone().add(0.0, 0.9, 0.0), 0.3, 0.9, 0.3).isEmpty()) {
+            return false;
+        }
+
+        ItemStack item = hand == EquipmentSlot.OFF_HAND ? player.getInventory().getItemInOffHand() : player.getInventory().getItemInMainHand();
+        if (item == null || item.getType() != Material.ARMOR_STAND) return false;
+
+        ArmorStand stand = baseLocation.getWorld().spawn(spawnLocation, ArmorStand.class, spawned -> {
+            spawned.setRotation(player.getLocation().getYaw(), 0.0f);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null && meta.hasDisplayName()) {
+                spawned.customName(meta.displayName());
+                spawned.setCustomNameVisible(true);
+            }
+        });
+        if (stand == null) return false;
+
+        if (player.getGameMode() != org.bukkit.GameMode.CREATIVE) {
+            item.setAmount(item.getAmount() - 1);
+        }
+        return true;
     }
 }
 

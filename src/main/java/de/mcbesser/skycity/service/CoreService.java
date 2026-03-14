@@ -684,6 +684,7 @@ public class CoreService {
       if (def.getVillagerLimit() != prev.getVillagerLimit()) lore.add(ChatColor.GRAY + "Villagerlimit: " + ChatColor.AQUA + prev.getVillagerLimit() + " -> " + def.getVillagerLimit());
       if (def.getHopperLimit() != prev.getHopperLimit()) lore.add(ChatColor.GRAY + "Hopperlimit: " + ChatColor.AQUA + prev.getHopperLimit() + " -> " + def.getHopperLimit());
       if (def.getPistonLimit() != prev.getPistonLimit()) lore.add(ChatColor.GRAY + "Kolbenlimit: " + ChatColor.AQUA + prev.getPistonLimit() + " -> " + def.getPistonLimit());
+      if (def.getArmorStandLimit() != prev.getArmorStandLimit()) lore.add(ChatColor.GRAY + "Ruestungsstaenderlimit: " + ChatColor.AQUA + prev.getArmorStandLimit() + " -> " + def.getArmorStandLimit());
       if (def.getObserverLimit() != prev.getObserverLimit()) lore.add(ChatColor.GRAY + "Observerlimit: " + ChatColor.AQUA + prev.getObserverLimit() + " -> " + def.getObserverLimit());
       if (def.getDispenserLimit() != prev.getDispenserLimit()) lore.add(ChatColor.GRAY + "Dispenserlimit: " + ChatColor.AQUA + prev.getDispenserLimit() + " -> " + def.getDispenserLimit());
       if (def.getCactusLimit() != prev.getCactusLimit()) lore.add(ChatColor.GRAY + "Kaktuslimit: " + ChatColor.AQUA + prev.getCactusLimit() + " -> " + def.getCactusLimit());
@@ -722,6 +723,7 @@ public class CoreService {
       lore.add(ChatColor.GREEN + "Beh\u00e4lter: " + ChatColor.WHITE + this.islandService.getCachedInventoryBlockCount(island) + "/100");
       lore.add(ChatColor.GREEN + "Trichter: " + ChatColor.WHITE + this.islandService.getCachedHopperCount(island) + "/" + current.getHopperLimit());
       lore.add(ChatColor.GREEN + "Kolben: " + ChatColor.WHITE + this.islandService.getCachedPistonCount(island) + "/" + current.getPistonLimit());
+      lore.add(ChatColor.GREEN + "Ruestungsstaender: " + ChatColor.WHITE + this.islandService.getArmorStandCount(island) + "/" + current.getArmorStandLimit());
       lore.add(ChatColor.GREEN + "Observer: " + ChatColor.WHITE + this.islandService.getCachedObserverCount(island) + "/" + current.getObserverLimit());
       lore.add(ChatColor.GREEN + "Dispenser: " + ChatColor.WHITE + this.islandService.getCachedDispenserCount(island) + "/" + current.getDispenserLimit());
       lore.add(ChatColor.GREEN + "Kaktus: " + ChatColor.WHITE + this.islandService.getCachedCactusCount(island) + "/" + current.getCactusLimit());

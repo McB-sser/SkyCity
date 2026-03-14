@@ -18,6 +18,7 @@ public class IslandLevelDefinition {
     private final int villagerLimit;
     private final int hopperLimit;
     private final int pistonLimit;
+    private final int armorStandLimit;
     private final int observerLimit;
     private final int dispenserLimit;
     private final int cactusLimit;
@@ -25,7 +26,7 @@ public class IslandLevelDefinition {
     private final int bambooLimit;
 
     public IslandLevelDefinition(int level, Map<Material, Integer> requirements, int chunkUnlocksGranted,
-                                 int animalLimit, int golemLimit, int villagerLimit, int hopperLimit, int pistonLimit, int observerLimit,
+                                 int animalLimit, int golemLimit, int villagerLimit, int hopperLimit, int pistonLimit, int armorStandLimit, int observerLimit,
                                  int dispenserLimit, int cactusLimit, int kelpLimit, int bambooLimit) {
         this.level = level;
         this.requirements = requirements;
@@ -35,6 +36,7 @@ public class IslandLevelDefinition {
         this.villagerLimit = villagerLimit;
         this.hopperLimit = hopperLimit;
         this.pistonLimit = pistonLimit;
+        this.armorStandLimit = armorStandLimit;
         this.observerLimit = observerLimit;
         this.dispenserLimit = dispenserLimit;
         this.cactusLimit = cactusLimit;
@@ -50,6 +52,7 @@ public class IslandLevelDefinition {
     public int getVillagerLimit() { return villagerLimit; }
     public int getHopperLimit() { return hopperLimit; }
     public int getPistonLimit() { return pistonLimit; }
+    public int getArmorStandLimit() { return armorStandLimit; }
     public int getObserverLimit() { return observerLimit; }
     public int getDispenserLimit() { return dispenserLimit; }
     public int getCactusLimit() { return cactusLimit; }
@@ -58,7 +61,7 @@ public class IslandLevelDefinition {
 
     public static Map<Integer, IslandLevelDefinition> defaults() {
         Map<Integer, IslandLevelDefinition> defs = new LinkedHashMap<>();
-        defs.put(1, new IslandLevelDefinition(1, Map.of(), 0, 12, 2, 2, 8, 16, 12, 8, 32, 64, 64));
+        defs.put(1, new IslandLevelDefinition(1, Map.of(), 0, 12, 2, 2, 8, 16, 4, 12, 8, 32, 64, 64));
         for (int level = 2; level <= (UPGRADE_STEPS + 1); level++) {
             int step = level - 1;
             defs.put(level, new IslandLevelDefinition(
@@ -70,6 +73,7 @@ public class IslandLevelDefinition {
                     computeVillagerLimit(step),
                     computeHopperLimit(step),
                     computePistonLimit(step),
+                    computeArmorStandLimit(step),
                     computeObserverLimit(step),
                     computeDispenserLimit(step),
                     computeCactusLimit(step),
@@ -127,6 +131,10 @@ public class IslandLevelDefinition {
 
     private static int computePistonLimit(int step) {
         return Math.min(160, 16 + (step / 28));
+    }
+
+    private static int computeArmorStandLimit(int step) {
+        return Math.min(32, 4 + (step / 144));
     }
 
     private static int computeObserverLimit(int step) {

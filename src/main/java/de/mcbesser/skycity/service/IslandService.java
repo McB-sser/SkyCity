@@ -20,6 +20,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Animals;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -2786,9 +2787,16 @@ public class IslandService {
     public int getAnimalCount(IslandData island) { return (int) getEntitiesInIsland(island).stream().filter(e -> e instanceof Animals).count(); }
     public int getGolemCount(IslandData island) { return (int) getEntitiesInIsland(island).stream().filter(e -> isTrackedGolem(e.getType())).count(); }
     public int getVillagerCount(IslandData island) { return (int) getEntitiesInIsland(island).stream().filter(e -> e instanceof Villager).count(); }
+    public int getArmorStandCount(IslandData island) {
+        return (int) getEntitiesInIsland(island).stream()
+                .filter(e -> e instanceof ArmorStand)
+                .filter(e -> e.getScoreboardTags().stream().noneMatch(tag -> tag.startsWith("skycity_")))
+                .count();
+    }
     public boolean isWithinAnimalLimit(IslandData island) { return getAnimalCount(island) < getCurrentLevelDef(island).getAnimalLimit(); }
     public boolean isWithinGolemLimit(IslandData island) { return getGolemCount(island) < getCurrentLevelDef(island).getGolemLimit(); }
     public boolean isWithinVillagerLimit(IslandData island) { return getVillagerCount(island) < getCurrentLevelDef(island).getVillagerLimit(); }
+    public boolean isWithinArmorStandLimit(IslandData island) { return getArmorStandCount(island) < getCurrentLevelDef(island).getArmorStandLimit(); }
 
     public boolean isTrackedGolem(EntityType type) {
         if (type == null) return false;
