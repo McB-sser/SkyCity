@@ -115,14 +115,27 @@ public class IslandService {
             String pluralName,
             int level,
             int rewardLevels,
+            ChatColor nameColor,
             double movementSpeed,
+            double healthMultiplier,
+            double damageMultiplier,
             Color helmetColor,
             Color chestColor,
             Color legColor,
             Color bootColor
     ) { }
     private record PveSpawnMarker(String id, Location markerLocation, Location spawnLocation, String familyName, List<PveMobArchetype> archetypes, int level, int rewardLevels) { }
-    public record PveRuntimeSnapshot(String zoneKey, String parcelName, int currentWave, int requiredWaves, int activeMobCount, String objectiveText, Map<String, String> spawnEntries) { }
+    public record PveRuntimeSnapshot(
+            String zoneKey,
+            String parcelName,
+            int currentWave,
+            int requiredWaves,
+            int activeMobCount,
+            int participantCount,
+            int pendingRewardLevels,
+            String objectiveText,
+            Map<String, String> spawnEntries
+    ) { }
     private enum PveObjectiveMode { KILL_ALL_OF_TYPE, SPARE_TYPE }
     private static final long PVE_SPARE_SURVIVAL_MS = 15000L;
     private static final class PveZoneRuntime {
@@ -1760,7 +1773,7 @@ public class IslandService {
         return key != null && activePveZones.containsKey(key);
     }
 
-    public Optional<PveRuntimeSnapshot> getParcelPveSnapshot(IslandData island, ParcelData parcel) {
+    public Optional<PveRuntimeSnapshot> getParcelPveSnapshot(IslandData island, ParcelData parcel, UUID viewerId) {
         String key = getParcelPveKey(island, parcel);
         if (key == null) return Optional.empty();
         PveZoneRuntime runtime = activePveZones.get(key);
@@ -1777,7 +1790,18 @@ public class IslandService {
             index++;
             if (index > 10) break;
         }
-        return Optional.of(new PveRuntimeSnapshot(key, getParcelDisplayName(parcel), runtime.currentWave, runtime.requiredWaves, runtime.activeMobIds.size(), runtime.objectiveText(), lines));
+        int pendingRewardLevels = viewerId == null ? 0 : runtime.pendingRewards.getOrDefault(viewerId, 0);
+        return Optional.of(new PveRuntimeSnapshot(
+                key,
+                getParcelDisplayName(parcel),
+                runtime.currentWave,
+                runtime.requiredWaves,
+                runtime.activeMobIds.size(),
+                runtime.participants.size(),
+                pendingRewardLevels,
+                runtime.objectiveText(),
+                lines
+        ));
     }
 
     public boolean enterParcelPve(Player player, IslandData island, ParcelData parcel) {
@@ -3314,9 +3338,9 @@ public class IslandService {
             case LIGHT_GRAY_WOOL -> {
                 familyName = "Zombie-Familie";
                 archetypes = List.of(
-                        new PveMobArchetype("zombie_opa", EntityType.ZOMBIE, "Opa", "Opas", 1, 1, 0.15, Color.fromRGB(120, 86, 58), Color.fromRGB(244, 244, 236), Color.fromRGB(58, 96, 180), Color.fromRGB(22, 22, 22)),
-                        new PveMobArchetype("zombie_hausmeister", EntityType.ZOMBIE, "Hausmeister", "Hausmeister", 1, 1, 0.19, Color.fromRGB(56, 86, 44), Color.fromRGB(212, 221, 208), Color.fromRGB(46, 72, 132), Color.fromRGB(26, 26, 26)),
-                        new PveMobArchetype("zombie_siedler", EntityType.ZOMBIE, "Siedler", "Siedler", 1, 1, 0.21, Color.fromRGB(122, 64, 38), Color.fromRGB(232, 214, 199), Color.fromRGB(72, 92, 146), Color.fromRGB(18, 18, 18))
+                        new PveMobArchetype("zombie_opa", EntityType.ZOMBIE, "Opa", "Opas", 1, 1, ChatColor.GRAY, 0.15, 1.30, 0.80, Color.fromRGB(128, 128, 128), Color.fromRGB(236, 236, 228), Color.fromRGB(52, 86, 168), Color.fromRGB(38, 28, 18)),
+                        new PveMobArchetype("zombie_hausmeister", EntityType.ZOMBIE, "Hausmeister", "Hausmeister", 1, 1, ChatColor.DARK_GREEN, 0.19, 1.05, 1.10, Color.fromRGB(44, 120, 54), Color.fromRGB(180, 210, 180), Color.fromRGB(70, 70, 74), Color.fromRGB(22, 22, 22)),
+                        new PveMobArchetype("zombie_siedler", EntityType.ZOMBIE, "Siedler", "Siedler", 1, 1, ChatColor.GOLD, 0.21, 0.95, 1.20, Color.fromRGB(136, 72, 44), Color.fromRGB(160, 108, 76), Color.fromRGB(214, 192, 126), Color.fromRGB(92, 54, 26))
                 );
                 level = 1;
                 reward = 1;
@@ -3324,9 +3348,9 @@ public class IslandService {
             case GREEN_WOOL -> {
                 familyName = "Spinnen-Familie";
                 archetypes = List.of(
-                        new PveMobArchetype("spider_jagdspinne", EntityType.SPIDER, "Jagdspinne", "Jagdspinnen", 2, 1, 0.31, null, null, null, null),
-                        new PveMobArchetype("spider_hoehlenspinne", EntityType.CAVE_SPIDER, "Hoehlenspinne", "Hoehlenspinnen", 2, 1, 0.34, null, null, null, null),
-                        new PveMobArchetype("spider_hetzer", EntityType.SPIDER, "Hetzerspinne", "Hetzerspinnen", 2, 1, 0.35, null, null, null, null)
+                        new PveMobArchetype("spider_jagdspinne", EntityType.SPIDER, "Jagdspinne", "Jagdspinnen", 2, 1, ChatColor.DARK_GREEN, 0.31, 1.10, 1.00, null, null, null, null),
+                        new PveMobArchetype("spider_hoehlenspinne", EntityType.CAVE_SPIDER, "Hoehlenspinne", "Hoehlenspinnen", 2, 1, ChatColor.DARK_AQUA, 0.34, 0.85, 1.20, null, null, null, null),
+                        new PveMobArchetype("spider_hetzer", EntityType.SPIDER, "Hetzerspinne", "Hetzerspinnen", 2, 1, ChatColor.GREEN, 0.35, 0.90, 1.10, null, null, null, null)
                 );
                 level = 2;
                 reward = 1;
@@ -3334,9 +3358,9 @@ public class IslandService {
             case YELLOW_WOOL -> {
                 familyName = "Skelett-Familie";
                 archetypes = List.of(
-                        new PveMobArchetype("skeleton_waldlaeufer", EntityType.SKELETON, "Waldlaeufer", "Waldlaeufer", 2, 2, 0.28, Color.fromRGB(48, 110, 52), Color.fromRGB(231, 235, 220), Color.fromRGB(44, 77, 154), Color.fromRGB(18, 18, 18)),
-                        new PveMobArchetype("skeleton_rekrut", EntityType.SKELETON, "Rekrut", "Rekruten", 2, 2, 0.26, Color.fromRGB(92, 92, 108), Color.fromRGB(222, 222, 230), Color.fromRGB(56, 64, 118), Color.fromRGB(16, 16, 16)),
-                        new PveMobArchetype("skeleton_jaeger", EntityType.SKELETON, "Jaeger", "Jaeger", 2, 2, 0.30, Color.fromRGB(70, 84, 40), Color.fromRGB(206, 214, 180), Color.fromRGB(72, 86, 54), Color.fromRGB(24, 24, 24))
+                        new PveMobArchetype("skeleton_waldlaeufer", EntityType.SKELETON, "Waldlaeufer", "Waldlaeufer", 2, 2, ChatColor.GREEN, 0.28, 0.95, 1.15, Color.fromRGB(70, 116, 56), Color.fromRGB(190, 224, 178), Color.fromRGB(74, 108, 58), Color.fromRGB(28, 24, 18)),
+                        new PveMobArchetype("skeleton_rekrut", EntityType.SKELETON, "Rekrut", "Rekruten", 2, 2, ChatColor.BLUE, 0.26, 1.15, 0.95, Color.fromRGB(110, 118, 136), Color.fromRGB(188, 196, 214), Color.fromRGB(54, 66, 118), Color.fromRGB(20, 20, 28)),
+                        new PveMobArchetype("skeleton_jaeger", EntityType.SKELETON, "Jaeger", "Jaeger", 2, 2, ChatColor.GOLD, 0.30, 0.90, 1.25, Color.fromRGB(122, 68, 38), Color.fromRGB(214, 166, 116), Color.fromRGB(64, 96, 46), Color.fromRGB(34, 20, 12))
                 );
                 level = 2;
                 reward = 2;
@@ -3344,9 +3368,9 @@ public class IslandService {
             case ORANGE_WOOL -> {
                 familyName = "Wueste";
                 archetypes = List.of(
-                        new PveMobArchetype("husk_wuestenraeuber", EntityType.HUSK, "Wuestenraeuber", "Wuestenraeuber", 3, 2, 0.24, Color.fromRGB(146, 103, 61), Color.fromRGB(222, 194, 125), Color.fromRGB(108, 82, 51), Color.fromRGB(46, 31, 20)),
-                        new PveMobArchetype("husk_pluenderer", EntityType.HUSK, "Pluenderer", "Pluenderer", 3, 2, 0.26, Color.fromRGB(188, 138, 74), Color.fromRGB(194, 173, 112), Color.fromRGB(122, 94, 58), Color.fromRGB(38, 24, 18)),
-                        new PveMobArchetype("husk_spaeher", EntityType.HUSK, "Spaeher", "Spaeher", 3, 2, 0.29, Color.fromRGB(112, 88, 52), Color.fromRGB(205, 191, 148), Color.fromRGB(92, 74, 48), Color.fromRGB(32, 22, 18))
+                        new PveMobArchetype("husk_wuestenraeuber", EntityType.HUSK, "Wuestenraeuber", "Wuestenraeuber", 3, 2, ChatColor.GOLD, 0.24, 1.20, 1.10, Color.fromRGB(160, 114, 70), Color.fromRGB(226, 188, 102), Color.fromRGB(132, 82, 36), Color.fromRGB(68, 38, 18)),
+                        new PveMobArchetype("husk_pluenderer", EntityType.HUSK, "Pluenderer", "Pluenderer", 3, 2, ChatColor.RED, 0.26, 1.00, 1.25, Color.fromRGB(86, 62, 38), Color.fromRGB(144, 88, 42), Color.fromRGB(98, 58, 34), Color.fromRGB(34, 22, 14)),
+                        new PveMobArchetype("husk_spaeher", EntityType.HUSK, "Spaeher", "Spaeher", 3, 2, ChatColor.YELLOW, 0.29, 0.90, 1.05, Color.fromRGB(186, 176, 120), Color.fromRGB(210, 214, 172), Color.fromRGB(94, 112, 66), Color.fromRGB(40, 34, 20))
                 );
                 level = 3;
                 reward = 2;
@@ -3354,9 +3378,9 @@ public class IslandService {
             case BLUE_WOOL -> {
                 familyName = "Hafen";
                 archetypes = List.of(
-                        new PveMobArchetype("drowned_kai", EntityType.DROWNED, "Kai", "Kais", 3, 2, 0.23, Color.fromRGB(36, 88, 118), Color.fromRGB(212, 226, 236), Color.fromRGB(46, 96, 166), Color.fromRGB(20, 32, 48)),
-                        new PveMobArchetype("drowned_faehrmann", EntityType.DROWNED, "Faehrmann", "Faehrmaenner", 3, 2, 0.22, Color.fromRGB(54, 74, 116), Color.fromRGB(198, 214, 228), Color.fromRGB(34, 72, 126), Color.fromRGB(18, 28, 44)),
-                        new PveMobArchetype("drowned_hafenwache", EntityType.DROWNED, "Hafenwache", "Hafenwachen", 3, 2, 0.25, Color.fromRGB(28, 64, 92), Color.fromRGB(176, 194, 208), Color.fromRGB(42, 68, 118), Color.fromRGB(12, 18, 34))
+                        new PveMobArchetype("drowned_kai", EntityType.DROWNED, "Kai", "Kais", 3, 2, ChatColor.AQUA, 0.23, 1.15, 1.00, Color.fromRGB(30, 78, 118), Color.fromRGB(214, 228, 236), Color.fromRGB(52, 102, 176), Color.fromRGB(18, 28, 46)),
+                        new PveMobArchetype("drowned_faehrmann", EntityType.DROWNED, "Faehrmann", "Faehrmaenner", 3, 2, ChatColor.DARK_AQUA, 0.22, 1.25, 0.90, Color.fromRGB(78, 56, 34), Color.fromRGB(210, 188, 154), Color.fromRGB(58, 72, 132), Color.fromRGB(26, 18, 12)),
+                        new PveMobArchetype("drowned_hafenwache", EntityType.DROWNED, "Hafenwache", "Hafenwachen", 3, 2, ChatColor.BLUE, 0.25, 1.00, 1.20, Color.fromRGB(36, 42, 86), Color.fromRGB(118, 156, 198), Color.fromRGB(42, 58, 94), Color.fromRGB(10, 14, 28))
                 );
                 level = 3;
                 reward = 2;
@@ -3364,9 +3388,9 @@ public class IslandService {
             case RED_WOOL -> {
                 familyName = "Sprengtrupp";
                 archetypes = List.of(
-                        new PveMobArchetype("creeper_sprengmeister", EntityType.CREEPER, "Sprengmeister", "Sprengmeister", 4, 3, 0.30, null, null, null, null),
-                        new PveMobArchetype("creeper_zuender", EntityType.CREEPER, "Zuender", "Zuender", 4, 3, 0.33, null, null, null, null),
-                        new PveMobArchetype("creeper_sturmlaeufer", EntityType.CREEPER, "Sturmlaeufer", "Sturmlaeufer", 4, 3, 0.36, null, null, null, null)
+                        new PveMobArchetype("creeper_sprengmeister", EntityType.CREEPER, "Sprengmeister", "Sprengmeister", 4, 3, ChatColor.RED, 0.30, 1.20, 1.15, null, null, null, null),
+                        new PveMobArchetype("creeper_zuender", EntityType.CREEPER, "Zuender", "Zuender", 4, 3, ChatColor.GOLD, 0.33, 0.95, 1.25, null, null, null, null),
+                        new PveMobArchetype("creeper_sturmlaeufer", EntityType.CREEPER, "Sturmlaeufer", "Sturmlaeufer", 4, 3, ChatColor.YELLOW, 0.36, 0.90, 1.10, null, null, null, null)
                 );
                 level = 4;
                 reward = 3;
@@ -3374,9 +3398,9 @@ public class IslandService {
             case BLACK_WOOL -> {
                 familyName = "Nachtwache";
                 archetypes = List.of(
-                        new PveMobArchetype("wither_nachtwaechter", EntityType.WITHER_SKELETON, "Nachtwaechter", "Nachtwaechter", 5, 4, 0.25, Color.fromRGB(70, 70, 78), Color.fromRGB(210, 210, 214), Color.fromRGB(34, 34, 38), Color.fromRGB(8, 8, 8)),
-                        new PveMobArchetype("wither_vorsteher", EntityType.WITHER_SKELETON, "Vorsteher", "Vorsteher", 5, 4, 0.27, Color.fromRGB(88, 74, 66), Color.fromRGB(224, 216, 206), Color.fromRGB(42, 42, 46), Color.fromRGB(12, 12, 12)),
-                        new PveMobArchetype("wither_richter", EntityType.WITHER_SKELETON, "Richter", "Richter", 5, 4, 0.24, Color.fromRGB(54, 54, 62), Color.fromRGB(188, 188, 194), Color.fromRGB(24, 24, 28), Color.fromRGB(6, 6, 6))
+                        new PveMobArchetype("wither_nachtwaechter", EntityType.WITHER_SKELETON, "Nachtwaechter", "Nachtwaechter", 5, 4, ChatColor.DARK_GRAY, 0.25, 1.20, 1.10, Color.fromRGB(66, 66, 74), Color.fromRGB(142, 142, 148), Color.fromRGB(26, 26, 30), Color.fromRGB(6, 6, 6)),
+                        new PveMobArchetype("wither_vorsteher", EntityType.WITHER_SKELETON, "Vorsteher", "Vorsteher", 5, 4, ChatColor.GOLD, 0.27, 1.05, 1.25, Color.fromRGB(112, 82, 46), Color.fromRGB(194, 168, 126), Color.fromRGB(58, 42, 36), Color.fromRGB(18, 12, 10)),
+                        new PveMobArchetype("wither_richter", EntityType.WITHER_SKELETON, "Richter", "Richter", 5, 4, ChatColor.WHITE, 0.24, 1.35, 1.00, Color.fromRGB(96, 30, 30), Color.fromRGB(224, 224, 224), Color.fromRGB(42, 42, 46), Color.fromRGB(10, 10, 10))
                 );
                 level = 5;
                 reward = 4;
@@ -3430,7 +3454,7 @@ public class IslandService {
             return;
         }
         String displayName = "Stufe " + archetype.level() + " " + archetype.singularName();
-        living.setCustomName(ChatColor.RED + displayName);
+        living.setCustomName(formatPveMobName(archetype, displayName));
         living.setCustomNameVisible(true);
         living.addScoreboardTag("skycity_pve_zone");
         living.addScoreboardTag("skycity_pve_marker_" + marker.id());
@@ -3441,6 +3465,7 @@ public class IslandService {
         applyPveMobTheme(living, archetype);
         if (living instanceof Mob mob) {
             mob.setRemoveWhenFarAway(false);
+            mob.setCanPickupItems(false);
             Player target = runtime.participants.stream().map(Bukkit::getPlayer).filter(player -> player != null && player.isOnline()).findFirst().orElse(null);
             if (target != null) {
                 mob.setTarget(target);
@@ -3483,8 +3508,12 @@ public class IslandService {
                     continue;
                 }
                 Integer mobLevel = runtime.mobLevels.get(mobId);
+                PveMobArchetype archetype = runtime.mobArchetypes.get(mobId);
                 if (mobLevel != null) {
                     applyPveMobScaling(runtime, mob, mobLevel, false);
+                }
+                if (archetype != null) {
+                    applyPveMobTheme(mob, archetype);
                 }
                 if (!runtime.contains(mob.getLocation()) || runtime.isInStartZone(mob.getLocation())) {
                     Location home = runtime.mobHomes.get(mobId);
@@ -3699,7 +3728,10 @@ public class IslandService {
         double playerScale = 1.0 + Math.max(0, runtime.participants.size() - 1) * 0.35;
         double areaScale = 1.0 + computePveAreaTier(runtime.floorArea) * 0.25;
         double waveScale = 1.0 + Math.max(0, runtime.currentWave - 1) * 0.12;
-        double maxHealth = (10.0 + level * 6.0) * playerScale * areaScale * waveScale;
+        PveMobArchetype archetype = runtime.mobArchetypes.get(living.getUniqueId());
+        double archetypeHealthScale = archetype == null ? 1.0 : archetype.healthMultiplier();
+        double archetypeDamageScale = archetype == null ? 1.0 : archetype.damageMultiplier();
+        double maxHealth = (10.0 + level * 6.0) * playerScale * areaScale * waveScale * archetypeHealthScale;
         if (living.getAttribute(Attribute.GENERIC_MAX_HEALTH) != null) {
             double previousMax = living.getAttribute(Attribute.GENERIC_MAX_HEALTH).getBaseValue();
             living.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(maxHealth);
@@ -3711,7 +3743,7 @@ public class IslandService {
             }
         }
         if (living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE) != null) {
-            double attackDamage = (2.0 + level * 1.75) * playerScale * areaScale * (1.0 + Math.max(0, runtime.currentWave - 1) * 0.08);
+            double attackDamage = (2.0 + level * 1.75) * playerScale * areaScale * (1.0 + Math.max(0, runtime.currentWave - 1) * 0.08) * archetypeDamageScale;
             living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(attackDamage);
         }
     }
@@ -3722,6 +3754,11 @@ public class IslandService {
             equipHumanOutfit(living, archetype.helmetColor(), archetype.chestColor(), archetype.legColor(), archetype.bootColor());
         }
         setMovementSpeed(living, archetype.movementSpeed());
+    }
+
+    private String formatPveMobName(PveMobArchetype archetype, String label) {
+        ChatColor color = archetype == null || archetype.nameColor() == null ? ChatColor.RED : archetype.nameColor();
+        return color + label;
     }
 
     private void equipHumanOutfit(LivingEntity living, Color helmetColor, Color chestColor, Color legColor, Color bootColor) {
@@ -3781,12 +3818,13 @@ public class IslandService {
     private void updatePveMobValidity(PveZoneRuntime runtime, Mob mob, boolean valid) {
         if (runtime == null || mob == null) return;
         String label = runtime.mobLabels.getOrDefault(mob.getUniqueId(), ChatColor.stripColor(mob.getCustomName() == null ? mob.getType().name() : mob.getCustomName()));
+        PveMobArchetype archetype = runtime.mobArchetypes.get(mob.getUniqueId());
         if (valid) {
             runtime.invalidMobIds.remove(mob.getUniqueId());
-            mob.setCustomName(ChatColor.RED + label);
+            mob.setCustomName(formatPveMobName(archetype, label));
         } else {
             runtime.invalidMobIds.add(mob.getUniqueId());
-            mob.setCustomName(ChatColor.DARK_GRAY + "[ungueltig] " + ChatColor.RED + label);
+            mob.setCustomName(ChatColor.DARK_GRAY + "[ungueltig] " + formatPveMobName(archetype, label));
         }
         mob.setCustomNameVisible(true);
     }

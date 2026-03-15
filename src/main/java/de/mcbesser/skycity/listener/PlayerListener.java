@@ -591,7 +591,7 @@ public class PlayerListener implements Listener {
     }
 
     private void showParcelPveScoreboard(Player player, IslandData island, ParcelData parcel) {
-        var snapshot = islandService.getParcelPveSnapshot(island, parcel).orElse(null);
+        var snapshot = islandService.getParcelPveSnapshot(island, parcel, player.getUniqueId()).orElse(null);
         if (snapshot == null) return;
         Scoreboard scoreboard = Bukkit.getScoreboardManager() == null ? null : Bukkit.getScoreboardManager().getNewScoreboard();
         if (scoreboard == null) return;
@@ -599,15 +599,23 @@ public class PlayerListener implements Listener {
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         int score = 15;
         objective.getScore(ChatColor.WHITE + "Welle: " + ChatColor.GREEN + snapshot.currentWave() + "/" + snapshot.requiredWaves()).setScore(score--);
+        objective.getScore(ChatColor.WHITE + "Spieler: " + ChatColor.AQUA + snapshot.participantCount()).setScore(score--);
         objective.getScore(ChatColor.WHITE + "Mobs: " + ChatColor.RED + snapshot.activeMobCount()).setScore(score--);
+        objective.getScore(ChatColor.WHITE + "Level: " + ChatColor.GOLD + snapshot.pendingRewardLevels()).setScore(score--);
         objective.getScore(ChatColor.YELLOW + "Ziel:").setScore(score--);
         objective.getScore(ChatColor.GOLD + snapshot.objectiveText()).setScore(score--);
         objective.getScore(ChatColor.DARK_GRAY + " ").setScore(score--);
         for (var entry : snapshot.spawnEntries().entrySet()) {
-            objective.getScore(ChatColor.GOLD + entry.getKey() + ChatColor.GRAY + " " + ChatColor.WHITE + entry.getValue()).setScore(score--);
+            objective.getScore(ChatColor.GOLD + entry.getKey() + ChatColor.GRAY + " " + ChatColor.WHITE + trimPveScoreboardLine(entry.getValue(), 24)).setScore(score--);
             if (score <= 0) break;
         }
         player.setScoreboard(scoreboard);
+    }
+
+    private String trimPveScoreboardLine(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) return text;
+        if (maxLength <= 3) return text.substring(0, Math.max(0, maxLength));
+        return text.substring(0, maxLength - 3) + "...";
     }
 
     private void showParcelPvpScoreboard(Player player, IslandData island, ParcelData parcel) {
