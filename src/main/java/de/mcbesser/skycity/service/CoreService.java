@@ -33,6 +33,9 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.block.ShulkerBox;
@@ -138,9 +141,13 @@ public class CoreService {
    private static final Map<Material, Double> BLOCK_VALUE_MAP = new LinkedHashMap<>();
    private static final double BLOCK_VALUE_DEFAULT = 1.0E-4;
    private static final Set<Material> BLOCK_VALUE_BLACKLIST = EnumSet.noneOf(Material.class);
+   private static final long LIMIT_HINT_DURATION_TICKS = 50L;
    private final SkyCityPlugin plugin;
    private final IslandService islandService;
-   private final Map<UUID, Long> animalLookDisplayUntil = new ConcurrentHashMap<>();
+   private final Set<UUID> visibleAnimalLookTargets = ConcurrentHashMap.newKeySet();
+   private final Map<UUID, UUID> playerAnimalLookTargets = new ConcurrentHashMap<>();
+   private final Map<UUID, BossBar> limitHintBossBars = new ConcurrentHashMap<>();
+   private final Map<UUID, Integer> limitHintHideTasks = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandWarpInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingParcelRenameInput = new ConcurrentHashMap<>();
@@ -2489,9 +2496,7 @@ public class CoreService {
          }
       }, 20L, 100L);
       this.animalLookTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
-         this.updateTrackedAnimalLookDisplays();
          this.updateAnimalLookDisplays();
-         this.cleanupAnimalLookDisplays();
       }, 1L, 1L);
    }
 
@@ -2780,40 +2785,39 @@ public class CoreService {
    }
 
    private void updateAnimalLookDisplays() {
-      long now = System.currentTimeMillis();
+      Set<UUID> activeTargets = ConcurrentHashMap.newKeySet();
 
       for (Player player : Bukkit.getOnlinePlayers()) {
+         if (!player.isOnline()) continue;
          RayTraceResult trace = player.getWorld()
             .rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 12.0, 0.2, entity -> entity instanceof Animals || this.islandService.isTrackedGolem(entity.getType()));
          Entity target = trace == null ? null : trace.getHitEntity();
-         if (target instanceof Animals || target != null && this.islandService.isTrackedGolem(target.getType())) {
-            IslandData island = this.islandService.getIslandAt(target.getLocation());
-            if (island != null) {
-               String tag = this.animalLookTag(target.getUniqueId());
-               this.ensureText(target.getLocation().clone().add(0.0, 1.4, 0.0), tag, this.buildEntityLimitLookText(target, island));
-               this.animalLookDisplayUntil.put(target.getUniqueId(), now + 900L);
-            }
+         if ((target instanceof Animals || target != null && this.islandService.isTrackedGolem(target.getType())) && target.isValid()) {
+            activeTargets.add(target.getUniqueId());
+            this.playerAnimalLookTargets.put(player.getUniqueId(), target.getUniqueId());
+         } else {
+            this.playerAnimalLookTargets.remove(player.getUniqueId());
          }
       }
-   }
 
-   private void updateTrackedAnimalLookDisplays() {
-      long now = System.currentTimeMillis();
+      for (UUID entityId : activeTargets) {
+         Entity entity = Bukkit.getEntity(entityId);
+         if (!(entity instanceof Animals) && (entity == null || !this.islandService.isTrackedGolem(entity.getType()))) continue;
+         if (!entity.isValid()) continue;
+         IslandData island = this.islandService.getIslandAt(entity.getLocation());
+         if (island == null) continue;
+         String tag = this.animalLookTag(entityId);
+         this.ensureText(entity.getLocation().clone().add(0.0, 1.4, 0.0), tag, this.buildEntityLimitLookText(entity, island));
+      }
 
-      for (Entry<UUID, Long> entry : new ArrayList<>(this.animalLookDisplayUntil.entrySet())) {
-         if (entry.getValue() > now) {
-            Entity entity = Bukkit.getEntity(entry.getKey());
-            if (entity instanceof Animals || entity != null && this.islandService.isTrackedGolem(entity.getType())) {
-               if (entity.isValid()) {
-                  IslandData island = this.islandService.getIslandAt(entity.getLocation());
-                  if (island != null) {
-                     String tag = this.animalLookTag(entity.getUniqueId());
-                     this.ensureText(entity.getLocation().clone().add(0.0, 1.4, 0.0), tag, this.buildEntityLimitLookText(entity, island));
-                  }
-               }
-            }
+      for (UUID entityId : new ArrayList<>(this.visibleAnimalLookTargets)) {
+         if (!activeTargets.contains(entityId)) {
+            this.removeAnimalLookDisplay(entityId);
          }
       }
+
+      this.visibleAnimalLookTargets.clear();
+      this.visibleAnimalLookTargets.addAll(activeTargets);
    }
 
    private String buildEntityLimitLookText(Entity entity, IslandData island) {
@@ -2823,21 +2827,13 @@ public class CoreService {
       return ChatColor.GREEN + "Tiere: " + this.islandService.getAnimalCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getAnimalLimit();
    }
 
-   private void cleanupAnimalLookDisplays() {
-      long now = System.currentTimeMillis();
+   private void removeAnimalLookDisplay(UUID animalId) {
+      String tag = this.animalLookTag(animalId);
 
-      for (Entry<UUID, Long> entry : new ArrayList<>(this.animalLookDisplayUntil.entrySet())) {
-         if (entry.getValue() <= now) {
-            UUID animalId = entry.getKey();
-            this.animalLookDisplayUntil.remove(animalId);
-            String tag = this.animalLookTag(animalId);
-
-            for (World world : Bukkit.getWorlds()) {
-               for (Entity e : world.getEntities()) {
-                  if (e instanceof ArmorStand && e.getScoreboardTags().contains(tag)) {
-                     e.remove();
-                  }
-               }
+      for (World world : Bukkit.getWorlds()) {
+         for (Entity e : world.getEntities()) {
+            if (e instanceof ArmorStand && e.getScoreboardTags().contains(tag)) {
+               e.remove();
             }
          }
       }
@@ -2845,6 +2841,91 @@ public class CoreService {
 
    private String animalLookTag(UUID animalId) {
       return "skycity_animal_look_" + animalId.toString().substring(0, 8);
+   }
+
+   public void showIslandLimitHint(Player player, IslandData island, Material type) {
+      if (player == null || island == null || type == null) return;
+      String label;
+      int used;
+      int limit;
+
+      if (this.islandService.isInventoryLimitedMaterial(type)) {
+         label = "Behaelter";
+         used = this.islandService.getCachedInventoryBlockCount(island);
+         limit = 100;
+      } else if (type == Material.HOPPER) {
+         label = "Trichter";
+         used = this.islandService.getCachedHopperCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getHopperLimit();
+      } else if (type == Material.PISTON || type == Material.STICKY_PISTON) {
+         label = "Kolben";
+         used = this.islandService.getCachedPistonCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getPistonLimit();
+      } else if (type == Material.OBSERVER) {
+         label = "Observer";
+         used = this.islandService.getCachedObserverCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getObserverLimit();
+      } else if (type == Material.DISPENSER) {
+         label = "Dispenser";
+         used = this.islandService.getCachedDispenserCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getDispenserLimit();
+      } else if (type == Material.CACTUS) {
+         label = "Kaktus";
+         used = this.islandService.getCachedCactusCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getCactusLimit();
+      } else if (type == Material.KELP || type == Material.KELP_PLANT) {
+         label = "Kelp";
+         used = this.islandService.getCachedKelpCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getKelpLimit();
+      } else if (type == Material.BAMBOO) {
+         label = "Bambus";
+         used = this.islandService.getCachedBambooCount(island);
+         limit = this.islandService.getCurrentLevelDef(island).getBambooLimit();
+      } else {
+         return;
+      }
+
+      this.showLimitHint(player, label, used, limit);
+   }
+
+   public void showArmorStandLimitHint(Player player, IslandData island) {
+      if (player == null || island == null) return;
+      this.showLimitHint(player, "Ruestungsstaender", this.islandService.getArmorStandCount(island), this.islandService.getCurrentLevelDef(island).getArmorStandLimit());
+   }
+
+   private void showLimitHint(Player player, String label, int used, int limit) {
+      if (player == null || !player.isOnline()) return;
+      double progress = limit <= 0 ? 1.0 : Math.max(0.0, Math.min(1.0, (double) used / (double) limit));
+      BarColor color = progress >= 0.9 ? BarColor.RED : progress >= 0.65 ? BarColor.YELLOW : BarColor.GREEN;
+      BossBar bar = this.limitHintBossBars.computeIfAbsent(player.getUniqueId(), id -> {
+         BossBar created = Bukkit.createBossBar("", BarColor.GREEN, BarStyle.SOLID);
+         created.addPlayer(player);
+         return created;
+      });
+      if (!bar.getPlayers().contains(player)) {
+         bar.addPlayer(player);
+      }
+      bar.setTitle(ChatColor.AQUA + label + ChatColor.GRAY + ": " + ChatColor.WHITE + used + "/" + limit);
+      bar.setColor(color);
+      bar.setStyle(BarStyle.SOLID);
+      bar.setProgress(progress <= 0.0 ? 0.01 : progress);
+      bar.setVisible(true);
+
+      Integer oldTask = this.limitHintHideTasks.remove(player.getUniqueId());
+      if (oldTask != null) {
+         Bukkit.getScheduler().cancelTask(oldTask);
+      }
+      int hideTask = Bukkit.getScheduler().scheduleSyncDelayedTask(this.plugin, () -> this.hideLimitHint(player.getUniqueId()), LIMIT_HINT_DURATION_TICKS);
+      this.limitHintHideTasks.put(player.getUniqueId(), hideTask);
+   }
+
+   private void hideLimitHint(UUID playerId) {
+      this.limitHintHideTasks.remove(playerId);
+      BossBar bar = this.limitHintBossBars.remove(playerId);
+      if (bar != null) {
+         bar.removeAll();
+         bar.setVisible(false);
+      }
    }
 
    private void fillWithPanes(Inventory inv) {

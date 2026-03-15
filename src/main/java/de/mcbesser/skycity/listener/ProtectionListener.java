@@ -163,6 +163,7 @@ public class ProtectionListener implements Listener {
         }
         islandService.markIslandActivity(player.getUniqueId());
         islandService.onTrackedBlockPlaced(island, block);
+        coreService.showIslandLimitHint(player, island, type);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -230,6 +231,7 @@ public class ProtectionListener implements Listener {
         }
         islandService.markIslandActivity(player.getUniqueId());
         islandService.onTrackedBlockBroken(island, block);
+        coreService.showIslandLimitHint(player, island, block.getType());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -353,6 +355,7 @@ public class ProtectionListener implements Listener {
             event.setUseInteractedBlock(Result.DENY);
             event.setUseItemInHand(Result.DENY);
             islandService.markIslandActivity(player.getUniqueId());
+            coreService.showArmorStandLimitHint(player, island);
             return;
         }
 
