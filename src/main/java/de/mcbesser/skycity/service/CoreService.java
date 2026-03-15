@@ -1470,7 +1470,9 @@ public class CoreService {
          inv.setItem(37, this.named(Material.BOOK, ChatColor.GOLD + "PvE-Anleitung", List.of(
             ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone (max 5x5)",
             ChatColor.GRAY + "Bis zu 1 Loch 2x2 in der Startzone erlaubt",
-            ChatColor.GRAY + "1 Ausgang an der Zonengrenze erlaubt, 3 hoch frei",
+            ChatColor.GRAY + "Ausgang nur an der Startzonen-Seite erlaubt",
+            ChatColor.GRAY + "Der Ausgang darf breiter sein, aber nur zusammenhaengend",
+            ChatColor.GRAY + "Ausgang und Aussenkante muessen 3 hoch frei sein",
             ChatColor.GRAY + "LIGHT_GRAY = Zombie Stufe 1",
             ChatColor.GRAY + "GREEN = Spider Stufe 2",
             ChatColor.GRAY + "YELLOW = Skeleton Stufe 2",

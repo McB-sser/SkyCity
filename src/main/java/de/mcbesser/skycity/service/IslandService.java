@@ -3165,20 +3165,20 @@ public class IslandService {
         if (!respawnLocation.getBlock().isPassable()) {
             return Optional.of("Startzone blockiert: Ueber der wei\u00dfen Wolle ist kein freier Spawnplatz.");
         }
-        Optional<String> zoneCheck = validatePveZoneShell(parcel, respawnLocation);
+        Optional<String> zoneCheck = validatePveZoneShell(parcel, respawnLocation, minStartX, minStartZ, maxStartX, maxStartZ, startY);
         if (zoneCheck.isPresent()) {
             return zoneCheck;
         }
         return Optional.empty();
     }
 
-    private Optional<String> validatePveZoneShell(ParcelData parcel, Location startLocation) {
+    private Optional<String> validatePveZoneShell(ParcelData parcel, Location startLocation, int startMinX, int startMinZ, int startMaxX, int startMaxZ, int startY) {
         if (parcel == null || startLocation == null || startLocation.getWorld() == null) return Optional.of("PvE-Zone ungueltig: Interne Startpruefung fehlgeschlagen.");
         Block startBlock = startLocation.getBlock();
         if (!startBlock.isPassable()) return Optional.of("Startzone blockiert: Der Ausgang ueber der Startzone ist nicht frei.");
         Set<String> visited = new HashSet<>();
         ArrayDeque<Block> queue = new ArrayDeque<>();
-        Set<String> allowedExitColumns = new HashSet<>();
+        String exitSide = null;
         queue.add(startBlock);
         while (!queue.isEmpty()) {
             Block current = queue.removeFirst();
@@ -3187,12 +3187,14 @@ public class IslandService {
             if (current.getX() <= parcel.getMinX() || current.getX() >= parcel.getMaxX()
                     || current.getY() <= parcel.getMinY() || current.getY() >= parcel.getMaxY()
                     || current.getZ() <= parcel.getMinZ() || current.getZ() >= parcel.getMaxZ()) {
-                if (!isValidPveExitColumn(parcel, current)) {
-                    return Optional.of("Zone ist offen: Der Ausgang muss direkt an der Zonengrenze liegen und 3 Bloecke hoch frei sein.");
+                String candidateSide = classifyValidPveExitSide(parcel, current, startMinX, startMinZ, startMaxX, startMaxZ, startY);
+                if (candidateSide == null) {
+                    return Optional.of("Zone ist offen: Der Ausgang muss an der Startzone liegen und bis 3 Bloecke hoch frei sein.");
                 }
-                allowedExitColumns.add(current.getX() + ":" + current.getZ());
-                if (allowedExitColumns.size() > 1) {
-                    return Optional.of("Zone ist offen: Es ist nur ein Ausgang aus der PvE-Zone erlaubt.");
+                if (exitSide == null) {
+                    exitSide = candidateSide;
+                } else if (!exitSide.equals(candidateSide)) {
+                    return Optional.of("Zone ist offen: Es ist nur ein zusammenhaengender Ausgang an einer Startzonen-Seite erlaubt.");
                 }
             }
             for (int[] offset : List.of(new int[]{1, 0, 0}, new int[]{-1, 0, 0}, new int[]{0, 1, 0}, new int[]{0, -1, 0}, new int[]{0, 0, 1}, new int[]{0, 0, -1})) {
@@ -3200,12 +3202,14 @@ public class IslandService {
                 if (next.getX() < parcel.getMinX() || next.getX() > parcel.getMaxX()
                         || next.getY() < parcel.getMinY() || next.getY() > parcel.getMaxY()
                         || next.getZ() < parcel.getMinZ() || next.getZ() > parcel.getMaxZ()) {
-                    if (!isValidPveExitColumn(parcel, current)) {
-                        return Optional.of("Zone ist offen: Der Ausgang muss direkt an der Zonengrenze liegen und 3 Bloecke hoch frei sein.");
+                    String candidateSide = classifyValidPveExitSide(parcel, current, startMinX, startMinZ, startMaxX, startMaxZ, startY);
+                    if (candidateSide == null) {
+                        return Optional.of("Zone ist offen: Der Ausgang muss an der Startzone liegen und bis 3 Bloecke hoch frei sein.");
                     }
-                    allowedExitColumns.add(current.getX() + ":" + current.getZ());
-                    if (allowedExitColumns.size() > 1) {
-                        return Optional.of("Zone ist offen: Es ist nur ein Ausgang aus der PvE-Zone erlaubt.");
+                    if (exitSide == null) {
+                        exitSide = candidateSide;
+                    } else if (!exitSide.equals(candidateSide)) {
+                        return Optional.of("Zone ist offen: Es ist nur ein zusammenhaengender Ausgang an einer Startzonen-Seite erlaubt.");
                     }
                     continue;
                 }
@@ -3217,27 +3221,43 @@ public class IslandService {
         return Optional.empty();
     }
 
-    private boolean isValidPveExitColumn(ParcelData parcel, Block insideBoundaryBlock) {
-        if (parcel == null || insideBoundaryBlock == null) return false;
+    private String classifyValidPveExitSide(ParcelData parcel, Block insideBoundaryBlock, int startMinX, int startMinZ, int startMaxX, int startMaxZ, int startY) {
+        if (parcel == null || insideBoundaryBlock == null) return null;
         World world = insideBoundaryBlock.getWorld();
-        if (world == null) return false;
+        if (world == null) return null;
 
         int dx = 0;
         int dz = 0;
-        if (insideBoundaryBlock.getX() <= parcel.getMinX()) dx = -1;
-        else if (insideBoundaryBlock.getX() >= parcel.getMaxX()) dx = 1;
-        else if (insideBoundaryBlock.getZ() <= parcel.getMinZ()) dz = -1;
-        else if (insideBoundaryBlock.getZ() >= parcel.getMaxZ()) dz = 1;
-        else return false;
+        String side;
+        if (insideBoundaryBlock.getX() <= parcel.getMinX()) {
+            dx = -1;
+            side = "WEST";
+            if (startMinX != parcel.getMinX() || insideBoundaryBlock.getZ() < startMinZ - 1 || insideBoundaryBlock.getZ() > startMaxZ + 1) return null;
+        } else if (insideBoundaryBlock.getX() >= parcel.getMaxX()) {
+            dx = 1;
+            side = "EAST";
+            if (startMaxX != parcel.getMaxX() || insideBoundaryBlock.getZ() < startMinZ - 1 || insideBoundaryBlock.getZ() > startMaxZ + 1) return null;
+        } else if (insideBoundaryBlock.getZ() <= parcel.getMinZ()) {
+            dz = -1;
+            side = "NORTH";
+            if (startMinZ != parcel.getMinZ() || insideBoundaryBlock.getX() < startMinX - 1 || insideBoundaryBlock.getX() > startMaxX + 1) return null;
+        } else if (insideBoundaryBlock.getZ() >= parcel.getMaxZ()) {
+            dz = 1;
+            side = "SOUTH";
+            if (startMaxZ != parcel.getMaxZ() || insideBoundaryBlock.getX() < startMinX - 1 || insideBoundaryBlock.getX() > startMaxX + 1) return null;
+        } else {
+            return null;
+        }
 
         for (int yOffset = 0; yOffset < 3; yOffset++) {
-            Block inside = world.getBlockAt(insideBoundaryBlock.getX(), insideBoundaryBlock.getY() + yOffset, insideBoundaryBlock.getZ());
-            Block outside = world.getBlockAt(insideBoundaryBlock.getX() + dx, insideBoundaryBlock.getY() + yOffset, insideBoundaryBlock.getZ() + dz);
+            int checkY = startY + 1 + yOffset;
+            Block inside = world.getBlockAt(insideBoundaryBlock.getX(), checkY, insideBoundaryBlock.getZ());
+            Block outside = world.getBlockAt(insideBoundaryBlock.getX() + dx, checkY, insideBoundaryBlock.getZ() + dz);
             if (!inside.isPassable() || !outside.isPassable()) {
-                return false;
+                return null;
             }
         }
-        return true;
+        return side;
     }
 
     private PveSpawnMarker createPveSpawnMarker(Block woolBlock, int index) {

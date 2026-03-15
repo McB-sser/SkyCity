@@ -362,10 +362,12 @@ public class CoreMenuListener implements Listener {
                     ChatColor.GOLD + "PvE-Anleitung",
                     java.util.List.of(
                             ChatColor.GRAY + "1) Wei\u00dfe Wolle = Startzone",
-                            ChatColor.GRAY + "2) 1 Ausgang an der Kante, 3 hoch frei",
-                            ChatColor.GRAY + "3) LIGHT_GRAY Zombie, GREEN Spider",
-                            ChatColor.GRAY + "4) YELLOW Skeleton, ORANGE Husk",
-                            ChatColor.GRAY + "5) BLUE Drowned, RED Creeper, BLACK Wither Skeleton"
+                            ChatColor.GRAY + "2) Ausgang nur an der Startzonen-Seite",
+                            ChatColor.GRAY + "3) Ausgang darf breiter sein, wenn zusammenhaengend",
+                            ChatColor.GRAY + "4) Innen + aussen 3 hoch frei",
+                            ChatColor.GRAY + "5) LIGHT_GRAY Zombie, GREEN Spider",
+                            ChatColor.GRAY + "6) YELLOW Skeleton, ORANGE Husk",
+                            ChatColor.GRAY + "7) BLUE Drowned, RED Creeper, BLACK Wither Skeleton"
                     )));
         }
         player.openInventory(inventory);
