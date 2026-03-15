@@ -348,6 +348,25 @@ public class CoreMenuListener implements Listener {
                             ChatColor.GRAY + "Zul\u00e4ssige PvP-Spieler verwalten",
                             ChatColor.YELLOW + "Klick = GUI \u00f6ffnen"
                     )));
+            inventory.setItem(35, namedItem(
+                    parcel.isPveEnabled() ? Material.NETHER_STAR : Material.GRAY_WOOL,
+                    (parcel.isPveEnabled() ? ChatColor.DARK_GREEN : ChatColor.GRAY) + "GS-PvE",
+                    java.util.List.of(
+                            ChatColor.GRAY + "Status: " + (parcel.isPveEnabled() ? ChatColor.DARK_GREEN + "aktiv" : ChatColor.GREEN + "aus"),
+                            ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone, andere Wolle = Spawner",
+                            ChatColor.GRAY + "Gro\u00dfe Zone = mehr Mobs, Wellen und St\u00e4rke",
+                            ChatColor.YELLOW + "Klick = umschalten"
+                    )));
+            inventory.setItem(37, namedItem(
+                    Material.BOOK,
+                    ChatColor.GOLD + "PvE-Anleitung",
+                    java.util.List.of(
+                            ChatColor.GRAY + "1) Zone vollst\u00e4ndig schlie\u00dfen",
+                            ChatColor.GRAY + "2) Wei\u00dfe Wolle als Startzone setzen",
+                            ChatColor.GRAY + "3) Farbige Wolle als Spawnmarker setzen",
+                            ChatColor.GRAY + "4) GS-PvE aktivieren",
+                            ChatColor.GRAY + "5) Mit 5 Leveln beitreten"
+                    )));
         }
         player.openInventory(inventory);
     }
@@ -712,6 +731,22 @@ public class CoreMenuListener implements Listener {
                     if (islandService.setParcelPvp(island, parcel, player.getUniqueId(), enabled)) {
                         player.sendMessage((enabled ? ChatColor.RED : ChatColor.GREEN) + "GS-PvP " + (enabled ? "aktiviert." : "deaktiviert."));
                         broadcastSkyCityChat(ChatColor.GOLD + player.getName() + ChatColor.GRAY + " hat GS-PvP auf " + islandService.getParcelDisplayName(parcel) + " " + (enabled ? ChatColor.RED + "aktiviert" : ChatColor.GREEN + "deaktiviert") + ChatColor.GRAY + ".");
+                    }
+                }
+            }
+            case 35 -> {
+                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    boolean enabled = !parcel.isPveEnabled();
+                    if (enabled) {
+                        var validation = islandService.validateParcelPve(island, parcel);
+                        if (validation.isPresent()) {
+                            player.sendMessage(ChatColor.RED + validation.get());
+                            return;
+                        }
+                    }
+                    if (islandService.setParcelPve(island, parcel, player.getUniqueId(), enabled)) {
+                        player.sendMessage((enabled ? ChatColor.DARK_GREEN : ChatColor.GREEN) + "GS-PvE " + (enabled ? "aktiviert." : "deaktiviert."));
                     }
                 }
             }

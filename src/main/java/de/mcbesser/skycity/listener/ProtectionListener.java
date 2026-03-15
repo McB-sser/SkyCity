@@ -17,6 +17,7 @@ import org.bukkit.block.data.Ageable;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -37,6 +38,7 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
@@ -189,6 +191,7 @@ public class ProtectionListener implements Listener {
         }
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
         boolean bypassParcelRights = false;
+        boolean pveParticipant = parcel != null && parcel.isPveEnabled() && islandService.isPlayerInParcelPve(player.getUniqueId(), island, parcel);
         if (parcel != null && parcel.isPvpEnabled()) {
             boolean bypassAllowed = (block.getType() == Material.LADDER && parcel.getVisitorSettings().isLadderBreak())
                     || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesBreak());
@@ -201,7 +204,7 @@ public class ProtectionListener implements Listener {
         }
         boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island)
                 || (parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId()));
-        if ((!hasBuild && !bypassParcelRights) || !islandService.isChunkUnlocked(island, block.getLocation())) {
+        if ((!hasBuild && !bypassParcelRights && !pveParticipant) || !islandService.isChunkUnlocked(island, block.getLocation())) {
             event.setCancelled(true);
             return;
         }
@@ -284,6 +287,12 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getEntity() instanceof Player victim) {
+            LivingEntity pveAttacker = resolveDamagingLivingEntity(event);
+            if (pveAttacker != null) {
+                islandService.recordPveMobPlayerHit(pveAttacker, victim);
+            }
+        }
         if (!(event.getEntity() instanceof Player victim)) return;
         Player attacker = resolveDamagingPlayer(event);
         if (attacker == null) return;
@@ -521,6 +530,9 @@ public class ProtectionListener implements Listener {
     public void onCreatureSpawn(CreatureSpawnEvent event) {
         if (!skyWorldService.isSkyCityWorld(event.getLocation().getWorld())) return;
         if (event.getEntity() instanceof Monster) {
+            if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CUSTOM && islandService.isLocationInActivePveZone(event.getLocation())) {
+                return;
+            }
             event.setCancelled(true);
             return;
         }
@@ -553,6 +565,16 @@ public class ProtectionListener implements Listener {
         if (!skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
         IslandData island = islandService.getIslandAt(event.getEntity().getLocation());
         if (island == null || !islandService.isWithinAnimalLimit(island)) event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent event) {
+        LivingEntity living = event.getEntity();
+        if (!skyWorldService.isSkyCityWorld(living.getWorld())) return;
+        if (islandService.handlePveMobDeath(living, living.getKiller())) {
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -645,6 +667,12 @@ public class ProtectionListener implements Listener {
     private Player resolveDamagingPlayer(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Player player) return player;
         if (event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player player) return player;
+        return null;
+    }
+
+    private LivingEntity resolveDamagingLivingEntity(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof LivingEntity living) return living;
+        if (event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof LivingEntity living) return living;
         return null;
     }
 

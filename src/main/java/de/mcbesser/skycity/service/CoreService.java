@@ -1466,6 +1466,8 @@ public class CoreService {
          inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(35, this.named(parcel.isPveEnabled() ? Material.NETHER_STAR : Material.GRAY_WOOL, (parcel.isPveEnabled() ? ChatColor.DARK_GREEN : ChatColor.GRAY) + "GS-PvE", List.of(ChatColor.GRAY + "Aktiviert Wellenkampf auf diesem GS", ChatColor.GRAY + "Skaliert mit Grundfl\u00e4che und Spielerzahl", ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(37, this.named(Material.BOOK, ChatColor.GOLD + "PvE-Anleitung", List.of(ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone (max 5x5)", ChatColor.GRAY + "Bis zu 1 Loch 2x2 in der Startzone erlaubt", ChatColor.GRAY + "Andere Wolle = Spawnmarker / Schwierigkeit", ChatColor.GRAY + "Marker darf auch 1 Block unter Spawn liegen", ChatColor.GRAY + "Zone muss geschlossen sein", ChatColor.GRAY + "Beim Verlassen wird alles zur\u00fcckgesetzt")));
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       }

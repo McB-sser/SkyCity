@@ -12,6 +12,7 @@ import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
@@ -23,6 +24,9 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.enchantments.Enchantment;
@@ -44,6 +48,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -97,6 +102,71 @@ public class IslandService {
     private record ThemeHit(long seed, double density) { }
     private record PregenerationTask(UUID islandOwner, int nextIndex) { }
     private record IslandCreationTask(UUID playerId) { }
+    private record PveSpawnMarker(String id, Location markerLocation, Location spawnLocation, EntityType entityType, String displayName, int level, int rewardLevels) { }
+    public record PveRuntimeSnapshot(String zoneKey, String parcelName, int currentWave, int requiredWaves, int activeMobCount, Map<String, String> spawnEntries) { }
+    private static final class PveZoneRuntime {
+        private final UUID islandOwner;
+        private final String parcelKey;
+        private final int minX;
+        private final int minY;
+        private final int minZ;
+        private final int maxX;
+        private final int maxY;
+        private final int maxZ;
+        private final int floorArea;
+        private final int startMinX;
+        private final int startMinZ;
+        private final int startMaxX;
+        private final int startMaxZ;
+        private final int startY;
+        private final Location respawnLocation;
+        private final List<PveSpawnMarker> markers;
+        private final Set<UUID> participants = new HashSet<>();
+        private final Set<UUID> activeMobIds = new HashSet<>();
+        private final Map<UUID, Location> mobHomes = new HashMap<>();
+        private final Map<UUID, String> mobLabels = new HashMap<>();
+        private final Map<UUID, Integer> mobLevels = new HashMap<>();
+        private final Map<UUID, Integer> pendingRewards = new HashMap<>();
+        private final Map<UUID, Long> mobLastReachableAt = new HashMap<>();
+        private final Map<UUID, Long> mobLastRangedHitAt = new HashMap<>();
+        private final Set<UUID> invalidMobIds = new HashSet<>();
+        private int currentWave = 0;
+        private final int requiredWaves;
+
+        private PveZoneRuntime(UUID islandOwner, String parcelKey, ParcelData parcel, int startMinX, int startMinZ, int startMaxX, int startMaxZ, int startY, Location respawnLocation, List<PveSpawnMarker> markers) {
+            this.islandOwner = islandOwner;
+            this.parcelKey = parcelKey;
+            this.minX = parcel.getMinX();
+            this.minY = parcel.getMinY();
+            this.minZ = parcel.getMinZ();
+            this.maxX = parcel.getMaxX();
+            this.maxY = parcel.getMaxY();
+            this.maxZ = parcel.getMaxZ();
+            this.floorArea = Math.max(1, (parcel.getMaxX() - parcel.getMinX() + 1) * (parcel.getMaxZ() - parcel.getMinZ() + 1));
+            this.startMinX = startMinX;
+            this.startMinZ = startMinZ;
+            this.startMaxX = startMaxX;
+            this.startMaxZ = startMaxZ;
+            this.startY = startY;
+            this.respawnLocation = respawnLocation;
+            this.markers = markers;
+            this.requiredWaves = computePveRequiredWaves(this.floorArea);
+        }
+
+        private boolean contains(Location location) {
+            return location != null
+                    && location.getBlockX() >= minX && location.getBlockX() <= maxX
+                    && location.getBlockY() >= minY && location.getBlockY() <= maxY
+                    && location.getBlockZ() >= minZ && location.getBlockZ() <= maxZ;
+        }
+
+        private boolean isInStartZone(Location location) {
+            return location != null
+                    && location.getBlockY() >= startY
+                    && location.getBlockX() >= startMinX && location.getBlockX() <= startMaxX
+                    && location.getBlockZ() >= startMinZ && location.getBlockZ() <= startMaxZ;
+        }
+    }
     private static final class PendingBorderUnlockRequest {
         private final UUID requesterOwner;
         private final int relX;
@@ -157,10 +227,15 @@ public class IslandService {
     private final Map<UUID, Location> plotSelectionPos2 = new HashMap<>();
     private final Map<String, PendingBorderUnlockRequest> pendingBorderUnlockRequests = new HashMap<>();
     private final Map<UUID, String> parcelPvpConsents = new HashMap<>();
+    private final Map<String, PveZoneRuntime> activePveZones = new HashMap<>();
+    private final Map<UUID, String> playerPveZones = new HashMap<>();
+    private final Map<UUID, Location> pendingPveRespawns = new HashMap<>();
+    private final Map<UUID, String> pveMobZones = new HashMap<>();
     private final NamespacedKey plotWandKey;
     private int pregenerationTaskId = -1;
     private int islandCreationTaskId = -1;
     private int cleanupTaskId = -1;
+    private int pveTaskId = -1;
 
     public IslandService(SkyCityPlugin plugin, SkyWorldService skyWorldService) {
         this.plugin = plugin;
@@ -251,6 +326,7 @@ public class IslandService {
                         }
                         if (psec.isConfigurationSection("spawn")) parcel.setSpawn(deserializeLocation(psec.getConfigurationSection("spawn")));
                         parcel.setPvpEnabled(psec.getBoolean("pvpEnabled", false));
+                        parcel.setPveEnabled(psec.getBoolean("pveEnabled", false));
                         ConfigurationSection pvpKills = psec.getConfigurationSection("pvpKills");
                         if (pvpKills != null) {
                             for (String playerKey : pvpKills.getKeys(false)) {
@@ -323,6 +399,7 @@ public class IslandService {
                 yaml.set(pp + ".maxZ", parcel.getMaxZ());
                 if (parcel.getSpawn() != null) serializeLocation(yaml, pp + ".spawn", parcel.getSpawn());
                 yaml.set(pp + ".pvpEnabled", parcel.isPvpEnabled());
+                yaml.set(pp + ".pveEnabled", parcel.isPveEnabled());
                 for (Map.Entry<UUID, Integer> pvpEntry : parcel.getPvpKills().entrySet()) {
                     yaml.set(pp + ".pvpKills." + pvpEntry.getKey(), Math.max(0, pvpEntry.getValue()));
                 }
@@ -359,6 +436,9 @@ public class IslandService {
         if (cleanupTaskId == -1) {
             cleanupTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::runInactiveIslandCleanup, 20L * 60L, 20L * 60L * 60L);
         }
+        if (pveTaskId == -1) {
+            pveTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickPveZones, 20L, 20L);
+        }
     }
 
     public void stopIslandCreationTask() {
@@ -366,6 +446,11 @@ public class IslandService {
             Bukkit.getScheduler().cancelTask(islandCreationTaskId);
             islandCreationTaskId = -1;
         }
+        if (pveTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(pveTaskId);
+            pveTaskId = -1;
+        }
+        resetAllPveZones();
         pendingIslandCreations.clear();
         islandCreationQueue.clear();
         islandCreationCallbacks.clear();
@@ -1082,6 +1167,7 @@ public class IslandService {
             dst.getPvpWhitelist().addAll(srcParcel.getPvpWhitelist());
             dst.getPvpKills().putAll(srcParcel.getPvpKills());
             dst.setPvpEnabled(srcParcel.isPvpEnabled());
+            dst.setPveEnabled(srcParcel.isPveEnabled());
             dst.setBounds(srcParcel.getMinX(), srcParcel.getMinY(), srcParcel.getMinZ(), srcParcel.getMaxX(), srcParcel.getMaxY(), srcParcel.getMaxZ());
             if (srcParcel.getSpawn() != null) dst.setSpawn(srcParcel.getSpawn().clone());
             copyAccessSettings(srcParcel.getVisitorSettings(), dst.getVisitorSettings());
@@ -1606,6 +1692,167 @@ public class IslandService {
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
+    }
+
+    public boolean setParcelPve(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        if (parcel.isPveEnabled() == enabled) return false;
+        parcel.setPveEnabled(enabled);
+        if (!enabled) {
+            resetPveZone(island, parcel, ChatColor.GRAY + "PvE-Zone wurde deaktiviert.");
+        }
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public String getParcelPveKey(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return null;
+        return island.getOwner() + ":" + parcel.getChunkKey();
+    }
+
+    public Optional<String> validateParcelPve(IslandData island, ParcelData parcel) {
+        if (buildPveZoneRuntime(island, parcel).isPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of("Zone ungueltig: wei\u00dfe Startzone oder Spawn-Wolle fehlt/ist offen.");
+    }
+
+    public boolean isParcelPveActive(IslandData island, ParcelData parcel) {
+        String key = getParcelPveKey(island, parcel);
+        return key != null && activePveZones.containsKey(key);
+    }
+
+    public Optional<PveRuntimeSnapshot> getParcelPveSnapshot(IslandData island, ParcelData parcel) {
+        String key = getParcelPveKey(island, parcel);
+        if (key == null) return Optional.empty();
+        PveZoneRuntime runtime = activePveZones.get(key);
+        if (runtime == null) return Optional.empty();
+        Map<String, String> lines = new LinkedHashMap<>();
+        int index = 1;
+        for (PveSpawnMarker marker : runtime.markers) {
+            long alive = runtime.activeMobIds.stream()
+                    .map(Bukkit::getEntity)
+                    .filter(LivingEntity.class::isInstance)
+                    .filter(entity -> entity.getScoreboardTags().contains("skycity_pve_marker_" + marker.id()))
+                    .count();
+            lines.put(index + ". Spawn", marker.displayName() + " x" + alive);
+            index++;
+            if (index > 10) break;
+        }
+        return Optional.of(new PveRuntimeSnapshot(key, getParcelDisplayName(parcel), runtime.currentWave, runtime.requiredWaves, runtime.activeMobIds.size(), lines));
+    }
+
+    public boolean enterParcelPve(Player player, IslandData island, ParcelData parcel) {
+        if (player == null || island == null || parcel == null || !parcel.isPveEnabled()) return false;
+        String key = getParcelPveKey(island, parcel);
+        if (key == null) return false;
+        PveZoneRuntime runtime = activePveZones.get(key);
+        if (runtime == null) {
+            runtime = buildPveZoneRuntime(island, parcel).orElse(null);
+            if (runtime == null) {
+                player.sendMessage(ChatColor.RED + "Diese PvE-Zone ist ungueltig. Startzone/Marker pruefen.");
+                return false;
+            }
+            activePveZones.put(key, runtime);
+        }
+        if (player.getLevel() < 5) {
+            player.sendMessage(ChatColor.RED + "F\u00fcr PvE brauchst du mindestens 5 Level.");
+            return false;
+        }
+        runtime.participants.add(player.getUniqueId());
+        runtime.pendingRewards.putIfAbsent(player.getUniqueId(), 0);
+        playerPveZones.put(player.getUniqueId(), key);
+        player.sendMessage(ChatColor.GOLD + "PvE betreten: " + ChatColor.YELLOW + getParcelDisplayName(parcel));
+        player.sendMessage(ChatColor.GRAY + "Halte " + runtime.requiredWaves + " Wellen aus, um die Belohnung zu bekommen.");
+        if (runtime.currentWave <= 0 && runtime.activeMobIds.isEmpty()) {
+            startNextPveWave(runtime);
+        }
+        return true;
+    }
+
+    public void leaveParcelPve(Player player, IslandData island, ParcelData parcel, boolean resetZone) {
+        if (player == null) return;
+        String key = getParcelPveKey(island, parcel);
+        if (key == null) return;
+        leaveParcelPve(player, key, resetZone);
+    }
+
+    public void leaveParcelPve(Player player, String zoneKey, boolean resetZone) {
+        if (player == null || zoneKey == null) return;
+        String key = zoneKey;
+        playerPveZones.remove(player.getUniqueId());
+        PveZoneRuntime runtime = activePveZones.get(key);
+        if (runtime == null) return;
+        runtime.participants.remove(player.getUniqueId());
+        if (resetZone) {
+            resetPveZone(runtime, ChatColor.RED + player.getName() + ChatColor.GRAY + " hat die PvE-Zone verlassen. Alles wurde zurueckgesetzt.");
+        }
+    }
+
+    public Optional<Location> consumePendingPveRespawn(UUID playerId) {
+        if (playerId == null) return Optional.empty();
+        return Optional.ofNullable(pendingPveRespawns.remove(playerId));
+    }
+
+    public boolean isPlayerInParcelPve(UUID playerId, IslandData island, ParcelData parcel) {
+        String key = getParcelPveKey(island, parcel);
+        return playerId != null && key != null && key.equals(playerPveZones.get(playerId));
+    }
+
+    public boolean handlePvePlayerDeath(Player player, IslandData island, ParcelData parcel) {
+        if (player == null || island == null || parcel == null) return false;
+        String key = getParcelPveKey(island, parcel);
+        PveZoneRuntime runtime = key == null ? null : activePveZones.get(key);
+        if (runtime == null || !runtime.participants.contains(player.getUniqueId())) return false;
+        pendingPveRespawns.put(player.getUniqueId(), runtime.respawnLocation.clone());
+        return true;
+    }
+
+    public boolean handlePveMobDeath(LivingEntity entity, Player killer) {
+        if (entity == null) return false;
+        String zoneKey = pveMobZones.remove(entity.getUniqueId());
+        if (zoneKey == null) return false;
+        PveZoneRuntime runtime = activePveZones.get(zoneKey);
+        if (runtime == null) return false;
+        runtime.activeMobIds.remove(entity.getUniqueId());
+        runtime.mobHomes.remove(entity.getUniqueId());
+        boolean valid = !runtime.invalidMobIds.contains(entity.getUniqueId());
+        runtime.mobLabels.remove(entity.getUniqueId());
+        runtime.mobLevels.remove(entity.getUniqueId());
+        runtime.mobLastReachableAt.remove(entity.getUniqueId());
+        runtime.mobLastRangedHitAt.remove(entity.getUniqueId());
+        runtime.invalidMobIds.remove(entity.getUniqueId());
+        if (!valid) {
+            broadcastPveZone(runtime, ChatColor.RED + "Ung\u00fcltiger Kill: Mob war au\u00dfer Reichweite oder ohne Pfad zum Spieler.");
+        } else {
+            int reward = Math.max(1, extractPveReward(entity));
+            for (UUID participantId : runtime.participants) {
+                runtime.pendingRewards.merge(participantId, reward, Integer::sum);
+            }
+        }
+        if (runtime.activeMobIds.isEmpty()) {
+            if (runtime.currentWave >= runtime.requiredWaves) {
+                finishPveZone(runtime);
+            } else {
+                startNextPveWave(runtime);
+            }
+        }
+        return true;
+    }
+
+    public void recordPveMobPlayerHit(LivingEntity attacker, Player victim) {
+        if (attacker == null || victim == null) return;
+        String zoneKey = pveMobZones.get(attacker.getUniqueId());
+        if (zoneKey == null) return;
+        PveZoneRuntime runtime = activePveZones.get(zoneKey);
+        if (runtime == null || !runtime.participants.contains(victim.getUniqueId())) return;
+        runtime.mobLastRangedHitAt.put(attacker.getUniqueId(), System.currentTimeMillis());
+    }
+
+    public boolean isLocationInActivePveZone(Location location) {
+        if (location == null) return false;
+        return activePveZones.values().stream().anyMatch(runtime -> runtime.contains(location));
     }
 
     public boolean resetParcelPvpStats(IslandData island, ParcelData parcel, UUID actor) {
@@ -2815,6 +3062,377 @@ public class IslandService {
     public int getCachedCactusCount(IslandData island) { return island.getCachedBlockCounts().getOrDefault(CACHE_CACTUS, 0); }
     public int getCachedKelpCount(IslandData island) { return island.getCachedBlockCounts().getOrDefault(CACHE_KELP, 0); }
     public int getCachedBambooCount(IslandData island) { return island.getCachedBlockCounts().getOrDefault(CACHE_BAMBOO, 0); }
+
+    private Optional<PveZoneRuntime> buildPveZoneRuntime(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return Optional.empty();
+        World world = skyWorldService.getWorld();
+        if (world == null) return Optional.empty();
+
+        List<Block> startBlocks = new ArrayList<>();
+        List<PveSpawnMarker> markers = new ArrayList<>();
+        int minStartX = Integer.MAX_VALUE;
+        int minStartZ = Integer.MAX_VALUE;
+        int maxStartX = Integer.MIN_VALUE;
+        int maxStartZ = Integer.MIN_VALUE;
+        Integer startY = null;
+
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
+                for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    Material type = block.getType();
+                    if (!type.name().endsWith("_WOOL")) continue;
+                    if (type == Material.WHITE_WOOL) {
+                        startBlocks.add(block);
+                        minStartX = Math.min(minStartX, x);
+                        minStartZ = Math.min(minStartZ, z);
+                        maxStartX = Math.max(maxStartX, x);
+                        maxStartZ = Math.max(maxStartZ, z);
+                        if (startY == null) startY = y;
+                    } else {
+                        PveSpawnMarker marker = createPveSpawnMarker(block, markers.size() + 1);
+                        if (marker != null) markers.add(marker);
+                    }
+                }
+            }
+        }
+
+        if (startBlocks.isEmpty() || markers.isEmpty() || startY == null) return Optional.empty();
+        int width = maxStartX - minStartX + 1;
+        int depth = maxStartZ - minStartZ + 1;
+        if (width > 5 || depth > 5) return Optional.empty();
+        int rectArea = width * depth;
+        if (rectArea - startBlocks.size() > 4) return Optional.empty();
+
+        Location respawnLocation = new Location(world, (minStartX + maxStartX) / 2.0 + 0.5, startY + 1.0, (minStartZ + maxStartZ) / 2.0 + 0.5);
+        if (!isPveZoneClosed(parcel, respawnLocation)) return Optional.empty();
+        return Optional.of(new PveZoneRuntime(island.getOwner(), parcel.getChunkKey(), parcel, minStartX, minStartZ, maxStartX, maxStartZ, startY, respawnLocation, markers));
+    }
+
+    private boolean isPveZoneClosed(ParcelData parcel, Location startLocation) {
+        if (parcel == null || startLocation == null || startLocation.getWorld() == null) return false;
+        Block startBlock = startLocation.getBlock();
+        if (!startBlock.isPassable()) return false;
+        Set<String> visited = new HashSet<>();
+        ArrayDeque<Block> queue = new ArrayDeque<>();
+        queue.add(startBlock);
+        while (!queue.isEmpty()) {
+            Block current = queue.removeFirst();
+            String key = current.getX() + ":" + current.getY() + ":" + current.getZ();
+            if (!visited.add(key)) continue;
+            if (current.getX() <= parcel.getMinX() || current.getX() >= parcel.getMaxX()
+                    || current.getY() <= parcel.getMinY() || current.getY() >= parcel.getMaxY()
+                    || current.getZ() <= parcel.getMinZ() || current.getZ() >= parcel.getMaxZ()) {
+                return false;
+            }
+            for (int[] offset : List.of(new int[]{1, 0, 0}, new int[]{-1, 0, 0}, new int[]{0, 1, 0}, new int[]{0, -1, 0}, new int[]{0, 0, 1}, new int[]{0, 0, -1})) {
+                Block next = current.getRelative(offset[0], offset[1], offset[2]);
+                if (next.getX() < parcel.getMinX() || next.getX() > parcel.getMaxX()
+                        || next.getY() < parcel.getMinY() || next.getY() > parcel.getMaxY()
+                        || next.getZ() < parcel.getMinZ() || next.getZ() > parcel.getMaxZ()) {
+                    return false;
+                }
+                if (next.isPassable()) {
+                    queue.add(next);
+                }
+            }
+        }
+        return true;
+    }
+
+    private PveSpawnMarker createPveSpawnMarker(Block woolBlock, int index) {
+        Material type = woolBlock.getType();
+        EntityType entityType;
+        String name;
+        int level;
+        int reward;
+        switch (type) {
+            case LIGHT_GRAY_WOOL -> {
+                entityType = EntityType.ZOMBIE;
+                name = "Verfallener";
+                level = 1;
+                reward = 1;
+            }
+            case GREEN_WOOL -> {
+                entityType = EntityType.SPIDER;
+                name = "J\u00e4ger";
+                level = 2;
+                reward = 1;
+            }
+            case YELLOW_WOOL -> {
+                entityType = EntityType.SKELETON;
+                name = "Scharfsch\u00fctze";
+                level = 2;
+                reward = 2;
+            }
+            case ORANGE_WOOL -> {
+                entityType = EntityType.HUSK;
+                name = "Brueter";
+                level = 3;
+                reward = 2;
+            }
+            case BLUE_WOOL -> {
+                entityType = EntityType.DROWNED;
+                name = "Flutkrieger";
+                level = 3;
+                reward = 2;
+            }
+            case RED_WOOL -> {
+                entityType = EntityType.CREEPER;
+                name = "Sprenger";
+                level = 4;
+                reward = 3;
+            }
+            case BLACK_WOOL -> {
+                entityType = EntityType.WITHER_SKELETON;
+                name = "Albtraum";
+                level = 5;
+                reward = 4;
+            }
+            default -> {
+                return null;
+            }
+        }
+
+        Block above = woolBlock.getRelative(0, 1, 0);
+        Location spawnLocation = above.isPassable()
+                ? woolBlock.getLocation().add(0.5, 1.0, 0.5)
+                : above.getRelative(0, 1, 0).getLocation().add(0.5, 0.0, 0.5);
+        return new PveSpawnMarker("m" + index, woolBlock.getLocation(), spawnLocation, entityType, "Stufe " + level + " " + name, level, reward);
+    }
+
+    private void startNextPveWave(PveZoneRuntime runtime) {
+        if (runtime == null) return;
+        runtime.currentWave++;
+        broadcastPveZone(runtime, ChatColor.GOLD + "PvE-Welle " + runtime.currentWave + "/" + runtime.requiredWaves + " startet.");
+        int participantCount = Math.max(1, runtime.participants.size());
+        int areaTier = computePveAreaTier(runtime.floorArea);
+        for (PveSpawnMarker marker : runtime.markers) {
+            int amount = Math.max(1, 1 + areaTier + ((runtime.currentWave - 1) / 2) + (participantCount - 1));
+            for (int i = 0; i < amount; i++) {
+                spawnPveMob(runtime, marker);
+            }
+        }
+    }
+
+    private void spawnPveMob(PveZoneRuntime runtime, PveSpawnMarker marker) {
+        if (runtime == null || marker == null || marker.spawnLocation().getWorld() == null) return;
+        Entity entity = marker.spawnLocation().getWorld().spawnEntity(marker.spawnLocation(), marker.entityType());
+        if (!(entity instanceof LivingEntity living)) {
+            entity.remove();
+            return;
+        }
+        living.setCustomName(ChatColor.RED + marker.displayName());
+        living.setCustomNameVisible(true);
+        living.addScoreboardTag("skycity_pve_zone");
+        living.addScoreboardTag("skycity_pve_marker_" + marker.id());
+        living.addScoreboardTag("skycity_pve_reward_" + marker.rewardLevels());
+        runtime.mobLevels.put(living.getUniqueId(), marker.level());
+        applyPveMobScaling(runtime, living, marker.level(), true);
+        if (living instanceof Mob mob) {
+            mob.setRemoveWhenFarAway(false);
+            Player target = runtime.participants.stream().map(Bukkit::getPlayer).filter(player -> player != null && player.isOnline()).findFirst().orElse(null);
+            if (target != null) {
+                mob.setTarget(target);
+            }
+        }
+        runtime.activeMobIds.add(living.getUniqueId());
+        runtime.mobHomes.put(living.getUniqueId(), marker.spawnLocation().clone());
+        runtime.mobLabels.put(living.getUniqueId(), marker.displayName());
+        pveMobZones.put(living.getUniqueId(), runtime.islandOwner + ":" + runtime.parcelKey);
+    }
+
+    private void tickPveZones() {
+        for (PveZoneRuntime runtime : new ArrayList<>(activePveZones.values())) {
+            ParcelData parcel = islands.get(runtime.islandOwner) == null ? null : islands.get(runtime.islandOwner).getParcels().get(runtime.parcelKey);
+            IslandData island = islands.get(runtime.islandOwner);
+            if (island == null || parcel == null || !parcel.isPveEnabled()) {
+                resetPveZone(runtime, null);
+                continue;
+            }
+            runtime.participants.removeIf(playerId -> {
+                Player player = Bukkit.getPlayer(playerId);
+                return player == null || !player.isOnline() || getIslandAt(player.getLocation()) != island || getParcelAt(island, player.getLocation()) != parcel;
+            });
+            if (runtime.participants.isEmpty()) {
+                resetPveZone(runtime, null);
+                continue;
+            }
+            for (UUID mobId : new ArrayList<>(runtime.activeMobIds)) {
+                Entity entity = Bukkit.getEntity(mobId);
+                if (!(entity instanceof Mob mob) || !mob.isValid()) {
+                    runtime.activeMobIds.remove(mobId);
+                    runtime.mobHomes.remove(mobId);
+                    runtime.mobLabels.remove(mobId);
+                    runtime.mobLevels.remove(mobId);
+                    runtime.mobLastReachableAt.remove(mobId);
+                    runtime.mobLastRangedHitAt.remove(mobId);
+                    runtime.invalidMobIds.remove(mobId);
+                    pveMobZones.remove(mobId);
+                    continue;
+                }
+                Integer mobLevel = runtime.mobLevels.get(mobId);
+                if (mobLevel != null) {
+                    applyPveMobScaling(runtime, mob, mobLevel, false);
+                }
+                if (!runtime.contains(mob.getLocation()) || runtime.isInStartZone(mob.getLocation())) {
+                    Location home = runtime.mobHomes.get(mobId);
+                    if (home != null) {
+                        mob.teleport(home);
+                    }
+                }
+                Player nearest = runtime.participants.stream()
+                        .map(Bukkit::getPlayer)
+                        .filter(player -> player != null && player.isOnline())
+                        .min((a, b) -> Double.compare(a.getLocation().distanceSquared(mob.getLocation()), b.getLocation().distanceSquared(mob.getLocation())))
+                        .orElse(null);
+                if (nearest != null) {
+                    mob.setTarget(nearest);
+                    boolean pathReachable = mob.getPathfinder().findPath(nearest) != null;
+                    if (pathReachable) {
+                        runtime.mobLastReachableAt.put(mobId, System.currentTimeMillis());
+                        mob.getPathfinder().moveTo(nearest, 1.0);
+                    } else {
+                        mob.getPathfinder().stopPathfinding();
+                    }
+                    long now = System.currentTimeMillis();
+                    boolean recentlyReachable = now - runtime.mobLastReachableAt.getOrDefault(mobId, 0L) <= 2500L;
+                    boolean validRangedWindow = isRangedPveMob(mob.getType()) && now - runtime.mobLastRangedHitAt.getOrDefault(mobId, 0L) <= 4000L;
+                    boolean valid = recentlyReachable || validRangedWindow;
+                    updatePveMobValidity(runtime, mob, valid);
+                }
+            }
+            if (runtime.activeMobIds.isEmpty() && runtime.currentWave <= 0) {
+                startNextPveWave(runtime);
+            }
+        }
+    }
+
+    private void finishPveZone(PveZoneRuntime runtime) {
+        if (runtime == null) return;
+        for (UUID playerId : runtime.participants) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline()) continue;
+            int reward = runtime.pendingRewards.getOrDefault(playerId, 0);
+            if (reward > 0) {
+                player.giveExpLevels(reward);
+            }
+            player.sendMessage(ChatColor.GREEN + "PvE geschafft. Belohnung: " + reward + " Level.");
+        }
+        resetPveZone(runtime, ChatColor.GREEN + "PvE-Zone abgeschlossen.");
+    }
+
+    private void resetPveZone(IslandData island, ParcelData parcel, String message) {
+        String key = getParcelPveKey(island, parcel);
+        if (key == null) return;
+        resetPveZone(activePveZones.get(key), message);
+    }
+
+    private void resetPveZone(PveZoneRuntime runtime, String message) {
+        if (runtime == null) return;
+        for (UUID mobId : new ArrayList<>(runtime.activeMobIds)) {
+            Entity entity = Bukkit.getEntity(mobId);
+            if (entity != null) entity.remove();
+            pveMobZones.remove(mobId);
+        }
+        for (UUID playerId : new ArrayList<>(runtime.participants)) {
+            playerPveZones.remove(playerId);
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline() && message != null && !message.isBlank()) {
+                player.sendMessage(message);
+            }
+        }
+        activePveZones.remove(runtime.islandOwner + ":" + runtime.parcelKey);
+    }
+
+    private void resetAllPveZones() {
+        for (PveZoneRuntime runtime : new ArrayList<>(activePveZones.values())) {
+            resetPveZone(runtime, null);
+        }
+        pendingPveRespawns.clear();
+        playerPveZones.clear();
+        pveMobZones.clear();
+    }
+
+    private void broadcastPveZone(PveZoneRuntime runtime, String message) {
+        if (runtime == null || message == null) return;
+        for (UUID playerId : runtime.participants) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                player.sendMessage(message);
+            }
+        }
+    }
+
+    private int extractPveReward(LivingEntity entity) {
+        for (String tag : entity.getScoreboardTags()) {
+            if (tag.startsWith("skycity_pve_reward_")) {
+                try {
+                    return Integer.parseInt(tag.substring("skycity_pve_reward_".length()));
+                } catch (NumberFormatException ignored) {
+                    return 1;
+                }
+            }
+        }
+        return 1;
+    }
+
+    private boolean isRangedPveMob(EntityType type) {
+        return type == EntityType.SKELETON || type == EntityType.DROWNED;
+    }
+
+    private void applyPveMobScaling(PveZoneRuntime runtime, LivingEntity living, int level, boolean fillHealth) {
+        if (runtime == null || living == null) return;
+        double playerScale = 1.0 + Math.max(0, runtime.participants.size() - 1) * 0.35;
+        double areaScale = 1.0 + computePveAreaTier(runtime.floorArea) * 0.25;
+        double waveScale = 1.0 + Math.max(0, runtime.currentWave - 1) * 0.12;
+        double maxHealth = (10.0 + level * 6.0) * playerScale * areaScale * waveScale;
+        if (living.getAttribute(Attribute.GENERIC_MAX_HEALTH) != null) {
+            double previousMax = living.getAttribute(Attribute.GENERIC_MAX_HEALTH).getBaseValue();
+            living.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(maxHealth);
+            if (fillHealth || previousMax <= 0.0) {
+                living.setHealth(Math.min(maxHealth, maxHealth));
+            } else {
+                double scaledHealth = living.getHealth() * (maxHealth / previousMax);
+                living.setHealth(Math.max(1.0, Math.min(maxHealth, scaledHealth)));
+            }
+        }
+        if (living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE) != null) {
+            double attackDamage = (2.0 + level * 1.75) * playerScale * areaScale * (1.0 + Math.max(0, runtime.currentWave - 1) * 0.08);
+            living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(attackDamage);
+        }
+    }
+
+    private static int computePveAreaTier(int floorArea) {
+        if (floorArea >= 1200) return 4;
+        if (floorArea >= 700) return 3;
+        if (floorArea >= 350) return 2;
+        if (floorArea >= 160) return 1;
+        return 0;
+    }
+
+    private static int computePveRequiredWaves(int floorArea) {
+        return switch (computePveAreaTier(floorArea)) {
+            case 4 -> 7;
+            case 3 -> 6;
+            case 2 -> 5;
+            case 1 -> 4;
+            default -> 3;
+        };
+    }
+
+    private void updatePveMobValidity(PveZoneRuntime runtime, Mob mob, boolean valid) {
+        if (runtime == null || mob == null) return;
+        String label = runtime.mobLabels.getOrDefault(mob.getUniqueId(), ChatColor.stripColor(mob.getCustomName() == null ? mob.getType().name() : mob.getCustomName()));
+        if (valid) {
+            runtime.invalidMobIds.remove(mob.getUniqueId());
+            mob.setCustomName(ChatColor.RED + label);
+        } else {
+            runtime.invalidMobIds.add(mob.getUniqueId());
+            mob.setCustomName(ChatColor.DARK_GRAY + "[ungueltig] " + ChatColor.RED + label);
+        }
+        mob.setCustomNameVisible(true);
+    }
 
     public void onTrackedBlockPlaced(IslandData island, Block block) {
         if (island == null || block == null) return;

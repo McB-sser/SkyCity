@@ -18,6 +18,7 @@ public class ParcelData {
     private final Map<UUID, Integer> pvpKills = new HashMap<>();
     private final AccessSettings visitorSettings = new AccessSettings();
     private boolean pvpEnabled;
+    private boolean pveEnabled;
     private Location spawn;
     private int minX;
     private int minY;
@@ -42,6 +43,8 @@ public class ParcelData {
     public AccessSettings getVisitorSettings() { return visitorSettings; }
     public boolean isPvpEnabled() { return pvpEnabled; }
     public void setPvpEnabled(boolean pvpEnabled) { this.pvpEnabled = pvpEnabled; }
+    public boolean isPveEnabled() { return pveEnabled; }
+    public void setPveEnabled(boolean pveEnabled) { this.pveEnabled = pveEnabled; }
     public Location getSpawn() { return spawn; }
     public void setSpawn(Location spawn) { this.spawn = spawn; }
     public int getMinX() { return minX; }

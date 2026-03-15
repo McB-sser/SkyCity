@@ -59,6 +59,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Integer> parcelPvpExitCountdownTasks = new HashMap<>();
     private final Map<UUID, String> parcelPvpExitCountdownKeys = new HashMap<>();
     private final Map<UUID, String> parcelPvpStates = new HashMap<>();
+    private final Map<UUID, String> parcelPveStates = new HashMap<>();
     private final Map<UUID, CombatTag> parcelPvpCombatTags = new HashMap<>();
     private final Map<UUID, String> islandPresenceState = new HashMap<>();
     private final Map<UUID, BossBar> islandBossBars = new HashMap<>();
@@ -120,6 +121,11 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
+        Location pveRespawn = islandService.consumePendingPveRespawn(event.getPlayer().getUniqueId()).orElse(null);
+        if (pveRespawn != null) {
+            event.setRespawnLocation(pveRespawn);
+            return;
+        }
         IslandData island = islandService.getIsland(event.getPlayer().getUniqueId()).orElse(null);
         if (island == null || islandService.isIslandCreationPending(event.getPlayer().getUniqueId())) {
             event.setRespawnLocation(islandService.getSpawnLocation());
@@ -154,10 +160,12 @@ public class PlayerListener implements Listener {
             stopParcelBanCountdown(event.getPlayer().getUniqueId());
             stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
             clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelPveState(event.getPlayer().getUniqueId());
             islandPresenceState.remove(event.getPlayer().getUniqueId());
             removeIslandBossBar(event.getPlayer());
         } else {
             updateParcelPvpState(event.getPlayer(), event.getPlayer().getLocation());
+            updateParcelPveState(event.getPlayer(), event.getPlayer().getLocation());
             updateIslandPresenceMessage(event.getPlayer(), true);
         }
         if (!skyWorldService.isSkyCityWorld(event.getPlayer().getWorld())
@@ -186,6 +194,7 @@ public class PlayerListener implements Listener {
             stopParcelBanCountdown(event.getPlayer().getUniqueId());
             stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
             clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
 
@@ -196,6 +205,7 @@ public class PlayerListener implements Listener {
             handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
             handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
             updateParcelPvpState(event.getPlayer(), event.getTo());
+            updateParcelPveState(event.getPlayer(), event.getTo());
         }
 
         if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
@@ -217,9 +227,11 @@ public class PlayerListener implements Listener {
     public void onTeleport(PlayerTeleportEvent event) {
         if (event.getTo() == null || !skyWorldService.isSkyCityWorld(event.getTo().getWorld())) {
             clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
         updateParcelPvpState(event.getPlayer(), event.getTo());
+        updateParcelPveState(event.getPlayer(), event.getTo());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -242,6 +254,17 @@ public class PlayerListener implements Listener {
         if (!skyWorldService.isSkyCityWorld(victim.getWorld())) return;
         IslandData island = islandService.getIslandAt(victim.getLocation());
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, victim.getLocation());
+        if (parcel != null && parcel.isPveEnabled() && islandService.isPlayerInParcelPve(victim.getUniqueId(), island, parcel)) {
+            event.setKeepInventory(true);
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+            event.setKeepLevel(false);
+            event.setNewLevel(Math.max(0, victim.getLevel() - 5));
+            event.setNewExp(0);
+            islandService.handlePvePlayerDeath(victim, island, parcel);
+            victim.sendMessage(ChatColor.RED + "PvE-Tod: 5 Level verloren. Respawn auf der Startzone.");
+            return;
+        }
         if (parcel == null || !parcel.isPvpEnabled()) return;
 
         event.setKeepInventory(true);
@@ -529,6 +552,60 @@ public class PlayerListener implements Listener {
         if (player != null) {
             clearPvpScoreboard(player);
         }
+    }
+
+    private void updateParcelPveState(Player player, Location to) {
+        UUID playerId = player.getUniqueId();
+        IslandData island = islandService.getIslandAt(to);
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
+        String nextKey = parcel != null && parcel.isPveEnabled() ? islandService.getParcelPveKey(island, parcel) : null;
+        String previousKey = parcelPveStates.get(playerId);
+        if (previousKey != null && !previousKey.equals(nextKey)) {
+            parcelPveStates.remove(playerId);
+            islandService.leaveParcelPve(player, previousKey, true);
+            clearPvpScoreboard(player);
+            player.sendMessage(ChatColor.GRAY + "Du verlaesst die PvE-Zone.");
+        }
+        if (nextKey == null) {
+            return;
+        }
+        if (nextKey.equals(previousKey)) {
+            showParcelPveScoreboard(player, island, parcel);
+            return;
+        }
+        if (islandService.enterParcelPve(player, island, parcel)) {
+            parcelPveStates.put(playerId, nextKey);
+            showParcelPveScoreboard(player, island, parcel);
+        }
+    }
+
+    private void clearParcelPveState(UUID playerId) {
+        String previousKey = parcelPveStates.remove(playerId);
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null && previousKey != null) {
+            islandService.leaveParcelPve(player, previousKey, true);
+        }
+        if (player != null) {
+            clearPvpScoreboard(player);
+        }
+    }
+
+    private void showParcelPveScoreboard(Player player, IslandData island, ParcelData parcel) {
+        var snapshot = islandService.getParcelPveSnapshot(island, parcel).orElse(null);
+        if (snapshot == null) return;
+        Scoreboard scoreboard = Bukkit.getScoreboardManager() == null ? null : Bukkit.getScoreboardManager().getNewScoreboard();
+        if (scoreboard == null) return;
+        Objective objective = scoreboard.registerNewObjective("parcelpve", "dummy", ChatColor.DARK_GREEN + "PvE " + snapshot.parcelName());
+        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+        int score = 15;
+        objective.getScore(ChatColor.WHITE + "Welle: " + ChatColor.GREEN + snapshot.currentWave() + "/" + snapshot.requiredWaves()).setScore(score--);
+        objective.getScore(ChatColor.WHITE + "Mobs: " + ChatColor.RED + snapshot.activeMobCount()).setScore(score--);
+        objective.getScore(ChatColor.DARK_GRAY + " ").setScore(score--);
+        for (var entry : snapshot.spawnEntries().entrySet()) {
+            objective.getScore(ChatColor.GOLD + entry.getKey() + ChatColor.GRAY + " " + ChatColor.WHITE + entry.getValue()).setScore(score--);
+            if (score <= 0) break;
+        }
+        player.setScoreboard(scoreboard);
     }
 
     private void showParcelPvpScoreboard(Player player, IslandData island, ParcelData parcel) {
