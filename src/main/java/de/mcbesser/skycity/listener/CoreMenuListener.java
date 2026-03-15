@@ -361,11 +361,11 @@ public class CoreMenuListener implements Listener {
                     Material.BOOK,
                     ChatColor.GOLD + "PvE-Anleitung",
                     java.util.List.of(
-                            ChatColor.GRAY + "1) Zone vollst\u00e4ndig schlie\u00dfen",
-                            ChatColor.GRAY + "2) Wei\u00dfe Wolle als Startzone setzen",
-                            ChatColor.GRAY + "3) Farbige Wolle als Spawnmarker setzen",
-                            ChatColor.GRAY + "4) GS-PvE aktivieren",
-                            ChatColor.GRAY + "5) Mit 5 Leveln beitreten"
+                            ChatColor.GRAY + "1) Wei\u00dfe Wolle = Startzone",
+                            ChatColor.GRAY + "2) 1 Ausgang an der Kante, 3 hoch frei",
+                            ChatColor.GRAY + "3) LIGHT_GRAY Zombie, GREEN Spider",
+                            ChatColor.GRAY + "4) YELLOW Skeleton, ORANGE Husk",
+                            ChatColor.GRAY + "5) BLUE Drowned, RED Creeper, BLACK Wither Skeleton"
                     )));
         }
         player.openInventory(inventory);

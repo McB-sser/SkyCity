@@ -1712,10 +1712,7 @@ public class IslandService {
     }
 
     public Optional<String> validateParcelPve(IslandData island, ParcelData parcel) {
-        if (buildPveZoneRuntime(island, parcel).isPresent()) {
-            return Optional.empty();
-        }
-        return Optional.of("Zone ungueltig: wei\u00dfe Startzone oder Spawn-Wolle fehlt/ist offen.");
+        return validateParcelPveDetails(island, parcel);
     }
 
     public boolean isParcelPveActive(IslandData island, ParcelData parcel) {
@@ -3064,6 +3061,9 @@ public class IslandService {
     public int getCachedBambooCount(IslandData island) { return island.getCachedBlockCounts().getOrDefault(CACHE_BAMBOO, 0); }
 
     private Optional<PveZoneRuntime> buildPveZoneRuntime(IslandData island, ParcelData parcel) {
+        if (validateParcelPveDetails(island, parcel).isPresent()) {
+            return Optional.empty();
+        }
         if (island == null || parcel == null) return Optional.empty();
         World world = skyWorldService.getWorld();
         if (world == null) return Optional.empty();
@@ -3100,21 +3100,85 @@ public class IslandService {
         if (startBlocks.isEmpty() || markers.isEmpty() || startY == null) return Optional.empty();
         int width = maxStartX - minStartX + 1;
         int depth = maxStartZ - minStartZ + 1;
-        if (width > 5 || depth > 5) return Optional.empty();
         int rectArea = width * depth;
-        if (rectArea - startBlocks.size() > 4) return Optional.empty();
 
         Location respawnLocation = new Location(world, (minStartX + maxStartX) / 2.0 + 0.5, startY + 1.0, (minStartZ + maxStartZ) / 2.0 + 0.5);
-        if (!isPveZoneClosed(parcel, respawnLocation)) return Optional.empty();
         return Optional.of(new PveZoneRuntime(island.getOwner(), parcel.getChunkKey(), parcel, minStartX, minStartZ, maxStartX, maxStartZ, startY, respawnLocation, markers));
     }
 
-    private boolean isPveZoneClosed(ParcelData parcel, Location startLocation) {
-        if (parcel == null || startLocation == null || startLocation.getWorld() == null) return false;
+    private Optional<String> validateParcelPveDetails(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return Optional.of("PvE-Pruefung fehlgeschlagen: Insel oder Grundstueck fehlt.");
+        World world = skyWorldService.getWorld();
+        if (world == null) return Optional.of("PvE-Pruefung fehlgeschlagen: SkyCity-Welt ist nicht geladen.");
+
+        List<Block> startBlocks = new ArrayList<>();
+        int minStartX = Integer.MAX_VALUE;
+        int minStartZ = Integer.MAX_VALUE;
+        int maxStartX = Integer.MIN_VALUE;
+        int maxStartZ = Integer.MIN_VALUE;
+        Integer startY = null;
+        int markerCount = 0;
+
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
+                for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    Material type = block.getType();
+                    if (!type.name().endsWith("_WOOL")) continue;
+                    if (type == Material.WHITE_WOOL) {
+                        startBlocks.add(block);
+                        minStartX = Math.min(minStartX, x);
+                        minStartZ = Math.min(minStartZ, z);
+                        maxStartX = Math.max(maxStartX, x);
+                        maxStartZ = Math.max(maxStartZ, z);
+                        if (startY == null) startY = y;
+                        if (startY != y) {
+                            return Optional.of("Startzone ungueltig: wei\u00dfe Wolle muss auf derselben Hoehe liegen.");
+                        }
+                    } else if (createPveSpawnMarker(block, markerCount + 1) != null) {
+                        markerCount++;
+                    }
+                }
+            }
+        }
+
+        if (startBlocks.isEmpty()) {
+            return Optional.of("Startzone fehlt: Es wurde keine wei\u00dfe Wolle gefunden.");
+        }
+        if (markerCount <= 0) {
+            return Optional.of("Spawnmarker fehlen: Es wurde keine gueltige farbige Wolle fuer Mobs gefunden.");
+        }
+
+        int width = maxStartX - minStartX + 1;
+        int depth = maxStartZ - minStartZ + 1;
+        if (width > 5 || depth > 5) {
+            return Optional.of("Startzone zu gross: Maximal 5x5 wei\u00dfe Wolle erlaubt.");
+        }
+
+        int rectArea = width * depth;
+        int missingBlocks = rectArea - startBlocks.size();
+        if (missingBlocks > 4) {
+            return Optional.of("Startzone ungueltig: Es sind mehr als 4 Luftbloecke im 5x5-Bereich der Startzone.");
+        }
+
+        Location respawnLocation = new Location(world, (minStartX + maxStartX) / 2.0 + 0.5, startY + 1.0, (minStartZ + maxStartZ) / 2.0 + 0.5);
+        if (!respawnLocation.getBlock().isPassable()) {
+            return Optional.of("Startzone blockiert: Ueber der wei\u00dfen Wolle ist kein freier Spawnplatz.");
+        }
+        Optional<String> zoneCheck = validatePveZoneShell(parcel, respawnLocation);
+        if (zoneCheck.isPresent()) {
+            return zoneCheck;
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> validatePveZoneShell(ParcelData parcel, Location startLocation) {
+        if (parcel == null || startLocation == null || startLocation.getWorld() == null) return Optional.of("PvE-Zone ungueltig: Interne Startpruefung fehlgeschlagen.");
         Block startBlock = startLocation.getBlock();
-        if (!startBlock.isPassable()) return false;
+        if (!startBlock.isPassable()) return Optional.of("Startzone blockiert: Der Ausgang ueber der Startzone ist nicht frei.");
         Set<String> visited = new HashSet<>();
         ArrayDeque<Block> queue = new ArrayDeque<>();
+        Set<String> allowedExitColumns = new HashSet<>();
         queue.add(startBlock);
         while (!queue.isEmpty()) {
             Block current = queue.removeFirst();
@@ -3123,18 +3187,54 @@ public class IslandService {
             if (current.getX() <= parcel.getMinX() || current.getX() >= parcel.getMaxX()
                     || current.getY() <= parcel.getMinY() || current.getY() >= parcel.getMaxY()
                     || current.getZ() <= parcel.getMinZ() || current.getZ() >= parcel.getMaxZ()) {
-                return false;
+                if (!isValidPveExitColumn(parcel, current)) {
+                    return Optional.of("Zone ist offen: Der Ausgang muss direkt an der Zonengrenze liegen und 3 Bloecke hoch frei sein.");
+                }
+                allowedExitColumns.add(current.getX() + ":" + current.getZ());
+                if (allowedExitColumns.size() > 1) {
+                    return Optional.of("Zone ist offen: Es ist nur ein Ausgang aus der PvE-Zone erlaubt.");
+                }
             }
             for (int[] offset : List.of(new int[]{1, 0, 0}, new int[]{-1, 0, 0}, new int[]{0, 1, 0}, new int[]{0, -1, 0}, new int[]{0, 0, 1}, new int[]{0, 0, -1})) {
                 Block next = current.getRelative(offset[0], offset[1], offset[2]);
                 if (next.getX() < parcel.getMinX() || next.getX() > parcel.getMaxX()
                         || next.getY() < parcel.getMinY() || next.getY() > parcel.getMaxY()
                         || next.getZ() < parcel.getMinZ() || next.getZ() > parcel.getMaxZ()) {
-                    return false;
+                    if (!isValidPveExitColumn(parcel, current)) {
+                        return Optional.of("Zone ist offen: Der Ausgang muss direkt an der Zonengrenze liegen und 3 Bloecke hoch frei sein.");
+                    }
+                    allowedExitColumns.add(current.getX() + ":" + current.getZ());
+                    if (allowedExitColumns.size() > 1) {
+                        return Optional.of("Zone ist offen: Es ist nur ein Ausgang aus der PvE-Zone erlaubt.");
+                    }
+                    continue;
                 }
                 if (next.isPassable()) {
                     queue.add(next);
                 }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean isValidPveExitColumn(ParcelData parcel, Block insideBoundaryBlock) {
+        if (parcel == null || insideBoundaryBlock == null) return false;
+        World world = insideBoundaryBlock.getWorld();
+        if (world == null) return false;
+
+        int dx = 0;
+        int dz = 0;
+        if (insideBoundaryBlock.getX() <= parcel.getMinX()) dx = -1;
+        else if (insideBoundaryBlock.getX() >= parcel.getMaxX()) dx = 1;
+        else if (insideBoundaryBlock.getZ() <= parcel.getMinZ()) dz = -1;
+        else if (insideBoundaryBlock.getZ() >= parcel.getMaxZ()) dz = 1;
+        else return false;
+
+        for (int yOffset = 0; yOffset < 3; yOffset++) {
+            Block inside = world.getBlockAt(insideBoundaryBlock.getX(), insideBoundaryBlock.getY() + yOffset, insideBoundaryBlock.getZ());
+            Block outside = world.getBlockAt(insideBoundaryBlock.getX() + dx, insideBoundaryBlock.getY() + yOffset, insideBoundaryBlock.getZ() + dz);
+            if (!inside.isPassable() || !outside.isPassable()) {
+                return false;
             }
         }
         return true;
