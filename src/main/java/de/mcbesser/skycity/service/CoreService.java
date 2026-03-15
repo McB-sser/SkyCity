@@ -1473,13 +1473,13 @@ public class CoreService {
             ChatColor.GRAY + "Ausgang nur an der Startzonen-Seite erlaubt",
             ChatColor.GRAY + "Der Ausgang darf breiter sein, aber nur zusammenhaengend",
             ChatColor.GRAY + "Ausgang und Aussenkante muessen 3 hoch frei sein",
-            ChatColor.GRAY + "LIGHT_GRAY = Zombie Stufe 1",
-            ChatColor.GRAY + "GREEN = Spider Stufe 2",
-            ChatColor.GRAY + "YELLOW = Skeleton Stufe 2",
-            ChatColor.GRAY + "ORANGE = Husk Stufe 3",
-            ChatColor.GRAY + "BLUE = Drowned Stufe 3",
-            ChatColor.GRAY + "RED = Creeper Stufe 4",
-            ChatColor.GRAY + "BLACK = Wither Skeleton Stufe 5"
+            ChatColor.GRAY + "LIGHT_GRAY = Zombie-Familie (Opa, Hausmeister, Siedler)",
+            ChatColor.GRAY + "GREEN = Spinnen-Familie (Jagd, Hoehle, Hetzer)",
+            ChatColor.GRAY + "YELLOW = Skelett-Familie (Waldlaeufer, Rekrut, Jaeger)",
+            ChatColor.GRAY + "ORANGE = Wueste (Raeuber, Pluenderer, Spaeher)",
+            ChatColor.GRAY + "BLUE = Hafen (Kai, Faehrmann, Hafenwache)",
+            ChatColor.GRAY + "RED = Sprengtrupp (Sprengmeister, Zuender, Sturmlaeufer)",
+            ChatColor.GRAY + "BLACK = Nachtwache (Nachtwaechter, Vorsteher, Richter)"
          )));
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;

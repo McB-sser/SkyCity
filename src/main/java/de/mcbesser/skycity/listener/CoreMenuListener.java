@@ -365,9 +365,9 @@ public class CoreMenuListener implements Listener {
                             ChatColor.GRAY + "2) Ausgang nur an der Startzonen-Seite",
                             ChatColor.GRAY + "3) Ausgang darf breiter sein, wenn zusammenhaengend",
                             ChatColor.GRAY + "4) Innen + aussen 3 hoch frei",
-                            ChatColor.GRAY + "5) LIGHT_GRAY Zombie, GREEN Spider",
-                            ChatColor.GRAY + "6) YELLOW Skeleton, ORANGE Husk",
-                            ChatColor.GRAY + "7) BLUE Drowned, RED Creeper, BLACK Wither Skeleton"
+                            ChatColor.GRAY + "5) LIGHT_GRAY = Zombie-Familie mit Varianten",
+                            ChatColor.GRAY + "6) GREEN = Spinnen, YELLOW = Skelette, ORANGE = Wueste",
+                            ChatColor.GRAY + "7) BLUE = Hafen, RED = Sprengtrupp, BLACK = Nachtwache"
                     )));
         }
         player.openInventory(inventory);

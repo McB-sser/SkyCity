@@ -9,6 +9,7 @@ import de.mcbesser.skycity.model.ParcelData;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -32,7 +33,9 @@ import org.bukkit.entity.Villager;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.NamespacedKey;
 import org.bukkit.persistence.PersistentDataType;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -52,13 +55,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class IslandService {
     public enum TrustPermission { BUILD, CONTAINER, REDSTONE, ALL }
@@ -102,8 +108,23 @@ public class IslandService {
     private record ThemeHit(long seed, double density) { }
     private record PregenerationTask(UUID islandOwner, int nextIndex) { }
     private record IslandCreationTask(UUID playerId) { }
-    private record PveSpawnMarker(String id, Location markerLocation, Location spawnLocation, EntityType entityType, String displayName, int level, int rewardLevels) { }
-    public record PveRuntimeSnapshot(String zoneKey, String parcelName, int currentWave, int requiredWaves, int activeMobCount, Map<String, String> spawnEntries) { }
+    private record PveMobArchetype(
+            String key,
+            EntityType entityType,
+            String singularName,
+            String pluralName,
+            int level,
+            int rewardLevels,
+            double movementSpeed,
+            Color helmetColor,
+            Color chestColor,
+            Color legColor,
+            Color bootColor
+    ) { }
+    private record PveSpawnMarker(String id, Location markerLocation, Location spawnLocation, String familyName, List<PveMobArchetype> archetypes, int level, int rewardLevels) { }
+    public record PveRuntimeSnapshot(String zoneKey, String parcelName, int currentWave, int requiredWaves, int activeMobCount, String objectiveText, Map<String, String> spawnEntries) { }
+    private enum PveObjectiveMode { KILL_ALL_OF_TYPE, SPARE_TYPE }
+    private static final long PVE_SPARE_SURVIVAL_MS = 15000L;
     private static final class PveZoneRuntime {
         private final UUID islandOwner;
         private final String parcelKey;
@@ -125,6 +146,7 @@ public class IslandService {
         private final Set<UUID> activeMobIds = new HashSet<>();
         private final Map<UUID, Location> mobHomes = new HashMap<>();
         private final Map<UUID, String> mobLabels = new HashMap<>();
+        private final Map<UUID, PveMobArchetype> mobArchetypes = new HashMap<>();
         private final Map<UUID, Integer> mobLevels = new HashMap<>();
         private final Map<UUID, Integer> pendingRewards = new HashMap<>();
         private final Map<UUID, Long> mobLastReachableAt = new HashMap<>();
@@ -132,6 +154,11 @@ public class IslandService {
         private final Set<UUID> invalidMobIds = new HashSet<>();
         private int currentWave = 0;
         private final int requiredWaves;
+        private PveObjectiveMode objectiveMode = PveObjectiveMode.KILL_ALL_OF_TYPE;
+        private String objectiveArchetypeKey = "zombie_opa";
+        private String objectiveSingularName = "Opa";
+        private String objectivePluralName = "Opas";
+        private long spareSurvivalDeadline = 0L;
 
         private PveZoneRuntime(UUID islandOwner, String parcelKey, ParcelData parcel, int startMinX, int startMinZ, int startMaxX, int startMaxZ, int startY, Location respawnLocation, List<PveSpawnMarker> markers) {
             this.islandOwner = islandOwner;
@@ -165,6 +192,19 @@ public class IslandService {
                     && location.getBlockY() >= startY
                     && location.getBlockX() >= startMinX && location.getBlockX() <= startMaxX
                     && location.getBlockZ() >= startMinZ && location.getBlockZ() <= startMaxZ;
+        }
+
+        private String objectiveText() {
+            String base = switch (objectiveMode) {
+                case KILL_ALL_OF_TYPE -> "Toete alle " + objectivePluralName;
+                case SPARE_TYPE -> "Toete keine " + objectivePluralName;
+            };
+            if (objectiveMode != PveObjectiveMode.SPARE_TYPE || spareSurvivalDeadline <= 0L) {
+                return base;
+            }
+            long remainingMs = Math.max(0L, spareSurvivalDeadline - System.currentTimeMillis());
+            long remainingSeconds = (remainingMs + 999L) / 1000L;
+            return base + " [" + remainingSeconds + "s ueberleben]";
         }
     }
     private static final class PendingBorderUnlockRequest {
@@ -1733,11 +1773,11 @@ public class IslandService {
                     .filter(LivingEntity.class::isInstance)
                     .filter(entity -> entity.getScoreboardTags().contains("skycity_pve_marker_" + marker.id()))
                     .count();
-            lines.put(index + ". Spawn", marker.displayName() + " x" + alive);
+            lines.put(index + ". Spawn", marker.familyName() + " x" + alive);
             index++;
             if (index > 10) break;
         }
-        return Optional.of(new PveRuntimeSnapshot(key, getParcelDisplayName(parcel), runtime.currentWave, runtime.requiredWaves, runtime.activeMobIds.size(), lines));
+        return Optional.of(new PveRuntimeSnapshot(key, getParcelDisplayName(parcel), runtime.currentWave, runtime.requiredWaves, runtime.activeMobIds.size(), runtime.objectiveText(), lines));
     }
 
     public boolean enterParcelPve(Player player, IslandData island, ParcelData parcel) {
@@ -1816,17 +1856,21 @@ public class IslandService {
         runtime.mobHomes.remove(entity.getUniqueId());
         boolean valid = !runtime.invalidMobIds.contains(entity.getUniqueId());
         runtime.mobLabels.remove(entity.getUniqueId());
+        PveMobArchetype archetype = runtime.mobArchetypes.remove(entity.getUniqueId());
         runtime.mobLevels.remove(entity.getUniqueId());
         runtime.mobLastReachableAt.remove(entity.getUniqueId());
         runtime.mobLastRangedHitAt.remove(entity.getUniqueId());
         runtime.invalidMobIds.remove(entity.getUniqueId());
+        if (runtime.objectiveMode == PveObjectiveMode.SPARE_TYPE && archetype != null && archetype.key().equals(runtime.objectiveArchetypeKey)) {
+            resetPveZone(runtime, ChatColor.RED + "Aufgabe fehlgeschlagen: " + runtime.objectivePluralName + " durften nicht getoetet werden.");
+            return true;
+        }
         if (!valid) {
             broadcastPveZone(runtime, ChatColor.RED + "Ung\u00fcltiger Kill: Mob war au\u00dfer Reichweite oder ohne Pfad zum Spieler.");
-        } else {
-            int reward = Math.max(1, extractPveReward(entity));
-            for (UUID participantId : runtime.participants) {
-                runtime.pendingRewards.merge(participantId, reward, Integer::sum);
-            }
+        }
+        if (isPveObjectiveComplete(runtime)) {
+            completePveWave(runtime);
+            return true;
         }
         if (runtime.activeMobIds.isEmpty()) {
             if (runtime.currentWave >= runtime.requiredWaves) {
@@ -3262,50 +3306,78 @@ public class IslandService {
 
     private PveSpawnMarker createPveSpawnMarker(Block woolBlock, int index) {
         Material type = woolBlock.getType();
-        EntityType entityType;
-        String name;
+        String familyName;
+        List<PveMobArchetype> archetypes;
         int level;
         int reward;
         switch (type) {
             case LIGHT_GRAY_WOOL -> {
-                entityType = EntityType.ZOMBIE;
-                name = "Verfallener";
+                familyName = "Zombie-Familie";
+                archetypes = List.of(
+                        new PveMobArchetype("zombie_opa", EntityType.ZOMBIE, "Opa", "Opas", 1, 1, 0.15, Color.fromRGB(120, 86, 58), Color.fromRGB(244, 244, 236), Color.fromRGB(58, 96, 180), Color.fromRGB(22, 22, 22)),
+                        new PveMobArchetype("zombie_hausmeister", EntityType.ZOMBIE, "Hausmeister", "Hausmeister", 1, 1, 0.19, Color.fromRGB(56, 86, 44), Color.fromRGB(212, 221, 208), Color.fromRGB(46, 72, 132), Color.fromRGB(26, 26, 26)),
+                        new PveMobArchetype("zombie_siedler", EntityType.ZOMBIE, "Siedler", "Siedler", 1, 1, 0.21, Color.fromRGB(122, 64, 38), Color.fromRGB(232, 214, 199), Color.fromRGB(72, 92, 146), Color.fromRGB(18, 18, 18))
+                );
                 level = 1;
                 reward = 1;
             }
             case GREEN_WOOL -> {
-                entityType = EntityType.SPIDER;
-                name = "J\u00e4ger";
+                familyName = "Spinnen-Familie";
+                archetypes = List.of(
+                        new PveMobArchetype("spider_jagdspinne", EntityType.SPIDER, "Jagdspinne", "Jagdspinnen", 2, 1, 0.31, null, null, null, null),
+                        new PveMobArchetype("spider_hoehlenspinne", EntityType.CAVE_SPIDER, "Hoehlenspinne", "Hoehlenspinnen", 2, 1, 0.34, null, null, null, null),
+                        new PveMobArchetype("spider_hetzer", EntityType.SPIDER, "Hetzerspinne", "Hetzerspinnen", 2, 1, 0.35, null, null, null, null)
+                );
                 level = 2;
                 reward = 1;
             }
             case YELLOW_WOOL -> {
-                entityType = EntityType.SKELETON;
-                name = "Scharfsch\u00fctze";
+                familyName = "Skelett-Familie";
+                archetypes = List.of(
+                        new PveMobArchetype("skeleton_waldlaeufer", EntityType.SKELETON, "Waldlaeufer", "Waldlaeufer", 2, 2, 0.28, Color.fromRGB(48, 110, 52), Color.fromRGB(231, 235, 220), Color.fromRGB(44, 77, 154), Color.fromRGB(18, 18, 18)),
+                        new PveMobArchetype("skeleton_rekrut", EntityType.SKELETON, "Rekrut", "Rekruten", 2, 2, 0.26, Color.fromRGB(92, 92, 108), Color.fromRGB(222, 222, 230), Color.fromRGB(56, 64, 118), Color.fromRGB(16, 16, 16)),
+                        new PveMobArchetype("skeleton_jaeger", EntityType.SKELETON, "Jaeger", "Jaeger", 2, 2, 0.30, Color.fromRGB(70, 84, 40), Color.fromRGB(206, 214, 180), Color.fromRGB(72, 86, 54), Color.fromRGB(24, 24, 24))
+                );
                 level = 2;
                 reward = 2;
             }
             case ORANGE_WOOL -> {
-                entityType = EntityType.HUSK;
-                name = "Brueter";
+                familyName = "Wueste";
+                archetypes = List.of(
+                        new PveMobArchetype("husk_wuestenraeuber", EntityType.HUSK, "Wuestenraeuber", "Wuestenraeuber", 3, 2, 0.24, Color.fromRGB(146, 103, 61), Color.fromRGB(222, 194, 125), Color.fromRGB(108, 82, 51), Color.fromRGB(46, 31, 20)),
+                        new PveMobArchetype("husk_pluenderer", EntityType.HUSK, "Pluenderer", "Pluenderer", 3, 2, 0.26, Color.fromRGB(188, 138, 74), Color.fromRGB(194, 173, 112), Color.fromRGB(122, 94, 58), Color.fromRGB(38, 24, 18)),
+                        new PveMobArchetype("husk_spaeher", EntityType.HUSK, "Spaeher", "Spaeher", 3, 2, 0.29, Color.fromRGB(112, 88, 52), Color.fromRGB(205, 191, 148), Color.fromRGB(92, 74, 48), Color.fromRGB(32, 22, 18))
+                );
                 level = 3;
                 reward = 2;
             }
             case BLUE_WOOL -> {
-                entityType = EntityType.DROWNED;
-                name = "Flutkrieger";
+                familyName = "Hafen";
+                archetypes = List.of(
+                        new PveMobArchetype("drowned_kai", EntityType.DROWNED, "Kai", "Kais", 3, 2, 0.23, Color.fromRGB(36, 88, 118), Color.fromRGB(212, 226, 236), Color.fromRGB(46, 96, 166), Color.fromRGB(20, 32, 48)),
+                        new PveMobArchetype("drowned_faehrmann", EntityType.DROWNED, "Faehrmann", "Faehrmaenner", 3, 2, 0.22, Color.fromRGB(54, 74, 116), Color.fromRGB(198, 214, 228), Color.fromRGB(34, 72, 126), Color.fromRGB(18, 28, 44)),
+                        new PveMobArchetype("drowned_hafenwache", EntityType.DROWNED, "Hafenwache", "Hafenwachen", 3, 2, 0.25, Color.fromRGB(28, 64, 92), Color.fromRGB(176, 194, 208), Color.fromRGB(42, 68, 118), Color.fromRGB(12, 18, 34))
+                );
                 level = 3;
                 reward = 2;
             }
             case RED_WOOL -> {
-                entityType = EntityType.CREEPER;
-                name = "Sprenger";
+                familyName = "Sprengtrupp";
+                archetypes = List.of(
+                        new PveMobArchetype("creeper_sprengmeister", EntityType.CREEPER, "Sprengmeister", "Sprengmeister", 4, 3, 0.30, null, null, null, null),
+                        new PveMobArchetype("creeper_zuender", EntityType.CREEPER, "Zuender", "Zuender", 4, 3, 0.33, null, null, null, null),
+                        new PveMobArchetype("creeper_sturmlaeufer", EntityType.CREEPER, "Sturmlaeufer", "Sturmlaeufer", 4, 3, 0.36, null, null, null, null)
+                );
                 level = 4;
                 reward = 3;
             }
             case BLACK_WOOL -> {
-                entityType = EntityType.WITHER_SKELETON;
-                name = "Albtraum";
+                familyName = "Nachtwache";
+                archetypes = List.of(
+                        new PveMobArchetype("wither_nachtwaechter", EntityType.WITHER_SKELETON, "Nachtwaechter", "Nachtwaechter", 5, 4, 0.25, Color.fromRGB(70, 70, 78), Color.fromRGB(210, 210, 214), Color.fromRGB(34, 34, 38), Color.fromRGB(8, 8, 8)),
+                        new PveMobArchetype("wither_vorsteher", EntityType.WITHER_SKELETON, "Vorsteher", "Vorsteher", 5, 4, 0.27, Color.fromRGB(88, 74, 66), Color.fromRGB(224, 216, 206), Color.fromRGB(42, 42, 46), Color.fromRGB(12, 12, 12)),
+                        new PveMobArchetype("wither_richter", EntityType.WITHER_SKELETON, "Richter", "Richter", 5, 4, 0.24, Color.fromRGB(54, 54, 62), Color.fromRGB(188, 188, 194), Color.fromRGB(24, 24, 28), Color.fromRGB(6, 6, 6))
+                );
                 level = 5;
                 reward = 4;
             }
@@ -3318,37 +3390,55 @@ public class IslandService {
         Location spawnLocation = above.isPassable()
                 ? woolBlock.getLocation().add(0.5, 1.0, 0.5)
                 : above.getRelative(0, 1, 0).getLocation().add(0.5, 0.0, 0.5);
-        return new PveSpawnMarker("m" + index, woolBlock.getLocation(), spawnLocation, entityType, "Stufe " + level + " " + name, level, reward);
+        return new PveSpawnMarker("m" + index, woolBlock.getLocation(), spawnLocation, familyName, archetypes, level, reward);
     }
 
     private void startNextPveWave(PveZoneRuntime runtime) {
         if (runtime == null) return;
         runtime.currentWave++;
-        broadcastPveZone(runtime, ChatColor.GOLD + "PvE-Welle " + runtime.currentWave + "/" + runtime.requiredWaves + " startet.");
+        runtime.spareSurvivalDeadline = 0L;
+        if (runtime.markers.isEmpty()) return;
         int participantCount = Math.max(1, runtime.participants.size());
         int areaTier = computePveAreaTier(runtime.floorArea);
-        for (PveSpawnMarker marker : runtime.markers) {
-            int amount = Math.max(1, 1 + areaTier + ((runtime.currentWave - 1) / 2) + (participantCount - 1));
+        int totalMobs = Math.max(1, 4 + areaTier * 2 + (runtime.currentWave - 1) * 2 + (participantCount - 1) * 3);
+        List<PveSpawnMarker> shuffledMarkers = new ArrayList<>(runtime.markers);
+        java.util.Collections.shuffle(shuffledMarkers, new Random(System.nanoTime()));
+        int markerCount = shuffledMarkers.size();
+        int baseShare = totalMobs / markerCount;
+        int remainder = totalMobs % markerCount;
+        for (int markerIndex = 0; markerIndex < markerCount; markerIndex++) {
+            PveSpawnMarker marker = shuffledMarkers.get(markerIndex);
+            int amount = baseShare + (markerIndex < remainder ? 1 : 0);
+            if (amount <= 0) continue;
             for (int i = 0; i < amount; i++) {
                 spawnPveMob(runtime, marker);
             }
         }
+        choosePveObjective(runtime);
+        broadcastPveZone(runtime, ChatColor.GOLD + "PvE-Welle " + runtime.currentWave + "/" + runtime.requiredWaves + " startet.");
+        broadcastPveZone(runtime, ChatColor.YELLOW + "Ziel: " + ChatColor.GOLD + runtime.objectiveText());
     }
 
     private void spawnPveMob(PveZoneRuntime runtime, PveSpawnMarker marker) {
         if (runtime == null || marker == null || marker.spawnLocation().getWorld() == null) return;
-        Entity entity = marker.spawnLocation().getWorld().spawnEntity(marker.spawnLocation(), marker.entityType());
+        List<PveMobArchetype> archetypes = marker.archetypes();
+        if (archetypes == null || archetypes.isEmpty()) return;
+        PveMobArchetype archetype = archetypes.get(ThreadLocalRandom.current().nextInt(archetypes.size()));
+        Entity entity = marker.spawnLocation().getWorld().spawnEntity(marker.spawnLocation(), archetype.entityType());
         if (!(entity instanceof LivingEntity living)) {
             entity.remove();
             return;
         }
-        living.setCustomName(ChatColor.RED + marker.displayName());
+        String displayName = "Stufe " + archetype.level() + " " + archetype.singularName();
+        living.setCustomName(ChatColor.RED + displayName);
         living.setCustomNameVisible(true);
         living.addScoreboardTag("skycity_pve_zone");
         living.addScoreboardTag("skycity_pve_marker_" + marker.id());
-        living.addScoreboardTag("skycity_pve_reward_" + marker.rewardLevels());
-        runtime.mobLevels.put(living.getUniqueId(), marker.level());
-        applyPveMobScaling(runtime, living, marker.level(), true);
+        living.addScoreboardTag("skycity_pve_reward_" + archetype.rewardLevels());
+        runtime.mobLevels.put(living.getUniqueId(), archetype.level());
+        runtime.mobArchetypes.put(living.getUniqueId(), archetype);
+        applyPveMobScaling(runtime, living, archetype.level(), true);
+        applyPveMobTheme(living, archetype);
         if (living instanceof Mob mob) {
             mob.setRemoveWhenFarAway(false);
             Player target = runtime.participants.stream().map(Bukkit::getPlayer).filter(player -> player != null && player.isOnline()).findFirst().orElse(null);
@@ -3358,7 +3448,7 @@ public class IslandService {
         }
         runtime.activeMobIds.add(living.getUniqueId());
         runtime.mobHomes.put(living.getUniqueId(), marker.spawnLocation().clone());
-        runtime.mobLabels.put(living.getUniqueId(), marker.displayName());
+        runtime.mobLabels.put(living.getUniqueId(), displayName);
         pveMobZones.put(living.getUniqueId(), runtime.islandOwner + ":" + runtime.parcelKey);
     }
 
@@ -3384,6 +3474,7 @@ public class IslandService {
                     runtime.activeMobIds.remove(mobId);
                     runtime.mobHomes.remove(mobId);
                     runtime.mobLabels.remove(mobId);
+                    runtime.mobArchetypes.remove(mobId);
                     runtime.mobLevels.remove(mobId);
                     runtime.mobLastReachableAt.remove(mobId);
                     runtime.mobLastRangedHitAt.remove(mobId);
@@ -3422,18 +3513,45 @@ public class IslandService {
                     updatePveMobValidity(runtime, mob, valid);
                 }
             }
+            if (runtime.objectiveMode == PveObjectiveMode.SPARE_TYPE && areOnlyObjectiveMobsRemaining(runtime)) {
+                if (runtime.spareSurvivalDeadline <= 0L) {
+                    runtime.spareSurvivalDeadline = System.currentTimeMillis() + PVE_SPARE_SURVIVAL_MS;
+                    broadcastPveZone(runtime, ChatColor.YELLOW + "Nur noch " + runtime.objectivePluralName + " uebrig. Jetzt " + (PVE_SPARE_SURVIVAL_MS / 1000L) + " Sekunden ueberleben.");
+                } else if (System.currentTimeMillis() >= runtime.spareSurvivalDeadline) {
+                    completePveWave(runtime);
+                    continue;
+                }
+            } else if (runtime.spareSurvivalDeadline > 0L) {
+                runtime.spareSurvivalDeadline = 0L;
+            }
             if (runtime.activeMobIds.isEmpty() && runtime.currentWave <= 0) {
                 startNextPveWave(runtime);
             }
         }
     }
 
+    private void completePveWave(PveZoneRuntime runtime) {
+        if (runtime == null) return;
+        runtime.spareSurvivalDeadline = 0L;
+        int waveReward = computePveWaveReward(runtime);
+        for (UUID participantId : runtime.participants) {
+            runtime.pendingRewards.merge(participantId, waveReward, Integer::sum);
+        }
+        clearRemainingPveMobs(runtime);
+        if (runtime.currentWave >= runtime.requiredWaves) {
+            finishPveZone(runtime);
+        } else {
+            startNextPveWave(runtime);
+        }
+    }
+
     private void finishPveZone(PveZoneRuntime runtime) {
         if (runtime == null) return;
+        int completionBonus = computePveCompletionBonus(runtime);
         for (UUID playerId : runtime.participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) continue;
-            int reward = runtime.pendingRewards.getOrDefault(playerId, 0);
+            int reward = runtime.pendingRewards.getOrDefault(playerId, 0) + completionBonus;
             if (reward > 0) {
                 player.giveExpLevels(reward);
             }
@@ -3497,8 +3615,83 @@ public class IslandService {
         return 1;
     }
 
+    private int computePveWaveReward(PveZoneRuntime runtime) {
+        if (runtime == null) return 0;
+        return 1;
+    }
+
+    private int computePveCompletionBonus(PveZoneRuntime runtime) {
+        if (runtime == null) return 0;
+        return runtime.requiredWaves >= 5 ? 1 : 0;
+    }
+
     private boolean isRangedPveMob(EntityType type) {
         return type == EntityType.SKELETON || type == EntityType.DROWNED;
+    }
+
+    private void choosePveObjective(PveZoneRuntime runtime) {
+        if (runtime == null || runtime.markers.isEmpty()) return;
+        List<PveMobArchetype> objectivePool = runtime.activeMobIds.stream()
+                .map(runtime.mobArchetypes::get)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toCollection(ArrayList::new));
+        if (objectivePool.isEmpty()) {
+            objectivePool = runtime.markers.stream()
+                .flatMap(marker -> marker.archetypes().stream())
+                .distinct()
+                .collect(Collectors.toCollection(ArrayList::new));
+        }
+        java.util.Collections.shuffle(objectivePool, new Random(System.nanoTime()));
+        PveMobArchetype chosen = objectivePool.get(0);
+        runtime.objectiveArchetypeKey = chosen.key();
+        runtime.objectiveSingularName = chosen.singularName();
+        runtime.objectivePluralName = chosen.pluralName();
+        runtime.objectiveMode = runtime.currentWave % 3 == 0 ? PveObjectiveMode.SPARE_TYPE : PveObjectiveMode.KILL_ALL_OF_TYPE;
+    }
+
+    private boolean isPveObjectiveComplete(PveZoneRuntime runtime) {
+        if (runtime == null) return false;
+        return switch (runtime.objectiveMode) {
+            case KILL_ALL_OF_TYPE -> countActivePveMobsOfArchetype(runtime, runtime.objectiveArchetypeKey) == 0;
+            case SPARE_TYPE -> false;
+        };
+    }
+
+    private boolean areOnlyObjectiveMobsRemaining(PveZoneRuntime runtime) {
+        if (runtime == null || runtime.objectiveMode != PveObjectiveMode.SPARE_TYPE || runtime.activeMobIds.isEmpty()) return false;
+        return runtime.activeMobIds.stream()
+                .map(runtime.mobArchetypes::get)
+                .filter(Objects::nonNull)
+                .allMatch(archetype -> archetype.key().equals(runtime.objectiveArchetypeKey));
+    }
+
+    private long countActivePveMobsOfArchetype(PveZoneRuntime runtime, String archetypeKey) {
+        if (runtime == null || archetypeKey == null) return 0L;
+        return runtime.activeMobIds.stream()
+                .map(runtime.mobArchetypes::get)
+                .filter(Objects::nonNull)
+                .filter(archetype -> archetype.key().equals(archetypeKey))
+                .count();
+    }
+
+    private void clearRemainingPveMobs(PveZoneRuntime runtime) {
+        if (runtime == null) return;
+        for (UUID mobId : new ArrayList<>(runtime.activeMobIds)) {
+            Entity entity = Bukkit.getEntity(mobId);
+            if (entity != null) {
+                entity.remove();
+            }
+            runtime.mobHomes.remove(mobId);
+            runtime.mobLabels.remove(mobId);
+            runtime.mobArchetypes.remove(mobId);
+            runtime.mobLevels.remove(mobId);
+            runtime.mobLastReachableAt.remove(mobId);
+            runtime.mobLastRangedHitAt.remove(mobId);
+            runtime.invalidMobIds.remove(mobId);
+            runtime.activeMobIds.remove(mobId);
+            pveMobZones.remove(mobId);
+        }
     }
 
     private void applyPveMobScaling(PveZoneRuntime runtime, LivingEntity living, int level, boolean fillHealth) {
@@ -3521,6 +3714,50 @@ public class IslandService {
             double attackDamage = (2.0 + level * 1.75) * playerScale * areaScale * (1.0 + Math.max(0, runtime.currentWave - 1) * 0.08);
             living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(attackDamage);
         }
+    }
+
+    private void applyPveMobTheme(LivingEntity living, PveMobArchetype archetype) {
+        if (living == null || archetype == null) return;
+        if (archetype.helmetColor() != null && archetype.chestColor() != null && archetype.legColor() != null && archetype.bootColor() != null) {
+            equipHumanOutfit(living, archetype.helmetColor(), archetype.chestColor(), archetype.legColor(), archetype.bootColor());
+        }
+        setMovementSpeed(living, archetype.movementSpeed());
+    }
+
+    private void equipHumanOutfit(LivingEntity living, Color helmetColor, Color chestColor, Color legColor, Color bootColor) {
+        if (living == null || !isSunArmorMob(living.getType())) return;
+        EntityEquipment equipment = living.getEquipment();
+        if (equipment == null) return;
+        equipment.setHelmet(createColoredLeather(Material.LEATHER_HELMET, helmetColor));
+        equipment.setChestplate(createColoredLeather(Material.LEATHER_CHESTPLATE, chestColor));
+        equipment.setLeggings(createColoredLeather(Material.LEATHER_LEGGINGS, legColor));
+        equipment.setBoots(createColoredLeather(Material.LEATHER_BOOTS, bootColor));
+        equipment.setHelmetDropChance(0.0f);
+        equipment.setChestplateDropChance(0.0f);
+        equipment.setLeggingsDropChance(0.0f);
+        equipment.setBootsDropChance(0.0f);
+    }
+
+    private ItemStack createColoredLeather(Material material, Color color) {
+        ItemStack item = new ItemStack(material);
+        if (item.getItemMeta() instanceof LeatherArmorMeta meta) {
+            meta.setColor(color);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private void setMovementSpeed(LivingEntity living, double speed) {
+        if (living == null || living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED) == null) return;
+        living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
+    }
+
+    private boolean isSunArmorMob(EntityType type) {
+        return type == EntityType.ZOMBIE
+                || type == EntityType.SKELETON
+                || type == EntityType.WITHER_SKELETON
+                || type == EntityType.HUSK
+                || type == EntityType.DROWNED;
     }
 
     private static int computePveAreaTier(int floorArea) {

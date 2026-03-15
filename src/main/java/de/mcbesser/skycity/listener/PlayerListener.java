@@ -600,6 +600,8 @@ public class PlayerListener implements Listener {
         int score = 15;
         objective.getScore(ChatColor.WHITE + "Welle: " + ChatColor.GREEN + snapshot.currentWave() + "/" + snapshot.requiredWaves()).setScore(score--);
         objective.getScore(ChatColor.WHITE + "Mobs: " + ChatColor.RED + snapshot.activeMobCount()).setScore(score--);
+        objective.getScore(ChatColor.YELLOW + "Ziel:").setScore(score--);
+        objective.getScore(ChatColor.GOLD + snapshot.objectiveText()).setScore(score--);
         objective.getScore(ChatColor.DARK_GRAY + " ").setScore(score--);
         for (var entry : snapshot.spawnEntries().entrySet()) {
             objective.getScore(ChatColor.GOLD + entry.getKey() + ChatColor.GRAY + " " + ChatColor.WHITE + entry.getValue()).setScore(score--);
