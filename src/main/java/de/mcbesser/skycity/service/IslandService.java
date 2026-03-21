@@ -105,7 +105,7 @@ public class IslandService {
     }
     public enum UpgradeBranch {
         ANIMAL("animal", "Tierlimit", Material.HAY_BLOCK, 12, 4, 20),
-        CHUNKS("chunks", "Chunkpakete", Material.MAP, 0, 0, 320),
+        CHUNKS("chunks", "Chunkpakete", Material.MAP, 0, 0, 264),
         GOLEM("golem", "Golemlimit", Material.CARVED_PUMPKIN, 2, 1, 18),
         VILLAGER("villager", "Villagerlimit", Material.EMERALD, 2, 1, 18),
         CONTAINER("container", "Behaelter", Material.BARREL, 100, 25, 12),
@@ -3140,7 +3140,7 @@ public class IslandService {
         if (island == null || branch == null) return 0;
         int milestone = Math.max(0, island.getLevel() - 1);
         int cap = switch (branch) {
-            case ANIMAL -> milestone + milestone / 2;
+            case ANIMAL -> (milestone * 20 + 10) / 11;
             case CHUNKS -> milestone * 24;
             case GOLEM, VILLAGER -> Math.max(0, milestone - 1);
             case CONTAINER -> Math.max(0, milestone);
@@ -3166,6 +3166,27 @@ public class IslandService {
     private int scaledInt(int stage, int base, double growth) {
         long scaled = scaledLong(stage, base, growth);
         return (int) Math.max(base, Math.min(Integer.MAX_VALUE, scaled));
+    }
+
+    private int roundRequirement(long value) {
+        long normalized = Math.max(1L, value);
+        long step = 1L;
+        while (step <= normalized / 10L) {
+            step *= 10L;
+        }
+        long rounded = ((normalized + step - 1L) / step) * step;
+        return (int) Math.min(Integer.MAX_VALUE, rounded);
+    }
+
+    private int scaledMaterial(int stage, int base, double growth) {
+        return roundRequirement(scaledLong(stage, base, growth));
+    }
+
+    private int getChunkUnlocksForTier(int tier) {
+        if (tier <= 0) return 0;
+        if (tier <= 24) return 12;
+        if (tier <= 79) return 15;
+        return 16;
     }
 
     public UpgradeRequirement getNextUpgradeRequirement(IslandData island, UpgradeBranch branch) {
@@ -3201,79 +3222,77 @@ public class IslandService {
         Map<Material, Integer> materials = new LinkedHashMap<>();
         switch (branch) {
             case ANIMAL -> {
-                materials.put(Material.WHEAT, scaledInt(nextTier, 3800, 1.50D));
-                materials.put(Material.CARROT, scaledInt(nextTier, 2600, 1.49D));
-                materials.put(Material.POTATO, scaledInt(nextTier, 2600, 1.49D));
-                if (nextTier >= 2) materials.put(Material.HAY_BLOCK, scaledInt(nextTier - 1, 160, 1.32D));
-                if (nextTier >= 5) materials.put(Material.PUMPKIN, scaledInt(nextTier - 4, 700, 1.40D));
+                materials.put(Material.WHEAT, scaledMaterial(nextTier, 3840, 1.50D));
+                materials.put(Material.CARROT, scaledMaterial(nextTier, 2624, 1.49D));
+                materials.put(Material.POTATO, scaledMaterial(nextTier, 2624, 1.49D));
+                if (nextTier >= 2) materials.put(Material.HAY_BLOCK, scaledMaterial(nextTier - 1, 192, 1.32D));
+                if (nextTier >= 5) materials.put(Material.PUMPKIN, scaledMaterial(nextTier - 4, 704, 1.40D));
             }
             case CHUNKS -> {
-                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 5000, 1.06D));
-                materials.put(Material.STONE, scaledInt(nextTier, 2400, 1.055D));
-                materials.put(Material.OAK_LOG, scaledInt(nextTier, 2200, 1.058D));
-                if (nextTier >= 4) materials.put(Material.IRON_INGOT, scaledInt(nextTier - 3, 24, 1.11D));
-                if (nextTier >= 8) materials.put(Material.REDSTONE, scaledInt(nextTier - 7, 18, 1.11D));
+                materials.put(Material.COBBLESTONE, scaledMaterial(nextTier, 5056, 1.04D));
+                materials.put(Material.STONE, scaledMaterial(nextTier, 2432, 1.039D));
+                materials.put(Material.OAK_LOG, scaledMaterial(nextTier, 2240, 1.04D));
+                if (nextTier >= 4) materials.put(Material.IRON_INGOT, scaledMaterial(nextTier - 3, 1024, 1.05D));
+                if (nextTier >= 8) materials.put(Material.REDSTONE, scaledMaterial(nextTier - 7, 768, 1.05D));
             }
             case GOLEM -> {
-                materials.put(Material.IRON_INGOT, scaledInt(nextTier, 140, 1.29D));
-                materials.put(Material.CARVED_PUMPKIN, scaledInt(nextTier, 28, 1.20D));
-                materials.put(Material.REDSTONE, scaledInt(nextTier, 78, 1.23D));
+                materials.put(Material.IRON_INGOT, scaledMaterial(nextTier, 8192, 1.34D));
+                materials.put(Material.CARVED_PUMPKIN, scaledMaterial(nextTier, 32, 1.20D));
+                materials.put(Material.REDSTONE, scaledMaterial(nextTier, 4096, 1.30D));
             }
             case VILLAGER -> {
-                materials.put(Material.BREAD, scaledInt(nextTier, 2800, 1.47D));
-                materials.put(Material.CARROT, scaledInt(nextTier, 3400, 1.50D));
-                materials.put(Material.POTATO, scaledInt(nextTier, 3400, 1.50D));
-                materials.put(Material.EMERALD, scaledInt(nextTier, 12, 1.20D));
+                materials.put(Material.BREAD, scaledMaterial(nextTier, 2816, 1.47D));
+                materials.put(Material.CARROT, scaledMaterial(nextTier, 3456, 1.50D));
+                materials.put(Material.POTATO, scaledMaterial(nextTier, 3456, 1.50D));
+                materials.put(Material.EMERALD, scaledMaterial(nextTier, 4096, 1.32D));
             }
             case CONTAINER -> {
-                materials.put(Material.CHEST, scaledInt(nextTier, 96, 1.34D));
-                materials.put(Material.BARREL, scaledInt(nextTier, 48, 1.32D));
-                materials.put(Material.OAK_LOG, scaledInt(nextTier, 4200, 1.42D));
-                if (nextTier >= 6) materials.put(Material.IRON_INGOT, scaledInt(nextTier - 5, 26, 1.22D));
+                materials.put(Material.CHEST, scaledMaterial(nextTier, 96, 1.34D));
+                materials.put(Material.BARREL, scaledMaterial(nextTier, 48, 1.32D));
+                materials.put(Material.OAK_LOG, scaledMaterial(nextTier, 4224, 1.42D));
+                if (nextTier >= 6) materials.put(Material.IRON_INGOT, scaledMaterial(nextTier - 5, 3072, 1.28D));
             }
             case HOPPER -> {
-                materials.put(Material.IRON_INGOT, scaledInt(nextTier, 110, 1.27D));
-                materials.put(Material.CHEST, scaledInt(nextTier, 24, 1.24D));
-                materials.put(Material.REDSTONE, scaledInt(nextTier, 86, 1.25D));
+                materials.put(Material.IRON_INGOT, scaledMaterial(nextTier, 6144, 1.32D));
+                materials.put(Material.CHEST, scaledMaterial(nextTier, 24, 1.24D));
+                materials.put(Material.REDSTONE, scaledMaterial(nextTier, 4096, 1.30D));
             }
             case PISTON -> {
-                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 1800, 1.30D));
-                materials.put(Material.IRON_INGOT, scaledInt(nextTier, 64, 1.25D));
-                materials.put(Material.REDSTONE, scaledInt(nextTier, 74, 1.25D));
-                if (nextTier >= 4) materials.put(Material.SLIME_BALL, scaledInt(nextTier - 3, 18, 1.22D));
+                materials.put(Material.COBBLESTONE, scaledMaterial(nextTier, 1792, 1.30D));
+                materials.put(Material.IRON_INGOT, scaledMaterial(nextTier, 4096, 1.30D));
+                materials.put(Material.REDSTONE, scaledMaterial(nextTier, 3072, 1.29D));
+                if (nextTier >= 4) materials.put(Material.SLIME_BALL, scaledMaterial(nextTier - 3, 24, 1.22D));
             }
             case ARMOR_STAND -> {
-                materials.put(Material.STICK, scaledInt(nextTier, 2600, 1.38D));
-                materials.put(Material.SMOOTH_STONE_SLAB, scaledInt(nextTier, 320, 1.28D));
-                if (nextTier >= 3) materials.put(Material.LEATHER, scaledInt(nextTier - 2, 72, 1.24D));
+                materials.put(Material.STICK, scaledMaterial(nextTier, 2624, 1.38D));
+                materials.put(Material.SMOOTH_STONE_SLAB, scaledMaterial(nextTier, 320, 1.28D));
+                if (nextTier >= 3) materials.put(Material.LEATHER, scaledMaterial(nextTier - 2, 72, 1.24D));
             }
             case OBSERVER -> {
-                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 1400, 1.28D));
-                materials.put(Material.REDSTONE, scaledInt(nextTier, 110, 1.25D));
-                materials.put(Material.QUARTZ, scaledInt(nextTier, 42, 1.22D));
+                materials.put(Material.COBBLESTONE, scaledMaterial(nextTier, 1408, 1.28D));
+                materials.put(Material.REDSTONE, scaledMaterial(nextTier, 6144, 1.31D));
+                materials.put(Material.QUARTZ, scaledMaterial(nextTier, 2048, 1.28D));
             }
             case DISPENSER -> {
-                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 1800, 1.29D));
-                materials.put(Material.REDSTONE, scaledInt(nextTier, 72, 1.25D));
-                materials.put(Material.STRING, scaledInt(nextTier, 2200, 1.38D));
-                if (nextTier >= 4) materials.put(Material.BOW, scaledInt(nextTier - 3, 8, 1.20D));
+                materials.put(Material.COBBLESTONE, scaledMaterial(nextTier, 1792, 1.29D));
+                materials.put(Material.REDSTONE, scaledMaterial(nextTier, 3072, 1.29D));
+                materials.put(Material.STRING, scaledMaterial(nextTier, 2240, 1.38D));
+                if (nextTier >= 4) materials.put(Material.BOW, scaledMaterial(nextTier - 3, 8, 1.20D));
             }
             case CACTUS -> {
-                materials.put(Material.CACTUS, scaledInt(nextTier, 4200, 1.49D));
-                if (nextTier >= 3) materials.put(Material.SAND, scaledInt(nextTier - 2, 1000, 1.34D));
+                materials.put(Material.CACTUS, scaledMaterial(nextTier, 4224, 1.49D));
+                if (nextTier >= 3) materials.put(Material.SAND, scaledMaterial(nextTier - 2, 1024, 1.34D));
             }
             case KELP -> {
-                materials.put(Material.KELP, scaledInt(nextTier, 5200, 1.50D));
-                if (nextTier >= 4) materials.put(Material.DRIED_KELP_BLOCK, scaledInt(nextTier - 3, 42, 1.24D));
+                materials.put(Material.KELP, scaledMaterial(nextTier, 5248, 1.50D));
+                if (nextTier >= 4) materials.put(Material.DRIED_KELP_BLOCK, scaledMaterial(nextTier - 3, 64, 1.24D));
             }
             case BAMBOO -> {
-                materials.put(Material.BAMBOO, scaledInt(nextTier, 5200, 1.50D));
-                if (nextTier >= 4) materials.put(Material.SCAFFOLDING, scaledInt(nextTier - 3, 60, 1.26D));
+                materials.put(Material.BAMBOO, scaledMaterial(nextTier, 5248, 1.50D));
+                if (nextTier >= 4) materials.put(Material.SCAFFOLDING, scaledMaterial(nextTier - 3, 64, 1.26D));
             }
         }
-        int chunkUnlocksGranted = branch == UpgradeBranch.CHUNKS
-                ? (nextTier < 6 ? 2 : nextTier < 16 ? 4 : 6)
-                : 0;
+        int chunkUnlocksGranted = branch == UpgradeBranch.CHUNKS ? getChunkUnlocksForTier(nextTier) : 0;
         return new UpgradeRequirement(islandLevelReq, experienceReq, materials, chunkUnlocksGranted);
     }
 
@@ -3342,20 +3361,20 @@ public class IslandService {
         long experienceReq = scaledLong(milestone, 900L, 1.40D);
         Map<Material, Integer> materials = new LinkedHashMap<>();
 
-        materials.put(Material.COBBLESTONE, scaledInt(milestone, 50000, 1.52D));
-        materials.put(Material.STONE, scaledInt(milestone, 22000, 1.47D));
-        materials.put(Material.OAK_LOG, scaledInt(milestone, 42000, 1.53D));
+        materials.put(Material.COBBLESTONE, scaledMaterial(milestone, 50048, 1.52D));
+        materials.put(Material.STONE, scaledMaterial(milestone, 22016, 1.47D));
+        materials.put(Material.OAK_LOG, scaledMaterial(milestone, 42048, 1.53D));
 
-        if (milestone >= 2) materials.put(Material.IRON_INGOT, scaledInt(milestone - 1, 120, 1.24D));
-        if (milestone >= 3) materials.put(Material.COAL, scaledInt(milestone - 2, 2400, 1.34D));
-        if (milestone >= 4) materials.put(Material.REDSTONE, scaledInt(milestone - 3, 180, 1.26D));
-        if (milestone >= 5) materials.put(Material.GOLD_INGOT, scaledInt(milestone - 4, 72, 1.22D));
-        if (milestone >= 6) materials.put(Material.QUARTZ, scaledInt(milestone - 5, 72, 1.22D));
-        if (milestone >= 7) materials.put(Material.LAPIS_LAZULI, scaledInt(milestone - 6, 160, 1.24D));
-        if (milestone >= 8) materials.put(Material.EMERALD, scaledInt(milestone - 7, 28, 1.20D));
-        if (milestone >= 9) materials.put(Material.OBSIDIAN, scaledInt(milestone - 8, 280, 1.24D));
-        if (milestone >= 10) materials.put(Material.DIAMOND, scaledInt(milestone - 9, 32, 1.20D));
-        if (milestone >= 11) materials.put(Material.OBSERVER, scaledInt(milestone - 10, 12, 1.14D));
+        if (milestone >= 2) materials.put(Material.IRON_INGOT, scaledMaterial(milestone - 1, 4096, 1.30D));
+        if (milestone >= 3) materials.put(Material.COAL, scaledMaterial(milestone - 2, 32768, 1.38D));
+        if (milestone >= 4) materials.put(Material.REDSTONE, scaledMaterial(milestone - 3, 4096, 1.32D));
+        if (milestone >= 5) materials.put(Material.GOLD_INGOT, scaledMaterial(milestone - 4, 2048, 1.28D));
+        if (milestone >= 6) materials.put(Material.QUARTZ, scaledMaterial(milestone - 5, 2048, 1.28D));
+        if (milestone >= 7) materials.put(Material.LAPIS_LAZULI, scaledMaterial(milestone - 6, 4096, 1.30D));
+        if (milestone >= 8) materials.put(Material.EMERALD, scaledMaterial(milestone - 7, 4096, 1.32D));
+        if (milestone >= 9) materials.put(Material.OBSIDIAN, scaledMaterial(milestone - 8, 4096, 1.28D));
+        if (milestone >= 10) materials.put(Material.DIAMOND, scaledMaterial(milestone - 9, 2048, 1.30D));
+        if (milestone >= 11) materials.put(Material.OBSERVER, scaledMaterial(milestone - 10, 64, 1.18D));
 
         return new MilestoneRequirement(
                 milestone,

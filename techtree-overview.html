@@ -448,7 +448,7 @@
 
     const BRANCHES = [
       { key: "ANIMAL", name: "Tierlimit", baseLimit: 12, step: 4, maxTier: 20, note: "Sehr stark farmbasiert mit Weizen, Karotten, Kartoffeln und Heuballen." },
-      { key: "CHUNKS", name: "Chunkpakete", baseLimit: 0, step: 0, maxTier: 320, note: "Bau- und Ausbaupfad mit Fokus auf Bruchstein, Stein und Holz." },
+      { key: "CHUNKS", name: "Chunkpakete", baseLimit: 0, step: 0, maxTier: 264, note: "Bau- und Ausbaupfad mit Fokus auf Bruchstein, Stein und Holz." },
       { key: "GOLEM", name: "Golemlimit", baseLimit: 2, step: 1, maxTier: 18, note: "Technikpfad mit Eisen, Redstone und geschnitzten Kuerbissen." },
       { key: "VILLAGER", name: "Villagerlimit", baseLimit: 2, step: 1, maxTier: 18, note: "Mischung aus Dorfversorgung und seltenen Smaragden." },
       { key: "CONTAINER", name: "Behaelter", baseLimit: 100, step: 25, maxTier: 12, note: "Massiv holzlastig, damit Lagerausbau spaet relevant bleibt." },
@@ -477,6 +477,19 @@
       return scaledLong(stage, base, growth);
     }
 
+    function roundRequirement(value) {
+      const normalized = Math.max(1, value);
+      let step = 1;
+      while (step <= normalized / 10) {
+        step *= 10;
+      }
+      return Math.ceil(normalized / step) * step;
+    }
+
+    function scaledMaterial(stage, base, growth) {
+      return roundRequirement(scaledLong(stage, base, growth));
+    }
+
     function materialMapToChips(map) {
       return Object.entries(map).map(([material, amount]) => {
         const label = MATERIALS[material] || material;
@@ -486,7 +499,7 @@
 
     function branchCap(branchKey, milestone) {
       switch (branchKey) {
-        case "ANIMAL": return milestone + Math.floor(milestone / 2);
+        case "ANIMAL": return Math.floor((milestone * 20 + 10) / 11);
         case "CHUNKS": return milestone * 24;
         case "GOLEM":
         case "VILLAGER": return Math.max(0, milestone - 1);
@@ -510,23 +523,30 @@
       return null;
     }
 
+    function chunkUnlocksForTier(tier) {
+      if (tier <= 0) return 0;
+      if (tier <= 24) return 12;
+      if (tier <= 79) return 15;
+      return 16;
+    }
+
     function milestoneRequirement(milestone) {
       const materials = {
-        COBBLESTONE: scaledInt(milestone, 50000, 1.52),
-        STONE: scaledInt(milestone, 22000, 1.47),
-        OAK_LOG: scaledInt(milestone, 42000, 1.53)
+        COBBLESTONE: scaledMaterial(milestone, 50048, 1.52),
+        STONE: scaledMaterial(milestone, 22016, 1.47),
+        OAK_LOG: scaledMaterial(milestone, 42048, 1.53)
       };
 
-      if (milestone >= 2) materials.IRON_INGOT = scaledInt(milestone - 1, 120, 1.24);
-      if (milestone >= 3) materials.COAL = scaledInt(milestone - 2, 2400, 1.34);
-      if (milestone >= 4) materials.REDSTONE = scaledInt(milestone - 3, 180, 1.26);
-      if (milestone >= 5) materials.GOLD_INGOT = scaledInt(milestone - 4, 72, 1.22);
-      if (milestone >= 6) materials.QUARTZ = scaledInt(milestone - 5, 72, 1.22);
-      if (milestone >= 7) materials.LAPIS_LAZULI = scaledInt(milestone - 6, 160, 1.24);
-      if (milestone >= 8) materials.EMERALD = scaledInt(milestone - 7, 28, 1.20);
-      if (milestone >= 9) materials.OBSIDIAN = scaledInt(milestone - 8, 280, 1.24);
-      if (milestone >= 10) materials.DIAMOND = scaledInt(milestone - 9, 32, 1.20);
-      if (milestone >= 11) materials.OBSERVER = scaledInt(milestone - 10, 12, 1.14);
+      if (milestone >= 2) materials.IRON_INGOT = scaledMaterial(milestone - 1, 4096, 1.30);
+      if (milestone >= 3) materials.COAL = scaledMaterial(milestone - 2, 32768, 1.38);
+      if (milestone >= 4) materials.REDSTONE = scaledMaterial(milestone - 3, 4096, 1.32);
+      if (milestone >= 5) materials.GOLD_INGOT = scaledMaterial(milestone - 4, 2048, 1.28);
+      if (milestone >= 6) materials.QUARTZ = scaledMaterial(milestone - 5, 2048, 1.28);
+      if (milestone >= 7) materials.LAPIS_LAZULI = scaledMaterial(milestone - 6, 4096, 1.30);
+      if (milestone >= 8) materials.EMERALD = scaledMaterial(milestone - 7, 4096, 1.32);
+      if (milestone >= 9) materials.OBSIDIAN = scaledMaterial(milestone - 8, 4096, 1.28);
+      if (milestone >= 10) materials.DIAMOND = scaledMaterial(milestone - 9, 2048, 1.30);
+      if (milestone >= 11) materials.OBSERVER = scaledMaterial(milestone - 10, 64, 1.18);
 
       return {
         milestone,
@@ -546,98 +566,98 @@
         case "ANIMAL":
           islandLevel = scaledLong(tier, 85, 1.19);
           experience = scaledLong(tier, 320, 1.26);
-          materials.WHEAT = scaledInt(tier, 3800, 1.50);
-          materials.CARROT = scaledInt(tier, 2600, 1.49);
-          materials.POTATO = scaledInt(tier, 2600, 1.49);
-          if (tier >= 2) materials.HAY_BLOCK = scaledInt(tier - 1, 160, 1.32);
-          if (tier >= 5) materials.PUMPKIN = scaledInt(tier - 4, 700, 1.40);
+          materials.WHEAT = scaledMaterial(tier, 3840, 1.50);
+          materials.CARROT = scaledMaterial(tier, 2624, 1.49);
+          materials.POTATO = scaledMaterial(tier, 2624, 1.49);
+          if (tier >= 2) materials.HAY_BLOCK = scaledMaterial(tier - 1, 192, 1.32);
+          if (tier >= 5) materials.PUMPKIN = scaledMaterial(tier - 4, 704, 1.40);
           break;
         case "CHUNKS":
           islandLevel = scaledLong(tier, 60, 1.06);
           experience = scaledLong(tier, 180, 1.08);
-          materials.COBBLESTONE = scaledInt(tier, 5000, 1.06);
-          materials.STONE = scaledInt(tier, 2400, 1.055);
-          materials.OAK_LOG = scaledInt(tier, 2200, 1.058);
-          if (tier >= 4) materials.IRON_INGOT = scaledInt(tier - 3, 24, 1.11);
-          if (tier >= 8) materials.REDSTONE = scaledInt(tier - 7, 18, 1.11);
+          materials.COBBLESTONE = scaledMaterial(tier, 5056, 1.04);
+          materials.STONE = scaledMaterial(tier, 2432, 1.039);
+          materials.OAK_LOG = scaledMaterial(tier, 2240, 1.04);
+          if (tier >= 4) materials.IRON_INGOT = scaledMaterial(tier - 3, 1024, 1.05);
+          if (tier >= 8) materials.REDSTONE = scaledMaterial(tier - 7, 768, 1.05);
           break;
         case "GOLEM":
           islandLevel = scaledLong(tier, 125, 1.21);
           experience = scaledLong(tier, 480, 1.28);
-          materials.IRON_INGOT = scaledInt(tier, 140, 1.29);
-          materials.CARVED_PUMPKIN = scaledInt(tier, 28, 1.20);
-          materials.REDSTONE = scaledInt(tier, 78, 1.23);
+          materials.IRON_INGOT = scaledMaterial(tier, 8192, 1.34);
+          materials.CARVED_PUMPKIN = scaledMaterial(tier, 32, 1.20);
+          materials.REDSTONE = scaledMaterial(tier, 4096, 1.30);
           break;
         case "VILLAGER":
           islandLevel = scaledLong(tier, 110, 1.19);
           experience = scaledLong(tier, 380, 1.25);
-          materials.BREAD = scaledInt(tier, 2800, 1.47);
-          materials.CARROT = scaledInt(tier, 3400, 1.50);
-          materials.POTATO = scaledInt(tier, 3400, 1.50);
-          materials.EMERALD = scaledInt(tier, 12, 1.20);
+          materials.BREAD = scaledMaterial(tier, 2816, 1.47);
+          materials.CARROT = scaledMaterial(tier, 3456, 1.50);
+          materials.POTATO = scaledMaterial(tier, 3456, 1.50);
+          materials.EMERALD = scaledMaterial(tier, 4096, 1.32);
           break;
         case "CONTAINER":
           islandLevel = scaledLong(tier, 95, 1.18);
           experience = scaledLong(tier, 340, 1.23);
-          materials.CHEST = scaledInt(tier, 96, 1.34);
-          materials.BARREL = scaledInt(tier, 48, 1.32);
-          materials.OAK_LOG = scaledInt(tier, 4200, 1.42);
-          if (tier >= 6) materials.IRON_INGOT = scaledInt(tier - 5, 26, 1.22);
+          materials.CHEST = scaledMaterial(tier, 96, 1.34);
+          materials.BARREL = scaledMaterial(tier, 48, 1.32);
+          materials.OAK_LOG = scaledMaterial(tier, 4224, 1.42);
+          if (tier >= 6) materials.IRON_INGOT = scaledMaterial(tier - 5, 3072, 1.28);
           break;
         case "HOPPER":
           islandLevel = scaledLong(tier, 110, 1.20);
           experience = scaledLong(tier, 420, 1.26);
-          materials.IRON_INGOT = scaledInt(tier, 110, 1.27);
-          materials.CHEST = scaledInt(tier, 24, 1.24);
-          materials.REDSTONE = scaledInt(tier, 86, 1.25);
+          materials.IRON_INGOT = scaledMaterial(tier, 6144, 1.32);
+          materials.CHEST = scaledMaterial(tier, 24, 1.24);
+          materials.REDSTONE = scaledMaterial(tier, 4096, 1.30);
           break;
         case "PISTON":
           islandLevel = scaledLong(tier, 108, 1.20);
           experience = scaledLong(tier, 420, 1.26);
-          materials.COBBLESTONE = scaledInt(tier, 1800, 1.30);
-          materials.IRON_INGOT = scaledInt(tier, 64, 1.25);
-          materials.REDSTONE = scaledInt(tier, 74, 1.25);
-          if (tier >= 4) materials.SLIME_BALL = scaledInt(tier - 3, 18, 1.22);
+          materials.COBBLESTONE = scaledMaterial(tier, 1792, 1.30);
+          materials.IRON_INGOT = scaledMaterial(tier, 4096, 1.30);
+          materials.REDSTONE = scaledMaterial(tier, 3072, 1.29);
+          if (tier >= 4) materials.SLIME_BALL = scaledMaterial(tier - 3, 24, 1.22);
           break;
         case "ARMOR_STAND":
           islandLevel = scaledLong(tier, 75, 1.17);
           experience = scaledLong(tier, 260, 1.22);
-          materials.STICK = scaledInt(tier, 2600, 1.38);
-          materials.SMOOTH_STONE_SLAB = scaledInt(tier, 320, 1.28);
-          if (tier >= 3) materials.LEATHER = scaledInt(tier - 2, 72, 1.24);
+          materials.STICK = scaledMaterial(tier, 2624, 1.38);
+          materials.SMOOTH_STONE_SLAB = scaledMaterial(tier, 320, 1.28);
+          if (tier >= 3) materials.LEATHER = scaledMaterial(tier - 2, 72, 1.24);
           break;
         case "OBSERVER":
           islandLevel = scaledLong(tier, 140, 1.22);
           experience = scaledLong(tier, 560, 1.29);
-          materials.COBBLESTONE = scaledInt(tier, 1400, 1.28);
-          materials.REDSTONE = scaledInt(tier, 110, 1.25);
-          materials.QUARTZ = scaledInt(tier, 42, 1.22);
+          materials.COBBLESTONE = scaledMaterial(tier, 1408, 1.28);
+          materials.REDSTONE = scaledMaterial(tier, 6144, 1.31);
+          materials.QUARTZ = scaledMaterial(tier, 2048, 1.28);
           break;
         case "DISPENSER":
           islandLevel = scaledLong(tier, 108, 1.20);
           experience = scaledLong(tier, 420, 1.26);
-          materials.COBBLESTONE = scaledInt(tier, 1800, 1.29);
-          materials.REDSTONE = scaledInt(tier, 72, 1.25);
-          materials.STRING = scaledInt(tier, 2200, 1.38);
-          if (tier >= 4) materials.BOW = scaledInt(tier - 3, 8, 1.20);
+          materials.COBBLESTONE = scaledMaterial(tier, 1792, 1.29);
+          materials.REDSTONE = scaledMaterial(tier, 3072, 1.29);
+          materials.STRING = scaledMaterial(tier, 2240, 1.38);
+          if (tier >= 4) materials.BOW = scaledMaterial(tier - 3, 8, 1.20);
           break;
         case "CACTUS":
           islandLevel = scaledLong(tier, 90, 1.18);
           experience = scaledLong(tier, 280, 1.23);
-          materials.CACTUS = scaledInt(tier, 4200, 1.49);
-          if (tier >= 3) materials.SAND = scaledInt(tier - 2, 1000, 1.34);
+          materials.CACTUS = scaledMaterial(tier, 4224, 1.49);
+          if (tier >= 3) materials.SAND = scaledMaterial(tier - 2, 1024, 1.34);
           break;
         case "KELP":
           islandLevel = scaledLong(tier, 90, 1.18);
           experience = scaledLong(tier, 280, 1.23);
-          materials.KELP = scaledInt(tier, 5200, 1.50);
-          if (tier >= 4) materials.DRIED_KELP_BLOCK = scaledInt(tier - 3, 42, 1.24);
+          materials.KELP = scaledMaterial(tier, 5248, 1.50);
+          if (tier >= 4) materials.DRIED_KELP_BLOCK = scaledMaterial(tier - 3, 64, 1.24);
           break;
         case "BAMBOO":
           islandLevel = scaledLong(tier, 90, 1.18);
           experience = scaledLong(tier, 280, 1.23);
-          materials.BAMBOO = scaledInt(tier, 5200, 1.50);
-          if (tier >= 4) materials.SCAFFOLDING = scaledInt(tier - 3, 60, 1.26);
+          materials.BAMBOO = scaledMaterial(tier, 5248, 1.50);
+          if (tier >= 4) materials.SCAFFOLDING = scaledMaterial(tier - 3, 64, 1.26);
           break;
       }
 
@@ -646,7 +666,7 @@
         islandLevel,
         experience,
         materials,
-        chunkUnlocksGranted: branch.key === "CHUNKS" ? (tier < 6 ? 2 : tier < 16 ? 4 : 6) : 0,
+        chunkUnlocksGranted: branch.key === "CHUNKS" ? chunkUnlocksForTier(tier) : 0,
         limitAfterBuy: branch.key === "CHUNKS" ? null : branch.baseLimit + (tier * branch.step),
         minMilestone: minMilestoneForTier(branch, tier)
       };
