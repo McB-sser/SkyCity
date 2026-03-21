@@ -69,7 +69,7 @@ public class SkyCityPlugin extends JavaPlugin {
         if (islandService != null) {
             islandService.stopIslandCreationTask();
             islandService.stopPregenerationTask();
-            islandService.save();
+            islandService.shutdown();
         }
     }
 

@@ -6,6 +6,12 @@ import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.IslandLevelDefinition;
 import de.mcbesser.skycity.model.IslandPlot;
 import de.mcbesser.skycity.model.ParcelData;
+import org.dizitart.no2.Nitrite;
+import org.dizitart.no2.collection.Document;
+import org.dizitart.no2.collection.NitriteCollection;
+import org.dizitart.no2.common.Constants;
+import org.dizitart.no2.filters.Filter;
+import org.dizitart.no2.mvstore.MVStoreModule;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
@@ -317,8 +323,11 @@ public class IslandService {
     private final SkyWorldService skyWorldService;
     private final Map<UUID, IslandData> islands = new HashMap<>();
     private final Map<Integer, IslandLevelDefinition> levelDefinitions = IslandLevelDefinition.defaults();
-    private final File dataFile;
+    private final File legacyDataFile;
+    private final File databaseFile;
     private final File templateFile;
+    private final Nitrite database;
+    private final NitriteCollection islandCollection;
     private final List<ChunkTemplateDef> templates = new ArrayList<>();
     private final Queue<PregenerationTask> pregenerationQueue = new ArrayDeque<>();
     private final Set<UUID> queuedPregenerationOwners = new HashSet<>();
@@ -344,8 +353,19 @@ public class IslandService {
     public IslandService(SkyCityPlugin plugin, SkyWorldService skyWorldService) {
         this.plugin = plugin;
         this.skyWorldService = skyWorldService;
-        this.dataFile = new File(plugin.getDataFolder(), "islands.yml");
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        this.legacyDataFile = new File(plugin.getDataFolder(), "islands.yml");
+        this.databaseFile = new File(plugin.getDataFolder(), "skycity-data.db");
         this.templateFile = new File(plugin.getDataFolder(), "chunk-templates.yml");
+        MVStoreModule storeModule = MVStoreModule.withConfig()
+                .filePath(databaseFile.getAbsolutePath())
+                .build();
+        this.database = Nitrite.builder()
+                .loadModule(storeModule)
+                .openOrCreate();
+        this.islandCollection = database.getCollection("islands");
         this.plotWandKey = new NamespacedKey(plugin, "plot_wand");
         ensureTemplateFile();
         loadTemplates();
@@ -353,8 +373,18 @@ public class IslandService {
 
     public void load() {
         islands.clear();
-        if (!dataFile.exists()) return;
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(dataFile);
+        if (islandCollection.size() == 0 && legacyDataFile.exists()) {
+            loadLegacyYamlData();
+            save();
+            backupLegacyYaml();
+            return;
+        }
+        loadNitriteData();
+    }
+
+    private void loadLegacyYamlData() {
+        if (!legacyDataFile.exists()) return;
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(legacyDataFile);
         ConfigurationSection root = yaml.getConfigurationSection("islands");
         if (root == null) return;
         for (String key : root.getKeys(false)) {
@@ -449,6 +479,22 @@ public class IslandService {
                 plugin.getLogger().warning("Insel konnte nicht geladen werden: " + key + " (" + ex.getMessage() + ")");
             }
         }
+        finalizeLoadedIslands();
+    }
+
+    private void loadNitriteData() {
+        for (Document document : islandCollection.find()) {
+            try {
+                IslandData island = fromDocument(document);
+                islands.put(island.getOwner(), island);
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Insel konnte nicht aus Nitrite geladen werden: " + ex.getMessage());
+            }
+        }
+        finalizeLoadedIslands();
+    }
+
+    private void finalizeLoadedIslands() {
         for (IslandData island : islands.values()) {
             if (island.getPoints() <= 0) island.setPoints(Math.max(1, island.getGeneratedChunks().size()));
             if (island.getLastActiveAt() <= 0) island.setLastActiveAt(System.currentTimeMillis());
@@ -460,67 +506,16 @@ public class IslandService {
     }
 
     public void save() {
-        YamlConfiguration yaml = new YamlConfiguration();
-        for (Map.Entry<UUID, IslandData> entry : islands.entrySet()) {
-            String p = "islands." + entry.getKey();
-            IslandData i = entry.getValue();
-            yaml.set(p + ".gridX", i.getGridX());
-            yaml.set(p + ".gridZ", i.getGridZ());
-            yaml.set(p + ".level", i.getLevel());
-            yaml.set(p + ".availableChunkUnlocks", i.getAvailableChunkUnlocks());
-            yaml.set(p + ".title", i.getTitle());
-            yaml.set(p + ".warpName", i.getWarpName());
-            yaml.set(p + ".coreDisplayMode", i.getCoreDisplayMode());
-            yaml.set(p + ".pinnedUpgradeKey", i.getPinnedUpgradeKey());
-            yaml.set(p + ".islandTimeMode", i.getIslandTimeMode());
-            yaml.set(p + ".points", i.getPoints());
-            yaml.set(p + ".storedExperience", i.getStoredExperience());
-            yaml.set(p + ".lastActiveAt", i.getLastActiveAt());
-            if (i.getIslandSpawn() != null) serializeLocation(yaml, p + ".spawn", i.getIslandSpawn());
-            if (i.getWarpLocation() != null) serializeLocation(yaml, p + ".warp", i.getWarpLocation());
-            if (i.getCoreLocation() != null) serializeLocation(yaml, p + ".core", i.getCoreLocation());
-            yaml.set(p + ".trusted", stringify(i.getTrusted()));
-            yaml.set(p + ".trustedContainers", stringify(i.getTrustedContainers()));
-            yaml.set(p + ".trustedRedstone", stringify(i.getTrustedRedstone()));
-            yaml.set(p + ".coOwners", stringify(i.getCoOwners()));
-            yaml.set(p + ".islandOwners", stringify(i.getIslandOwners()));
-            yaml.set(p + ".islandBanned", stringify(i.getIslandBanned()));
-            yaml.set(p + ".unlockedChunks", new ArrayList<>(i.getUnlockedChunks()));
-            yaml.set(p + ".generatedChunks", new ArrayList<>(i.getGeneratedChunks()));
-            saveAccessSettings(yaml, p + ".visitorSettings", i.getIslandVisitorSettings());
-            for (Map.Entry<String, Integer> prog : i.getProgress().entrySet()) yaml.set(p + ".progress." + prog.getKey(), prog.getValue());
-            for (Map.Entry<String, Integer> upgrade : i.getUpgradeTiers().entrySet()) yaml.set(p + ".upgradeTiers." + upgrade.getKey(), upgrade.getValue());
-            for (Map.Entry<String, Integer> c : i.getCachedBlockCounts().entrySet()) yaml.set(p + ".cacheBlocks." + c.getKey(), c.getValue());
-            for (Map.Entry<String, Long> b : i.getGrowthBoostUntil().entrySet()) yaml.set(p + ".growthBoost.until." + b.getKey(), b.getValue());
-            for (Map.Entry<String, Integer> b : i.getGrowthBoostTier().entrySet()) yaml.set(p + ".growthBoost.tier." + b.getKey(), b.getValue());
-            for (ParcelData parcel : i.getParcels().values()) {
-                String pp = p + ".parcels." + parcel.getChunkKey();
-                yaml.set(pp + ".name", getParcelDisplayName(parcel));
-                yaml.set(pp + ".owners", stringify(parcel.getOwners()));
-                yaml.set(pp + ".users", stringify(parcel.getUsers()));
-                yaml.set(pp + ".banned", stringify(parcel.getBanned()));
-                yaml.set(pp + ".pvpWhitelist", stringify(parcel.getPvpWhitelist()));
-                yaml.set(pp + ".minX", parcel.getMinX());
-                yaml.set(pp + ".minY", parcel.getMinY());
-                yaml.set(pp + ".minZ", parcel.getMinZ());
-                yaml.set(pp + ".maxX", parcel.getMaxX());
-                yaml.set(pp + ".maxY", parcel.getMaxY());
-                yaml.set(pp + ".maxZ", parcel.getMaxZ());
-                if (parcel.getSpawn() != null) serializeLocation(yaml, pp + ".spawn", parcel.getSpawn());
-                yaml.set(pp + ".pvpEnabled", parcel.isPvpEnabled());
-                yaml.set(pp + ".pveEnabled", parcel.isPveEnabled());
-                for (Map.Entry<UUID, Integer> pvpEntry : parcel.getPvpKills().entrySet()) {
-                    yaml.set(pp + ".pvpKills." + pvpEntry.getKey(), Math.max(0, pvpEntry.getValue()));
-                }
-                saveAccessSettings(yaml, pp + ".visitorSettings", parcel.getVisitorSettings());
-            }
+        islandCollection.remove(Filter.ALL);
+        for (IslandData island : islands.values()) {
+            islandCollection.insert(toDocument(island));
         }
-        try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            yaml.save(dataFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Konnte islands.yml nicht speichern: " + e.getMessage());
-        }
+        database.commit();
+    }
+
+    public void shutdown() {
+        save();
+        database.close();
     }
 
     public void startPregenerationTask() {
@@ -4410,6 +4405,261 @@ public class IslandService {
         List<String> out = new ArrayList<>();
         for (UUID id : uuids) out.add(id.toString());
         return out;
+    }
+
+    private Document toDocument(IslandData island) {
+        Document document = Document.createDocument("owner", island.getOwner().toString())
+                .put("gridX", island.getGridX())
+                .put("gridZ", island.getGridZ())
+                .put("level", island.getLevel())
+                .put("availableChunkUnlocks", island.getAvailableChunkUnlocks())
+                .put("title", island.getTitle())
+                .put("warpName", island.getWarpName())
+                .put("coreDisplayMode", island.getCoreDisplayMode())
+                .put("pinnedUpgradeKey", island.getPinnedUpgradeKey())
+                .put("islandTimeMode", island.getIslandTimeMode())
+                .put("points", island.getPoints())
+                .put("storedExperience", island.getStoredExperience())
+                .put("lastActiveAt", island.getLastActiveAt())
+                .put("spawn", locationDocument(island.getIslandSpawn()))
+                .put("warp", locationDocument(island.getWarpLocation()))
+                .put("core", locationDocument(island.getCoreLocation()))
+                .put("trusted", stringify(island.getTrusted()))
+                .put("trustedContainers", stringify(island.getTrustedContainers()))
+                .put("trustedRedstone", stringify(island.getTrustedRedstone()))
+                .put("coOwners", stringify(island.getCoOwners()))
+                .put("islandOwners", stringify(island.getIslandOwners()))
+                .put("islandBanned", stringify(island.getIslandBanned()))
+                .put("unlockedChunks", new ArrayList<>(island.getUnlockedChunks()))
+                .put("generatedChunks", new ArrayList<>(island.getGeneratedChunks()))
+                .put("visitorSettings", accessSettingsDocument(island.getIslandVisitorSettings()))
+                .put("progress", new LinkedHashMap<>(island.getProgress()))
+                .put("upgradeTiers", new LinkedHashMap<>(island.getUpgradeTiers()))
+                .put("cacheBlocks", new LinkedHashMap<>(island.getCachedBlockCounts()))
+                .put("growthBoostUntil", new LinkedHashMap<>(island.getGrowthBoostUntil()))
+                .put("growthBoostTier", new LinkedHashMap<>(island.getGrowthBoostTier()));
+
+        List<Document> parcels = new ArrayList<>();
+        for (ParcelData parcel : island.getParcels().values()) {
+            parcels.add(parcelDocument(parcel));
+        }
+        document.put("parcels", parcels);
+        return document;
+    }
+
+    @SuppressWarnings("unchecked")
+    private IslandData fromDocument(Document document) {
+        UUID owner = UUID.fromString(document.get("owner", String.class));
+        IslandData island = new IslandData(owner);
+        island.setGridX(intValue(document.get("gridX")));
+        island.setGridZ(intValue(document.get("gridZ")));
+        island.setLevel(Math.max(1, intValue(document.get("level"))));
+        island.setAvailableChunkUnlocks(Math.max(0, intValue(document.get("availableChunkUnlocks"))));
+        island.setTitle(document.get("title", String.class));
+        island.setWarpName(document.get("warpName", String.class));
+        island.setCoreDisplayMode(defaultString(document.get("coreDisplayMode", String.class), "ALL"));
+        island.setPinnedUpgradeKey(defaultString(document.get("pinnedUpgradeKey", String.class), "MILESTONE"));
+        island.setIslandTimeMode(defaultString(document.get("islandTimeMode", String.class), "NORMAL"));
+        island.setPoints(longValue(document.get("points")));
+        island.setStoredExperience(longValue(document.get("storedExperience")));
+        island.setLastActiveAt(longValue(document.get("lastActiveAt")));
+        island.setIslandSpawn(locationFromDocument(document.get("spawn", Document.class)));
+        island.setWarpLocation(locationFromDocument(document.get("warp", Document.class)));
+        island.setCoreLocation(locationFromDocument(document.get("core", Document.class)));
+        addUuidStrings((List<String>) document.get("trusted", List.class), island.getTrusted());
+        addUuidStrings((List<String>) document.get("trustedContainers", List.class), island.getTrustedContainers());
+        addUuidStrings((List<String>) document.get("trustedRedstone", List.class), island.getTrustedRedstone());
+        addUuidStrings((List<String>) document.get("coOwners", List.class), island.getCoOwners());
+        addUuidStrings((List<String>) document.get("islandOwners", List.class), island.getIslandOwners());
+        addUuidStrings((List<String>) document.get("islandBanned", List.class), island.getIslandBanned());
+        addStrings((List<String>) document.get("unlockedChunks", List.class), island.getUnlockedChunks());
+        addStrings((List<String>) document.get("generatedChunks", List.class), island.getGeneratedChunks());
+        applyAccessSettings(document.get("visitorSettings", Document.class), island.getIslandVisitorSettings());
+        putIntMap((Map<String, Object>) document.get("progress", Map.class), island.getProgress());
+        putIntMap((Map<String, Object>) document.get("upgradeTiers", Map.class), island.getUpgradeTiers());
+        putIntMap((Map<String, Object>) document.get("cacheBlocks", Map.class), island.getCachedBlockCounts());
+        putLongMap((Map<String, Object>) document.get("growthBoostUntil", Map.class), island.getGrowthBoostUntil());
+        putIntMap((Map<String, Object>) document.get("growthBoostTier", Map.class), island.getGrowthBoostTier());
+        List<Document> parcels = (List<Document>) document.get("parcels", List.class);
+        if (parcels != null) {
+            for (Document parcelDocument : parcels) {
+                ParcelData parcel = parcelFromDocument(parcelDocument);
+                island.getParcels().put(parcel.getChunkKey(), parcel);
+            }
+        }
+        return island;
+    }
+
+    private Document parcelDocument(ParcelData parcel) {
+        Document document = Document.createDocument("chunkKey", parcel.getChunkKey())
+                .put("name", getParcelDisplayName(parcel))
+                .put("owners", stringify(parcel.getOwners()))
+                .put("users", stringify(parcel.getUsers()))
+                .put("banned", stringify(parcel.getBanned()))
+                .put("pvpWhitelist", stringify(parcel.getPvpWhitelist()))
+                .put("spawn", locationDocument(parcel.getSpawn()))
+                .put("pvpEnabled", parcel.isPvpEnabled())
+                .put("pveEnabled", parcel.isPveEnabled())
+                .put("minX", parcel.getMinX())
+                .put("minY", parcel.getMinY())
+                .put("minZ", parcel.getMinZ())
+                .put("maxX", parcel.getMaxX())
+                .put("maxY", parcel.getMaxY())
+                .put("maxZ", parcel.getMaxZ())
+                .put("visitorSettings", accessSettingsDocument(parcel.getVisitorSettings()));
+        Map<String, Integer> pvpKills = new LinkedHashMap<>();
+        for (Map.Entry<UUID, Integer> entry : parcel.getPvpKills().entrySet()) {
+            pvpKills.put(entry.getKey().toString(), Math.max(0, entry.getValue()));
+        }
+        document.put("pvpKills", pvpKills);
+        return document;
+    }
+
+    @SuppressWarnings("unchecked")
+    private ParcelData parcelFromDocument(Document document) {
+        ParcelData parcel = new ParcelData(document.get("chunkKey", String.class));
+        parcel.setName(defaultString(document.get("name", String.class), parcel.getChunkKey()));
+        addUuidStrings((List<String>) document.get("owners", List.class), parcel.getOwners());
+        addUuidStrings((List<String>) document.get("users", List.class), parcel.getUsers());
+        addUuidStrings((List<String>) document.get("banned", List.class), parcel.getBanned());
+        addUuidStrings((List<String>) document.get("pvpWhitelist", List.class), parcel.getPvpWhitelist());
+        parcel.setSpawn(locationFromDocument(document.get("spawn", Document.class)));
+        parcel.setPvpEnabled(Boolean.TRUE.equals(document.get("pvpEnabled", Boolean.class)));
+        parcel.setPveEnabled(Boolean.TRUE.equals(document.get("pveEnabled", Boolean.class)));
+        parcel.setBounds(
+                intValue(document.get("minX")),
+                intValue(document.get("minY")),
+                intValue(document.get("minZ")),
+                intValue(document.get("maxX")),
+                intValue(document.get("maxY")),
+                intValue(document.get("maxZ"))
+        );
+        applyAccessSettings(document.get("visitorSettings", Document.class), parcel.getVisitorSettings());
+        Map<String, Object> pvpKills = (Map<String, Object>) document.get("pvpKills", Map.class);
+        if (pvpKills != null) {
+            for (Map.Entry<String, Object> entry : pvpKills.entrySet()) {
+                parcel.getPvpKills().put(UUID.fromString(entry.getKey()), Math.max(0, intValue(entry.getValue())));
+            }
+        }
+        return parcel;
+    }
+
+    private Document accessSettingsDocument(AccessSettings settings) {
+        if (settings == null) return null;
+        return Document.createDocument("doors", settings.isDoors())
+                .put("trapdoors", settings.isTrapdoors())
+                .put("fenceGates", settings.isFenceGates())
+                .put("buttons", settings.isButtons())
+                .put("levers", settings.isLevers())
+                .put("pressurePlates", settings.isPressurePlates())
+                .put("containers", settings.isContainers())
+                .put("farmUse", settings.isFarmUse())
+                .put("ride", settings.isRide())
+                .put("redstoneUse", settings.isRedstoneUse())
+                .put("ladderPlace", settings.isLadderPlace())
+                .put("ladderBreak", settings.isLadderBreak())
+                .put("leavesPlace", settings.isLeavesPlace())
+                .put("leavesBreak", settings.isLeavesBreak())
+                .put("teleport", settings.isTeleport());
+    }
+
+    private void applyAccessSettings(Document document, AccessSettings settings) {
+        if (document == null || settings == null) return;
+        settings.setDoors(Boolean.TRUE.equals(document.get("doors", Boolean.class)));
+        settings.setTrapdoors(Boolean.TRUE.equals(document.get("trapdoors", Boolean.class)));
+        settings.setFenceGates(Boolean.TRUE.equals(document.get("fenceGates", Boolean.class)));
+        settings.setButtons(Boolean.TRUE.equals(document.get("buttons", Boolean.class)));
+        settings.setLevers(Boolean.TRUE.equals(document.get("levers", Boolean.class)));
+        settings.setPressurePlates(Boolean.TRUE.equals(document.get("pressurePlates", Boolean.class)));
+        settings.setContainers(Boolean.TRUE.equals(document.get("containers", Boolean.class)));
+        settings.setFarmUse(Boolean.TRUE.equals(document.get("farmUse", Boolean.class)));
+        settings.setRide(Boolean.TRUE.equals(document.get("ride", Boolean.class)));
+        settings.setRedstoneUse(Boolean.TRUE.equals(document.get("redstoneUse", Boolean.class)));
+        settings.setLadderPlace(Boolean.TRUE.equals(document.get("ladderPlace", Boolean.class)));
+        settings.setLadderBreak(Boolean.TRUE.equals(document.get("ladderBreak", Boolean.class)));
+        settings.setLeavesPlace(Boolean.TRUE.equals(document.get("leavesPlace", Boolean.class)));
+        settings.setLeavesBreak(Boolean.TRUE.equals(document.get("leavesBreak", Boolean.class)));
+        Boolean teleport = document.get("teleport", Boolean.class);
+        settings.setTeleport(teleport == null || teleport);
+    }
+
+    private Document locationDocument(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        return Document.createDocument("world", location.getWorld().getName())
+                .put("x", location.getX())
+                .put("y", location.getY())
+                .put("z", location.getZ())
+                .put("yaw", location.getYaw())
+                .put("pitch", location.getPitch());
+    }
+
+    private Location locationFromDocument(Document document) {
+        if (document == null) return null;
+        World world = Bukkit.getWorld(defaultString(document.get("world", String.class), SkyWorldService.WORLD_NAME));
+        if (world == null) world = skyWorldService.getWorld();
+        if (world == null) return null;
+        return new Location(
+                world,
+                doubleValue(document.get("x")),
+                doubleValue(document.get("y")),
+                doubleValue(document.get("z")),
+                (float) doubleValue(document.get("yaw")),
+                (float) doubleValue(document.get("pitch"))
+        );
+    }
+
+    private void addUuidStrings(List<String> values, Set<UUID> target) {
+        if (values == null || target == null) return;
+        for (String value : values) {
+            if (value == null || value.isBlank()) continue;
+            target.add(UUID.fromString(value));
+        }
+    }
+
+    private void addStrings(List<String> values, Set<String> target) {
+        if (values == null || target == null) return;
+        for (String value : values) {
+            if (value != null && !value.isBlank()) target.add(value);
+        }
+    }
+
+    private void putIntMap(Map<String, Object> source, Map<String, Integer> target) {
+        if (source == null || target == null) return;
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            target.put(entry.getKey(), intValue(entry.getValue()));
+        }
+    }
+
+    private void putLongMap(Map<String, Object> source, Map<String, Long> target) {
+        if (source == null || target == null) return;
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            target.put(entry.getKey(), longValue(entry.getValue()));
+        }
+    }
+
+    private int intValue(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    private long longValue(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    private double doubleValue(Object value) {
+        return value instanceof Number number ? number.doubleValue() : 0.0D;
+    }
+
+    private String defaultString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private void backupLegacyYaml() {
+        if (!legacyDataFile.exists()) return;
+        File backup = new File(legacyDataFile.getParentFile(), legacyDataFile.getName() + ".migrated");
+        if (backup.exists()) return;
+        if (!legacyDataFile.renameTo(backup)) {
+            plugin.getLogger().warning("Konnte alte islands.yml nach der Nitrite-Migration nicht umbenennen.");
+        }
     }
 
     private void saveAccessSettings(YamlConfiguration yaml, String path, AccessSettings settings) {
