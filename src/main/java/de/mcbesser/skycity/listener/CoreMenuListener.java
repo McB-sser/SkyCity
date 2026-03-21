@@ -91,7 +91,7 @@ public class CoreMenuListener implements Listener {
     private void handleCoreMenuClick(InventoryClickEvent event, Player player, CoreService.CoreInventoryHolder holder) {
         if (event.getClickedInventory() == null) return;
         boolean inTop = event.getClickedInventory().equals(event.getView().getTopInventory());
-        if (inTop && event.getRawSlot() != 11 && event.getRawSlot() != 12 && event.getRawSlot() != 13 && event.getRawSlot() != 15 && event.getRawSlot() != 16 && !CORE_INPUT_SLOTS.contains(event.getRawSlot())) event.setCancelled(true);
+        if (inTop && event.getRawSlot() != 11 && event.getRawSlot() != 13 && event.getRawSlot() != 15 && event.getRawSlot() != 16 && !CORE_INPUT_SLOTS.contains(event.getRawSlot())) event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
         var coreLocation = holder.coreLocation();
@@ -142,20 +142,6 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createUpgradeProgressMenu(island, 0));
             return;
         }
-        if (inTop && event.getRawSlot() == 12) {
-            event.setCancelled(true);
-            if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
-                player.sendMessage(ChatColor.RED + "Keine Rechte.");
-                return;
-            }
-            if (islandService.levelUp(island)) {
-                player.sendMessage(ChatColor.GREEN + "Upgrade erfolgreich. Level " + island.getLevel());
-            } else {
-                player.sendMessage(ChatColor.RED + "Upgradebedingungen nicht erf\u00fcllt.");
-                coreService.sendUpgradeStatusChat(player, island);
-            }
-            player.openInventory(coreService.createCoreMenu(player, island, coreLocation));
-        }
     }
 
     private void handleUpgradeProgressClick(InventoryClickEvent event, Player player, CoreService.UpgradeProgressInventoryHolder holder) {
@@ -166,13 +152,39 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createCoreMenu(player, island));
             return;
         }
-        if (event.getRawSlot() == 48 && holder.page() > 0) {
-            player.openInventory(coreService.createUpgradeProgressMenu(island, holder.page() - 1));
+        String action = coreService.readHiddenAction(event.getCurrentItem());
+        if ("milestone".equalsIgnoreCase(action)) {
+            if (event.isLeftClick()) {
+                islandService.setPinnedMilestone(island);
+                player.sendMessage(ChatColor.AQUA + "Display fokussiert jetzt: " + ChatColor.WHITE + "Meilensteinpfad");
+            } else if (event.isRightClick()) {
+                if (islandService.levelUp(island)) {
+                    player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + Math.max(0, island.getLevel() - 1));
+                } else {
+                    player.sendMessage(ChatColor.RED + "Meilensteinbedingungen nicht erfuellt.");
+                    coreService.sendUpgradeStatusChat(player, island);
+                }
+            }
+            coreService.refreshCoreDisplay(island);
+            player.openInventory(coreService.createUpgradeProgressMenu(island, 0));
             return;
         }
-        if (event.getRawSlot() == 50) {
-            player.openInventory(coreService.createUpgradeProgressMenu(island, holder.page() + 1));
+        IslandService.UpgradeBranch branch = coreService.readUpgradeBranch(event.getCurrentItem());
+        if (branch == null) return;
+        if (event.getClick() == ClickType.RIGHT) {
+            if (islandService.unlockUpgrade(island, branch)) {
+                player.sendMessage(ChatColor.GREEN + branch.displayName() + " ausgebaut.");
+            } else {
+                player.sendMessage(ChatColor.RED + "Upgradebedingungen nicht erfuellt.");
+                islandService.setPinnedUpgrade(island, branch);
+                coreService.sendUpgradeStatusChat(player, island);
+            }
+        } else {
+            islandService.setPinnedUpgrade(island, branch);
+            player.sendMessage(ChatColor.AQUA + "Display fokussiert jetzt: " + ChatColor.WHITE + branch.displayName());
         }
+        coreService.refreshCoreDisplay(island);
+        player.openInventory(coreService.createUpgradeProgressMenu(island, 0));
     }
 
     private void handleIslandMenuClick(InventoryClickEvent event, Player player, UUID islandOwner) {

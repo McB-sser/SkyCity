@@ -103,6 +103,57 @@ public class IslandService {
         NOT_AUTHORIZED,
         APPROVAL_RECORDED
     }
+    public enum UpgradeBranch {
+        ANIMAL("animal", "Tierlimit", Material.HAY_BLOCK, 12, 4, 20),
+        CHUNKS("chunks", "Chunkpakete", Material.MAP, 0, 0, 320),
+        GOLEM("golem", "Golemlimit", Material.CARVED_PUMPKIN, 2, 1, 18),
+        VILLAGER("villager", "Villagerlimit", Material.EMERALD, 2, 1, 18),
+        CONTAINER("container", "Behaelter", Material.BARREL, 100, 25, 12),
+        HOPPER("hopper", "Trichter", Material.HOPPER, 8, 4, 24),
+        PISTON("piston", "Kolben", Material.PISTON, 16, 4, 24),
+        ARMOR_STAND("armor_stand", "Ruestungsstaender", Material.ARMOR_STAND, 4, 2, 14),
+        OBSERVER("observer", "Observer", Material.OBSERVER, 12, 6, 20),
+        DISPENSER("dispenser", "Dispenser", Material.DISPENSER, 8, 4, 20),
+        CACTUS("cactus", "Kaktus", Material.CACTUS, 32, 32, 24),
+        KELP("kelp", "Kelp", Material.KELP, 64, 48, 24),
+        BAMBOO("bamboo", "Bambus", Material.BAMBOO, 64, 48, 24);
+
+        private final String key;
+        private final String displayName;
+        private final Material icon;
+        private final int baseLimit;
+        private final int step;
+        private final int maxTier;
+
+        UpgradeBranch(String key, String displayName, Material icon, int baseLimit, int step, int maxTier) {
+            this.key = key;
+            this.displayName = displayName;
+            this.icon = icon;
+            this.baseLimit = baseLimit;
+            this.step = step;
+            this.maxTier = maxTier;
+        }
+
+        public String key() { return key; }
+        public String displayName() { return displayName; }
+        public Material icon() { return icon; }
+        public int baseLimit() { return baseLimit; }
+        public int step() { return step; }
+        public int maxTier() { return maxTier; }
+
+        public static UpgradeBranch fromKey(String raw) {
+            if (raw == null || raw.isBlank()) return ANIMAL;
+            String normalized = raw.trim().toUpperCase(Locale.ROOT);
+            for (UpgradeBranch branch : values()) {
+                if (branch.name().equals(normalized) || branch.key.equalsIgnoreCase(raw)) {
+                    return branch;
+                }
+            }
+            return ANIMAL;
+        }
+    }
+    public record UpgradeRequirement(long islandLevel, long experience, Map<Material, Integer> materials, int chunkUnlocksGranted) { }
+    public record MilestoneRequirement(int milestone, long islandLevel, long experience, Map<Material, Integer> materials, int chunkUnlocksGranted) { }
     public record TeleportTarget(String id, String displayName, Location location, boolean parcel) { }
     private record ChunkTemplateDef(String id, Material top, Material filler, Material feature, Biome biome, int minRadius, int maxRadius) { }
     private record ThemeHit(long seed, double density) { }
@@ -319,6 +370,7 @@ public class IslandService {
                 island.setTitle(sec.getString("title", null));
                 island.setWarpName(sec.getString("warpName", null));
                 island.setCoreDisplayMode(sec.getString("coreDisplayMode", "ALL"));
+                island.setPinnedUpgradeKey(sec.getString("pinnedUpgradeKey", "MILESTONE"));
                 island.setIslandTimeMode(sec.getString("islandTimeMode", "NORMAL"));
                 island.setPoints(sec.getLong("points", 0L));
                 island.setStoredExperience(sec.getLong("storedExperience", 0L));
@@ -337,6 +389,8 @@ public class IslandService {
                 loadAccessSettings(sec.getConfigurationSection("visitorSettings"), island.getIslandVisitorSettings());
                 ConfigurationSection progress = sec.getConfigurationSection("progress");
                 if (progress != null) for (String mk : progress.getKeys(false)) island.getProgress().put(mk, progress.getInt(mk));
+                ConfigurationSection upgradeTiers = sec.getConfigurationSection("upgradeTiers");
+                if (upgradeTiers != null) for (String uk : upgradeTiers.getKeys(false)) island.getUpgradeTiers().put(uk.toUpperCase(Locale.ROOT), Math.max(0, upgradeTiers.getInt(uk)));
                 ConfigurationSection cache = sec.getConfigurationSection("cacheBlocks");
                 if (cache != null) for (String ck : cache.getKeys(false)) island.getCachedBlockCounts().put(ck, cache.getInt(ck));
                 ConfigurationSection growthUntil = sec.getConfigurationSection("growthBoost.until");
@@ -417,6 +471,7 @@ public class IslandService {
             yaml.set(p + ".title", i.getTitle());
             yaml.set(p + ".warpName", i.getWarpName());
             yaml.set(p + ".coreDisplayMode", i.getCoreDisplayMode());
+            yaml.set(p + ".pinnedUpgradeKey", i.getPinnedUpgradeKey());
             yaml.set(p + ".islandTimeMode", i.getIslandTimeMode());
             yaml.set(p + ".points", i.getPoints());
             yaml.set(p + ".storedExperience", i.getStoredExperience());
@@ -434,6 +489,7 @@ public class IslandService {
             yaml.set(p + ".generatedChunks", new ArrayList<>(i.getGeneratedChunks()));
             saveAccessSettings(yaml, p + ".visitorSettings", i.getIslandVisitorSettings());
             for (Map.Entry<String, Integer> prog : i.getProgress().entrySet()) yaml.set(p + ".progress." + prog.getKey(), prog.getValue());
+            for (Map.Entry<String, Integer> upgrade : i.getUpgradeTiers().entrySet()) yaml.set(p + ".upgradeTiers." + upgrade.getKey(), upgrade.getValue());
             for (Map.Entry<String, Integer> c : i.getCachedBlockCounts().entrySet()) yaml.set(p + ".cacheBlocks." + c.getKey(), c.getValue());
             for (Map.Entry<String, Long> b : i.getGrowthBoostUntil().entrySet()) yaml.set(p + ".growthBoost.until." + b.getKey(), b.getValue());
             for (Map.Entry<String, Integer> b : i.getGrowthBoostTier().entrySet()) yaml.set(p + ".growthBoost.tier." + b.getKey(), b.getValue());
@@ -1192,8 +1248,10 @@ public class IslandService {
         migrated.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks());
         migrated.setTitle(island.getTitle());
         migrated.setWarpName(island.getWarpName());
+        migrated.setPinnedUpgradeKey(island.getPinnedUpgradeKey());
         migrated.setIslandTimeMode(island.getIslandTimeMode());
         migrated.setPoints(island.getPoints());
+        migrated.setStoredExperience(island.getStoredExperience());
         migrated.setLastActiveAt(island.getLastActiveAt());
         if (island.getIslandSpawn() != null) migrated.setIslandSpawn(island.getIslandSpawn().clone());
         if (island.getWarpLocation() != null) migrated.setWarpLocation(island.getWarpLocation().clone());
@@ -1206,6 +1264,7 @@ public class IslandService {
         migrated.getUnlockedChunks().addAll(island.getUnlockedChunks());
         migrated.getGeneratedChunks().addAll(island.getGeneratedChunks());
         migrated.getProgress().putAll(island.getProgress());
+        migrated.getUpgradeTiers().putAll(island.getUpgradeTiers());
         migrated.getCachedBlockCounts().putAll(island.getCachedBlockCounts());
         migrated.getCoOwners().addAll(island.getCoOwners());
         migrated.getCoOwners().add(island.getOwner());
@@ -3030,32 +3089,281 @@ public class IslandService {
         plotSelectionPos2.remove(playerId);
     }
     public Map<Integer, IslandLevelDefinition> getLevelDefinitions() { return levelDefinitions; }
-    public IslandLevelDefinition getCurrentLevelDef(IslandData island) { return levelDefinitions.getOrDefault(island.getLevel(), levelDefinitions.get(1)); }
+    public IslandLevelDefinition getCurrentLevelDef(IslandData island) {
+        if (island == null) return levelDefinitions.get(1);
+        IslandLevelDefinition base = levelDefinitions.getOrDefault(island.getLevel(), levelDefinitions.get(1));
+        return new IslandLevelDefinition(
+                base.getLevel(),
+                base.getRequirements(),
+                base.getChunkUnlocksGranted(),
+                getCurrentUpgradeLimit(island, UpgradeBranch.ANIMAL),
+                getCurrentUpgradeLimit(island, UpgradeBranch.GOLEM),
+                getCurrentUpgradeLimit(island, UpgradeBranch.VILLAGER),
+                getCurrentUpgradeLimit(island, UpgradeBranch.HOPPER),
+                getCurrentUpgradeLimit(island, UpgradeBranch.PISTON),
+                getCurrentUpgradeLimit(island, UpgradeBranch.ARMOR_STAND),
+                getCurrentUpgradeLimit(island, UpgradeBranch.OBSERVER),
+                getCurrentUpgradeLimit(island, UpgradeBranch.DISPENSER),
+                getCurrentUpgradeLimit(island, UpgradeBranch.CACTUS),
+                getCurrentUpgradeLimit(island, UpgradeBranch.KELP),
+                getCurrentUpgradeLimit(island, UpgradeBranch.BAMBOO)
+        );
+    }
     public IslandLevelDefinition getNextLevelDef(IslandData island) { return levelDefinitions.get(island.getLevel() + 1); }
 
+    public UpgradeBranch getPinnedUpgrade(IslandData island) {
+        return island == null ? UpgradeBranch.ANIMAL : UpgradeBranch.fromKey(island.getPinnedUpgradeKey());
+    }
+
+    public boolean isMilestonePinned(IslandData island) {
+        return island != null && "MILESTONE".equalsIgnoreCase(island.getPinnedUpgradeKey());
+    }
+
+    public void setPinnedMilestone(IslandData island) {
+        if (island == null) return;
+        island.setPinnedUpgradeKey("MILESTONE");
+        save();
+    }
+
+    public void setPinnedUpgrade(IslandData island, UpgradeBranch branch) {
+        if (island == null || branch == null) return;
+        island.setPinnedUpgradeKey(branch.name());
+        save();
+    }
+
+    public int getUpgradeTier(IslandData island, UpgradeBranch branch) {
+        if (island == null || branch == null) return 0;
+        return Math.max(0, island.getUpgradeTiers().getOrDefault(branch.name(), 0));
+    }
+
+    public int getUnlockedUpgradeTierCap(IslandData island, UpgradeBranch branch) {
+        if (island == null || branch == null) return 0;
+        int milestone = Math.max(0, island.getLevel() - 1);
+        int cap = switch (branch) {
+            case ANIMAL -> milestone + milestone / 2;
+            case CHUNKS -> milestone * 24;
+            case GOLEM, VILLAGER -> Math.max(0, milestone - 1);
+            case CONTAINER -> Math.max(0, milestone);
+            case HOPPER, PISTON, OBSERVER, DISPENSER -> Math.max(0, (milestone * 2) - 1);
+            case ARMOR_STAND -> Math.max(0, milestone + milestone / 2);
+            case CACTUS, KELP, BAMBOO -> Math.max(0, milestone * 2);
+        };
+        return Math.min(branch.maxTier(), Math.max(0, cap));
+    }
+
+    public int getCurrentUpgradeLimit(IslandData island, UpgradeBranch branch) {
+        if (island == null || branch == null) return 0;
+        return branch.baseLimit() + (getUpgradeTier(island, branch) * branch.step());
+    }
+
+    private long scaledLong(int stage, long base, double growth) {
+        if (stage <= 0) return Math.max(0L, base);
+        double value = base * Math.pow(growth, Math.max(0, stage - 1));
+        if (Double.isNaN(value) || Double.isInfinite(value)) return Long.MAX_VALUE;
+        return Math.max(base, Math.min(Long.MAX_VALUE, (long) Math.floor(value)));
+    }
+
+    private int scaledInt(int stage, int base, double growth) {
+        long scaled = scaledLong(stage, base, growth);
+        return (int) Math.max(base, Math.min(Integer.MAX_VALUE, scaled));
+    }
+
+    public UpgradeRequirement getNextUpgradeRequirement(IslandData island, UpgradeBranch branch) {
+        if (island == null || branch == null) return null;
+        int nextTier = getUpgradeTier(island, branch) + 1;
+        if (nextTier > getUnlockedUpgradeTierCap(island, branch)) return null;
+        if (nextTier > branch.maxTier()) return null;
+
+        long islandLevelReq = switch (branch) {
+            case ANIMAL -> scaledLong(nextTier, 85L, 1.19D);
+            case CHUNKS -> scaledLong(nextTier, 60L, 1.06D);
+            case GOLEM -> scaledLong(nextTier, 125L, 1.21D);
+            case VILLAGER -> scaledLong(nextTier, 110L, 1.19D);
+            case CONTAINER -> scaledLong(nextTier, 95L, 1.18D);
+            case HOPPER -> scaledLong(nextTier, 110L, 1.20D);
+            case PISTON -> scaledLong(nextTier, 108L, 1.20D);
+            case ARMOR_STAND -> scaledLong(nextTier, 75L, 1.17D);
+            case OBSERVER -> scaledLong(nextTier, 140L, 1.22D);
+            case DISPENSER -> scaledLong(nextTier, 108L, 1.20D);
+            case CACTUS, KELP, BAMBOO -> scaledLong(nextTier, 90L, 1.18D);
+        };
+        long experienceReq = switch (branch) {
+            case ANIMAL -> scaledLong(nextTier, 320L, 1.26D);
+            case CHUNKS -> scaledLong(nextTier, 180L, 1.08D);
+            case GOLEM -> scaledLong(nextTier, 480L, 1.28D);
+            case VILLAGER -> scaledLong(nextTier, 380L, 1.25D);
+            case CONTAINER -> scaledLong(nextTier, 340L, 1.23D);
+            case HOPPER, PISTON, DISPENSER -> scaledLong(nextTier, 420L, 1.26D);
+            case ARMOR_STAND -> scaledLong(nextTier, 260L, 1.22D);
+            case OBSERVER -> scaledLong(nextTier, 560L, 1.29D);
+            case CACTUS, KELP, BAMBOO -> scaledLong(nextTier, 280L, 1.23D);
+        };
+        Map<Material, Integer> materials = new LinkedHashMap<>();
+        switch (branch) {
+            case ANIMAL -> {
+                materials.put(Material.WHEAT, scaledInt(nextTier, 3800, 1.50D));
+                materials.put(Material.CARROT, scaledInt(nextTier, 2600, 1.49D));
+                materials.put(Material.POTATO, scaledInt(nextTier, 2600, 1.49D));
+                if (nextTier >= 2) materials.put(Material.HAY_BLOCK, scaledInt(nextTier - 1, 160, 1.32D));
+                if (nextTier >= 5) materials.put(Material.PUMPKIN, scaledInt(nextTier - 4, 700, 1.40D));
+            }
+            case CHUNKS -> {
+                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 5000, 1.06D));
+                materials.put(Material.STONE, scaledInt(nextTier, 2400, 1.055D));
+                materials.put(Material.OAK_LOG, scaledInt(nextTier, 2200, 1.058D));
+                if (nextTier >= 4) materials.put(Material.IRON_INGOT, scaledInt(nextTier - 3, 24, 1.11D));
+                if (nextTier >= 8) materials.put(Material.REDSTONE, scaledInt(nextTier - 7, 18, 1.11D));
+            }
+            case GOLEM -> {
+                materials.put(Material.IRON_INGOT, scaledInt(nextTier, 140, 1.29D));
+                materials.put(Material.CARVED_PUMPKIN, scaledInt(nextTier, 28, 1.20D));
+                materials.put(Material.REDSTONE, scaledInt(nextTier, 78, 1.23D));
+            }
+            case VILLAGER -> {
+                materials.put(Material.BREAD, scaledInt(nextTier, 2800, 1.47D));
+                materials.put(Material.CARROT, scaledInt(nextTier, 3400, 1.50D));
+                materials.put(Material.POTATO, scaledInt(nextTier, 3400, 1.50D));
+                materials.put(Material.EMERALD, scaledInt(nextTier, 12, 1.20D));
+            }
+            case CONTAINER -> {
+                materials.put(Material.CHEST, scaledInt(nextTier, 96, 1.34D));
+                materials.put(Material.BARREL, scaledInt(nextTier, 48, 1.32D));
+                materials.put(Material.OAK_LOG, scaledInt(nextTier, 4200, 1.42D));
+                if (nextTier >= 6) materials.put(Material.IRON_INGOT, scaledInt(nextTier - 5, 26, 1.22D));
+            }
+            case HOPPER -> {
+                materials.put(Material.IRON_INGOT, scaledInt(nextTier, 110, 1.27D));
+                materials.put(Material.CHEST, scaledInt(nextTier, 24, 1.24D));
+                materials.put(Material.REDSTONE, scaledInt(nextTier, 86, 1.25D));
+            }
+            case PISTON -> {
+                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 1800, 1.30D));
+                materials.put(Material.IRON_INGOT, scaledInt(nextTier, 64, 1.25D));
+                materials.put(Material.REDSTONE, scaledInt(nextTier, 74, 1.25D));
+                if (nextTier >= 4) materials.put(Material.SLIME_BALL, scaledInt(nextTier - 3, 18, 1.22D));
+            }
+            case ARMOR_STAND -> {
+                materials.put(Material.STICK, scaledInt(nextTier, 2600, 1.38D));
+                materials.put(Material.SMOOTH_STONE_SLAB, scaledInt(nextTier, 320, 1.28D));
+                if (nextTier >= 3) materials.put(Material.LEATHER, scaledInt(nextTier - 2, 72, 1.24D));
+            }
+            case OBSERVER -> {
+                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 1400, 1.28D));
+                materials.put(Material.REDSTONE, scaledInt(nextTier, 110, 1.25D));
+                materials.put(Material.QUARTZ, scaledInt(nextTier, 42, 1.22D));
+            }
+            case DISPENSER -> {
+                materials.put(Material.COBBLESTONE, scaledInt(nextTier, 1800, 1.29D));
+                materials.put(Material.REDSTONE, scaledInt(nextTier, 72, 1.25D));
+                materials.put(Material.STRING, scaledInt(nextTier, 2200, 1.38D));
+                if (nextTier >= 4) materials.put(Material.BOW, scaledInt(nextTier - 3, 8, 1.20D));
+            }
+            case CACTUS -> {
+                materials.put(Material.CACTUS, scaledInt(nextTier, 4200, 1.49D));
+                if (nextTier >= 3) materials.put(Material.SAND, scaledInt(nextTier - 2, 1000, 1.34D));
+            }
+            case KELP -> {
+                materials.put(Material.KELP, scaledInt(nextTier, 5200, 1.50D));
+                if (nextTier >= 4) materials.put(Material.DRIED_KELP_BLOCK, scaledInt(nextTier - 3, 42, 1.24D));
+            }
+            case BAMBOO -> {
+                materials.put(Material.BAMBOO, scaledInt(nextTier, 5200, 1.50D));
+                if (nextTier >= 4) materials.put(Material.SCAFFOLDING, scaledInt(nextTier - 3, 60, 1.26D));
+            }
+        }
+        int chunkUnlocksGranted = branch == UpgradeBranch.CHUNKS
+                ? (nextTier < 6 ? 2 : nextTier < 16 ? 4 : 6)
+                : 0;
+        return new UpgradeRequirement(islandLevelReq, experienceReq, materials, chunkUnlocksGranted);
+    }
+
+    public boolean canUnlockUpgrade(IslandData island, UpgradeBranch branch) {
+        UpgradeRequirement requirement = getNextUpgradeRequirement(island, branch);
+        if (requirement == null) return false;
+        if (calculateIslandLevel(island) < requirement.islandLevel()) return false;
+        if (island.getStoredExperience() < requirement.experience()) return false;
+        for (Map.Entry<Material, Integer> entry : requirement.materials().entrySet()) {
+            if (island.getProgress(entry.getKey()) < entry.getValue()) return false;
+        }
+        return true;
+    }
+
+    public boolean unlockUpgrade(IslandData island, UpgradeBranch branch) {
+        UpgradeRequirement requirement = getNextUpgradeRequirement(island, branch);
+        if (requirement == null || !canUnlockUpgrade(island, branch)) return false;
+        for (Map.Entry<Material, Integer> entry : requirement.materials().entrySet()) {
+            island.takeProgress(entry.getKey(), entry.getValue());
+        }
+        island.takeStoredExperience(requirement.experience());
+        island.getUpgradeTiers().put(branch.name(), getUpgradeTier(island, branch) + 1);
+        if (requirement.chunkUnlocksGranted() > 0) {
+            island.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks() + requirement.chunkUnlocksGranted());
+        }
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
     public boolean canLevelUp(IslandData island) {
-        IslandLevelDefinition next = getNextLevelDef(island);
+        MilestoneRequirement next = getNextMilestoneRequirement(island);
         if (next == null) return false;
-        if (calculateIslandLevel(island) < requiredIslandLevelForUpgrade(next.getLevel())) return false;
-        if (island.getStoredExperience() < requiredExperienceForLevel(next.getLevel())) return false;
-        for (Map.Entry<Material, Integer> req : next.getRequirements().entrySet()) {
+        if (calculateIslandLevel(island) < next.islandLevel()) return false;
+        if (island.getStoredExperience() < next.experience()) return false;
+        for (Map.Entry<Material, Integer> req : next.materials().entrySet()) {
             if (island.getProgress(req.getKey()) < req.getValue()) return false;
         }
         return true;
     }
 
     public boolean levelUp(IslandData island) {
-        IslandLevelDefinition next = getNextLevelDef(island);
+        MilestoneRequirement next = getNextMilestoneRequirement(island);
         if (next == null || !canLevelUp(island)) return false;
-        for (Map.Entry<Material, Integer> req : next.getRequirements().entrySet()) {
+        for (Map.Entry<Material, Integer> req : next.materials().entrySet()) {
             island.takeProgress(req.getKey(), req.getValue());
         }
-        island.takeStoredExperience(requiredExperienceForLevel(next.getLevel()));
-        island.setLevel(next.getLevel());
-        island.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks() + next.getChunkUnlocksGranted());
+        island.takeStoredExperience(next.experience());
+        island.setLevel(next.milestone() + 1);
+        island.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks() + next.chunkUnlocksGranted());
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
+    }
+
+    public List<UpgradeBranch> getUpgradeBranches() {
+        return List.of(UpgradeBranch.values());
+    }
+
+    public MilestoneRequirement getNextMilestoneRequirement(IslandData island) {
+        if (island == null) return null;
+        IslandLevelDefinition next = getNextLevelDef(island);
+        if (next == null) return null;
+        int milestone = Math.max(0, next.getLevel() - 1);
+        long islandLevelReq = scaledLong(milestone, 180L, 1.30D);
+        long experienceReq = scaledLong(milestone, 900L, 1.40D);
+        Map<Material, Integer> materials = new LinkedHashMap<>();
+
+        materials.put(Material.COBBLESTONE, scaledInt(milestone, 50000, 1.52D));
+        materials.put(Material.STONE, scaledInt(milestone, 22000, 1.47D));
+        materials.put(Material.OAK_LOG, scaledInt(milestone, 42000, 1.53D));
+
+        if (milestone >= 2) materials.put(Material.IRON_INGOT, scaledInt(milestone - 1, 120, 1.24D));
+        if (milestone >= 3) materials.put(Material.COAL, scaledInt(milestone - 2, 2400, 1.34D));
+        if (milestone >= 4) materials.put(Material.REDSTONE, scaledInt(milestone - 3, 180, 1.26D));
+        if (milestone >= 5) materials.put(Material.GOLD_INGOT, scaledInt(milestone - 4, 72, 1.22D));
+        if (milestone >= 6) materials.put(Material.QUARTZ, scaledInt(milestone - 5, 72, 1.22D));
+        if (milestone >= 7) materials.put(Material.LAPIS_LAZULI, scaledInt(milestone - 6, 160, 1.24D));
+        if (milestone >= 8) materials.put(Material.EMERALD, scaledInt(milestone - 7, 28, 1.20D));
+        if (milestone >= 9) materials.put(Material.OBSIDIAN, scaledInt(milestone - 8, 280, 1.24D));
+        if (milestone >= 10) materials.put(Material.DIAMOND, scaledInt(milestone - 9, 32, 1.20D));
+        if (milestone >= 11) materials.put(Material.OBSERVER, scaledInt(milestone - 10, 12, 1.14D));
+
+        return new MilestoneRequirement(
+                milestone,
+                islandLevelReq,
+                experienceReq,
+                materials,
+                next.getChunkUnlocksGranted()
+        );
     }
 
     public long requiredIslandLevelForUpgrade(int level) {
@@ -3076,10 +3384,10 @@ public class IslandService {
 
     public double calculateReservedUpgradeLevelValue(IslandData island) {
         if (island == null) return 0.0D;
-        IslandLevelDefinition next = getNextLevelDef(island);
+        MilestoneRequirement next = getNextMilestoneRequirement(island);
         if (next == null) return 0.0D;
         double reserved = 0.0D;
-        for (Map.Entry<Material, Integer> req : next.getRequirements().entrySet()) {
+        for (Map.Entry<Material, Integer> req : next.materials().entrySet()) {
             int cur = island.getProgress(req.getKey());
             int usedForUpgrade = Math.min(Math.max(0, cur), Math.max(0, req.getValue()));
             if (usedForUpgrade <= 0) continue;

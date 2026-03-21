@@ -43,6 +43,7 @@ import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -110,9 +111,10 @@ public class ProtectionListener implements Listener {
         }
 
         Material type = block.getType();
-        if (islandService.isInventoryLimitedMaterial(type) && islandService.getCachedInventoryBlockCount(island) + 1 > 100) {
+        if (islandService.isInventoryLimitedMaterial(type)
+                && islandService.getCachedInventoryBlockCount(island) + 1 > islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Limit 100 Inventarbloecke erreicht.");
+            player.sendMessage(ChatColor.RED + "Behaelterlimit erreicht: " + islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER));
             return;
         }
         if (type == Material.HOPPER && islandService.getCachedHopperCount(island) + 1 > islandService.getCurrentLevelDef(island).getHopperLimit()) {
@@ -281,6 +283,15 @@ public class ProtectionListener implements Listener {
     public void onEntityChangeBlock(EntityChangeBlockEvent event) {
         if (!skyWorldService.isSkyCityWorld(event.getBlock().getWorld())) return;
         if (event.getBlock().getType() == Material.FARMLAND && event.getTo() == Material.DIRT) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDisplayInteract(PlayerInteractAtEntityEvent event) {
+        if (!(event.getRightClicked() instanceof ArmorStand stand)) return;
+        if (!skyWorldService.isSkyCityWorld(stand.getWorld())) return;
+        if (coreService.handleDisplayInteraction(event.getPlayer(), stand)) {
             event.setCancelled(true);
         }
     }

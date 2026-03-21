@@ -24,6 +24,7 @@ public class IslandData {
     private final Set<String> unlockedChunks = new HashSet<>();
     private final Set<String> generatedChunks = new HashSet<>();
     private final Map<String, Integer> progress = new HashMap<>();
+    private final Map<String, Integer> upgradeTiers = new HashMap<>();
     private final Map<String, Integer> cachedBlockCounts = new HashMap<>();
     private final Map<String, ParcelData> parcels = new HashMap<>();
     private final Map<String, Long> growthBoostUntil = new HashMap<>();
@@ -35,6 +36,7 @@ public class IslandData {
     private String warpName;
     private Location warpLocation;
     private String coreDisplayMode = "ALL";
+    private String pinnedUpgradeKey = "MILESTONE";
     private String islandTimeMode = "NORMAL";
     private long points = 0L;
     private long storedExperience = 0L;
@@ -62,6 +64,7 @@ public class IslandData {
     public Set<String> getUnlockedChunks() { return unlockedChunks; }
     public Set<String> getGeneratedChunks() { return generatedChunks; }
     public Map<String, Integer> getProgress() { return progress; }
+    public Map<String, Integer> getUpgradeTiers() { return upgradeTiers; }
     public Map<String, Integer> getCachedBlockCounts() { return cachedBlockCounts; }
     public Map<String, ParcelData> getParcels() { return parcels; }
     public Map<String, Long> getGrowthBoostUntil() { return growthBoostUntil; }
@@ -82,6 +85,12 @@ public class IslandData {
         this.coreDisplayMode = (coreDisplayMode == null || coreDisplayMode.isBlank())
                 ? "ALL"
                 : coreDisplayMode.toUpperCase(java.util.Locale.ROOT);
+    }
+    public String getPinnedUpgradeKey() { return pinnedUpgradeKey; }
+    public void setPinnedUpgradeKey(String pinnedUpgradeKey) {
+        this.pinnedUpgradeKey = (pinnedUpgradeKey == null || pinnedUpgradeKey.isBlank())
+                ? "MILESTONE"
+                : pinnedUpgradeKey.toUpperCase(java.util.Locale.ROOT);
     }
     public String getIslandTimeMode() { return islandTimeMode; }
     public void setIslandTimeMode(String islandTimeMode) {

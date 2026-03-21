@@ -165,7 +165,6 @@ public class CoreService {
       addPrototypeBlockValue("EMERALD_BLOCK", 2.5);
       addPrototypeBlockValue("ENDER_CHEST", 2.0);
       addPrototypeBlockValue("GOLD_BLOCK", 1.5);
-      addPrototypeBlockValue("PLAYER_HEAD", 1.0);
       addPrototypeBlockValue("COAL_BLOCK", 0.5);
       addPrototypeBlockValue("IRON_BLOCK", 0.5);
       addPrototypeBlockValue("REDSTONE_BLOCK", 0.5);
@@ -207,15 +206,48 @@ public class CoreService {
       addPrototypeBlockValue("PURPUR_PILLAR", 0.05);
       addPrototypeBlockValue("NOTE_BLOCK", 0.05);
       addPrototypeBlockValue("PISTON", 0.04);
-      addPrototypeBlockValue("FARMLAND", 0.04);
       addPrototypeBlockValue("REDSTONE_LAMP", 0.04);
       addPrototypeBlockValue("BRICKS", 0.04);
       addPrototypeBlockValue("BRICK_STAIRS", 0.04);
       addPrototypeBlockValue("RED_SANDSTONE_SLAB", 0.04);
+      addPrototypeBlockValue("COPPER_BLOCK", 0.04);
+      addPrototypeBlockValue("CUT_COPPER", 0.04);
+      addPrototypeBlockValue("COPPER_ORE", 0.04);
+      addPrototypeBlockValue("AMETHYST_BLOCK", 0.04);
+      addPrototypeBlockValue("MOSS_BLOCK", 0.04);
+      addPrototypeBlockValue("TUFF", 0.04);
+      addPrototypeBlockValue("CALCITE", 0.04);
+      addPrototypeBlockValue("BASALT", 0.04);
+      addPrototypeBlockValue("SMOOTH_BASALT", 0.04);
+      addPrototypeBlockValue("BLACKSTONE", 0.04);
+      addPrototypeBlockValue("POLISHED_BLACKSTONE", 0.04);
+      addPrototypeBlockValue("GILDED_BLACKSTONE", 0.04);
+      addPrototypeBlockValue("CRYING_OBSIDIAN", 0.04);
+      addPrototypeBlockValue("SEA_PICKLE", 0.04);
+      addPrototypeBlockValue("SHROOMLIGHT", 0.04);
+      addPrototypeBlockValue("OCHRE_FROGLIGHT", 0.04);
+      addPrototypeBlockValue("PEARLESCENT_FROGLIGHT", 0.04);
+      addPrototypeBlockValue("VERDANT_FROGLIGHT", 0.04);
       addPrototypeBlockValue("PACKED_ICE", 0.03);
       addPrototypeBlockValue("PURPUR_STAIRS", 0.03);
       addPrototypeBlockValue("IRON_ORE", 0.03);
       addPrototypeBlockValue("MOSSY_COBBLESTONE", 0.03);
+      addPrototypeBlockValue("DEEPSLATE", 0.03);
+      addPrototypeBlockValue("COBBLED_DEEPSLATE", 0.03);
+      addPrototypeBlockValue("POLISHED_DEEPSLATE", 0.03);
+      addPrototypeBlockValue("DEEPSLATE_BRICKS", 0.03);
+      addPrototypeBlockValue("DEEPSLATE_TILES", 0.03);
+      addPrototypeBlockValue("TUFF_BRICKS", 0.03);
+      addPrototypeBlockValue("POLISHED_TUFF", 0.03);
+      addPrototypeBlockValue("MUD_BRICKS", 0.03);
+      addPrototypeBlockValue("DRIPSTONE_BLOCK", 0.03);
+      addPrototypeBlockValue("POINTED_DRIPSTONE", 0.03);
+      addPrototypeBlockValue("MAGMA_BLOCK", 0.03);
+      addPrototypeBlockValue("SOUL_SOIL", 0.03);
+      addPrototypeBlockValue("WARPED_WART_BLOCK", 0.03);
+      addPrototypeBlockValue("NETHER_WART_BLOCK", 0.03);
+      addPrototypeBlockValue("HONEYCOMB_BLOCK", 0.03);
+      addPrototypeBlockValue("SCULK", 0.03);
       addPrototypeBlockValue("PURPUR_SLAB", 0.025);
       addPrototypeBlockValue("PRISMARINE", 0.02);
       addPrototypeBlockValue("HAY_BLOCK", 0.02);
@@ -256,6 +288,61 @@ public class CoreService {
       addPrototypeBlockValue("JUNGLE_LOG", 0.02);
       addPrototypeBlockValue("ACACIA_LOG", 0.02);
       addPrototypeBlockValue("DARK_OAK_LOG", 0.02);
+      addPrototypeBlockValue("MANGROVE_LOG", 0.02);
+      addPrototypeBlockValue("CHERRY_LOG", 0.02);
+      addPrototypeBlockValue("MUSHROOM_STEM", 0.02);
+      addPrototypeBlockValue("OAK_PLANKS", 0.02);
+      addPrototypeBlockValue("SPRUCE_PLANKS", 0.02);
+      addPrototypeBlockValue("BIRCH_PLANKS", 0.02);
+      addPrototypeBlockValue("JUNGLE_PLANKS", 0.02);
+      addPrototypeBlockValue("ACACIA_PLANKS", 0.02);
+      addPrototypeBlockValue("DARK_OAK_PLANKS", 0.02);
+      addPrototypeBlockValue("MANGROVE_PLANKS", 0.02);
+      addPrototypeBlockValue("CHERRY_PLANKS", 0.02);
+      addPrototypeBlockValue("BAMBOO_PLANKS", 0.02);
+      addPrototypeBlockValue("STONE", 0.02);
+      addPrototypeBlockValue("SMOOTH_STONE", 0.02);
+      addPrototypeBlockValue("ANDESITE", 0.02);
+      addPrototypeBlockValue("DIORITE", 0.02);
+      addPrototypeBlockValue("GRANITE", 0.02);
+      addPrototypeBlockValue("POLISHED_ANDESITE", 0.02);
+      addPrototypeBlockValue("POLISHED_DIORITE", 0.02);
+      addPrototypeBlockValue("POLISHED_GRANITE", 0.02);
+      addPrototypeBlockValue("BRICK_BLOCK", 0.02);
+      addPrototypeBlockValue("QUARTZ_BRICKS", 0.02);
+      addPrototypeBlockValue("SMOOTH_QUARTZ", 0.02);
+      addPrototypeBlockValue("WHITE_CONCRETE", 0.02);
+      addPrototypeBlockValue("ORANGE_CONCRETE", 0.02);
+      addPrototypeBlockValue("MAGENTA_CONCRETE", 0.02);
+      addPrototypeBlockValue("LIGHT_BLUE_CONCRETE", 0.02);
+      addPrototypeBlockValue("YELLOW_CONCRETE", 0.02);
+      addPrototypeBlockValue("LIME_CONCRETE", 0.02);
+      addPrototypeBlockValue("PINK_CONCRETE", 0.02);
+      addPrototypeBlockValue("GRAY_CONCRETE", 0.02);
+      addPrototypeBlockValue("LIGHT_GRAY_CONCRETE", 0.02);
+      addPrototypeBlockValue("CYAN_CONCRETE", 0.02);
+      addPrototypeBlockValue("PURPLE_CONCRETE", 0.02);
+      addPrototypeBlockValue("BLUE_CONCRETE", 0.02);
+      addPrototypeBlockValue("BROWN_CONCRETE", 0.02);
+      addPrototypeBlockValue("GREEN_CONCRETE", 0.02);
+      addPrototypeBlockValue("RED_CONCRETE", 0.02);
+      addPrototypeBlockValue("BLACK_CONCRETE", 0.02);
+      addPrototypeBlockValue("WHITE_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("ORANGE_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("MAGENTA_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("LIGHT_BLUE_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("YELLOW_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("LIME_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("PINK_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("GRAY_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("LIGHT_GRAY_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("CYAN_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("PURPLE_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("BLUE_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("BROWN_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("GREEN_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("RED_CONCRETE_POWDER", 0.015);
+      addPrototypeBlockValue("BLACK_CONCRETE_POWDER", 0.015);
       addPrototypeBlockValue("VINE", 0.01);
       addPrototypeBlockValue("PUMPKIN", 0.01);
       addPrototypeBlockValue("MELON", 0.01);
@@ -587,18 +674,18 @@ public class CoreService {
          this.named(
             Material.CHEST,
             ChatColor.AQUA + "CoreBank",
-            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Upgrade wird priorisiert, Rest z\u00e4hlt als Insel-Level")
+            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Materialien landen im Core-Fortschritt fuer Meilensteine und Techbaum")
          )
       );
       inv.setItem(
          13,
          this.named(
             Material.BOOK,
-            ChatColor.YELLOW + "Fortschritt",
+            ChatColor.YELLOW + "Techbaum",
             List.of(
-               ChatColor.GRAY + "Alle Upgrades im \u00dcberblick",
-               ChatColor.GRAY + "Status, Voraussetzungen, Belohnungen",
-               ChatColor.YELLOW + "Klick = Fortschritt \u00f6ffnen"
+               ChatColor.GRAY + "Meilensteine und einzelne Limits in einem Menue",
+               ChatColor.GRAY + "Links = Fokus, Rechts = freischalten",
+               ChatColor.YELLOW + "Klick = Techbaum \u00f6ffnen"
             )
          )
       );
@@ -615,16 +702,6 @@ public class CoreService {
             )
          )
       );
-      IslandLevelDefinition next = this.islandService.getNextLevelDef(island);
-      if (next == null) {
-         inv.setItem(12, this.named(Material.EMERALD_BLOCK, ChatColor.GREEN + "Max Level", List.of(ChatColor.GRAY + "Kein weiteres Upgrade")));
-      } else {
-         List<String> lore = this.buildUpgradeLore(island);
-         lore.add(" ");
-         lore.add(ChatColor.YELLOW + "Klick zum Upgraden");
-         inv.setItem(12, this.named(Material.ANVIL, ChatColor.AQUA + "Upgrade", lore));
-      }
-
       for (int slot : INPUT_SLOTS) {
          inv.setItem(slot, null);
       }
@@ -633,73 +710,21 @@ public class CoreService {
    }
 
    public Inventory createUpgradeProgressMenu(IslandData island, int page) {
-      List<IslandLevelDefinition> defs = this.islandService.getLevelDefinitions().values().stream().sorted((a, b) -> Integer.compare(a.getLevel(), b.getLevel())).toList();
-      int totalPages = Math.max(1, (int)Math.ceil((double)defs.size() / 45.0));
-      int safePage = Math.max(0, Math.min(totalPages - 1, page));
-      Inventory inv = Bukkit.createInventory(new UpgradeProgressInventoryHolder(island.getOwner(), safePage), 54, "Fortschritt " + (safePage + 1) + "/" + totalPages);
+      Inventory inv = Bukkit.createInventory(new UpgradeProgressInventoryHolder(island.getOwner(), 0), 54, "Techbaum");
       this.fillWithPanes(inv);
-      int start = safePage * 45;
-      double islandLevelScore = this.islandService.calculateIslandLevelValue(island);
-      double reservedLevelScore = this.islandService.calculateReservedUpgradeLevelValue(island);
-
-      for (int i = 0; i < 45; i++) {
-         int idx = start + i;
-         if (idx >= defs.size()) break;
-         IslandLevelDefinition def = defs.get(idx);
-         inv.setItem(GRID_SLOTS.get(i), this.createUpgradeProgressItem(island, def, islandLevelScore, reservedLevelScore));
+      inv.setItem(4, this.createMilestoneProgressItem(island));
+      inv.setItem(13, this.createDisplayFocusSummaryItem(island));
+      int[] slots = new int[]{19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33};
+      List<IslandService.UpgradeBranch> branches = this.islandService.getUpgradeBranches();
+      for (int i = 0; i < Math.min(slots.length, branches.size()); i++) {
+         inv.setItem(slots[i], this.createTechTreeNodeItem(island, branches.get(i)));
       }
-      if (safePage > 0) inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Core")));
-      if (safePage < totalPages - 1) inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       return inv;
    }
 
    private ItemStack createUpgradeProgressItem(IslandData island, IslandLevelDefinition def, double islandLevelScore, double reservedLevelScore) {
-      int currentLevel = island.getLevel();
-      boolean completed = def.getLevel() < currentLevel;
-      boolean current = def.getLevel() == currentLevel;
-      long reqIslandLevel = this.islandService.requiredIslandLevelForUpgrade(def.getLevel());
-      long reqXp = this.islandService.requiredExperienceForLevel(def.getLevel());
-      List<String> lore = new ArrayList<>();
-      lore.add(ChatColor.GRAY + "Stufe: " + ChatColor.WHITE + Math.max(0, def.getLevel() - 1));
-      lore.add(ChatColor.GRAY + "Status: " + (completed ? ChatColor.GREEN + "erledigt" : current ? ChatColor.YELLOW + "aktuell" : ChatColor.RED + "offen"));
-      lore.add(" ");
-      lore.add(ChatColor.GOLD + "Voraussetzungen");
-      if (def.getLevel() <= 1) {
-         lore.add(ChatColor.GREEN + "Startstufe");
-      } else {
-         ChatColor islandLevelColor = islandLevelScore >= (double)reqIslandLevel ? ChatColor.GREEN : ChatColor.RED;
-         ChatColor xpColor = island.getStoredExperience() >= reqXp ? ChatColor.GREEN : ChatColor.RED;
-         lore.add(ChatColor.GRAY + "Insel-Level: " + islandLevelColor + this.formatIslandLevelWithReserved(islandLevelScore, reservedLevelScore) + ChatColor.WHITE + "/" + reqIslandLevel);
-         lore.add(ChatColor.GRAY + "Core-EXP: " + xpColor + island.getStoredExperience() + ChatColor.WHITE + "/" + reqXp);
-         if (def.getRequirements().isEmpty()) {
-            lore.add(ChatColor.GRAY + "Items: " + ChatColor.GREEN + "keine");
-         } else {
-            for (Entry<Material, Integer> req : def.getRequirements().entrySet()) {
-               int cur = island.getProgress(req.getKey());
-               ChatColor curColor = cur >= req.getValue() ? ChatColor.GREEN : ChatColor.RED;
-               lore.add(ChatColor.GRAY + this.materialDisplayNameDe(req.getKey()) + ": " + curColor + cur + ChatColor.WHITE + "/" + req.getValue());
-            }
-         }
-      }
-      lore.add(" ");
-      lore.add(ChatColor.GOLD + "Belohnungen");
-      lore.add(ChatColor.GRAY + "Chunk-Unlocks: " + ChatColor.AQUA + "+" + def.getChunkUnlocksGranted());
-      IslandLevelDefinition prev = def.getLevel() <= 1 ? def : this.islandService.getLevelDefinitions().getOrDefault(def.getLevel() - 1, def);
-      if (def.getAnimalLimit() != prev.getAnimalLimit()) lore.add(ChatColor.GRAY + "Tierlimit: " + ChatColor.AQUA + prev.getAnimalLimit() + " -> " + def.getAnimalLimit());
-      if (def.getGolemLimit() != prev.getGolemLimit()) lore.add(ChatColor.GRAY + "Golemlimit: " + ChatColor.AQUA + prev.getGolemLimit() + " -> " + def.getGolemLimit());
-      if (def.getVillagerLimit() != prev.getVillagerLimit()) lore.add(ChatColor.GRAY + "Villagerlimit: " + ChatColor.AQUA + prev.getVillagerLimit() + " -> " + def.getVillagerLimit());
-      if (def.getHopperLimit() != prev.getHopperLimit()) lore.add(ChatColor.GRAY + "Hopperlimit: " + ChatColor.AQUA + prev.getHopperLimit() + " -> " + def.getHopperLimit());
-      if (def.getPistonLimit() != prev.getPistonLimit()) lore.add(ChatColor.GRAY + "Kolbenlimit: " + ChatColor.AQUA + prev.getPistonLimit() + " -> " + def.getPistonLimit());
-      if (def.getArmorStandLimit() != prev.getArmorStandLimit()) lore.add(ChatColor.GRAY + "Ruestungsstaenderlimit: " + ChatColor.AQUA + prev.getArmorStandLimit() + " -> " + def.getArmorStandLimit());
-      if (def.getObserverLimit() != prev.getObserverLimit()) lore.add(ChatColor.GRAY + "Observerlimit: " + ChatColor.AQUA + prev.getObserverLimit() + " -> " + def.getObserverLimit());
-      if (def.getDispenserLimit() != prev.getDispenserLimit()) lore.add(ChatColor.GRAY + "Dispenserlimit: " + ChatColor.AQUA + prev.getDispenserLimit() + " -> " + def.getDispenserLimit());
-      if (def.getCactusLimit() != prev.getCactusLimit()) lore.add(ChatColor.GRAY + "Kaktuslimit: " + ChatColor.AQUA + prev.getCactusLimit() + " -> " + def.getCactusLimit());
-      if (def.getKelpLimit() != prev.getKelpLimit()) lore.add(ChatColor.GRAY + "Kelplimit: " + ChatColor.AQUA + prev.getKelpLimit() + " -> " + def.getKelpLimit());
-      if (def.getBambooLimit() != prev.getBambooLimit()) lore.add(ChatColor.GRAY + "Bambuslimit: " + ChatColor.AQUA + prev.getBambooLimit() + " -> " + def.getBambooLimit());
-
-      Material icon = completed ? Material.LIME_STAINED_GLASS : current ? Material.CLOCK : Material.ANVIL;
-      return this.named(icon, (completed ? ChatColor.GREEN : current ? ChatColor.YELLOW : ChatColor.AQUA) + "Upgrade " + Math.max(0, def.getLevel() - 1), lore);
+      return this.named(Material.BARRIER, ChatColor.RED + "Veraltet", List.of());
    }
 
    private List<String> buildCoreSummaryLore(IslandData island) {
@@ -726,8 +751,8 @@ public class CoreService {
       lore.add(ChatColor.GREEN + "Tierlimit: " + ChatColor.WHITE + this.islandService.getAnimalCount(island) + "/" + current.getAnimalLimit());
       lore.add(ChatColor.GREEN + "Golemlimit: " + ChatColor.WHITE + this.islandService.getGolemCount(island) + "/" + current.getGolemLimit());
       lore.add(ChatColor.GREEN + "Villagerlimit: " + ChatColor.WHITE + this.islandService.getVillagerCount(island) + "/" + current.getVillagerLimit());
-      lore.add(ChatColor.GREEN + "Upgrade-Level: " + ChatColor.WHITE + upgradeLevel);
-      lore.add(ChatColor.GREEN + "Beh\u00e4lter: " + ChatColor.WHITE + this.islandService.getCachedInventoryBlockCount(island) + "/100");
+      lore.add(ChatColor.GREEN + "Meilensteine: " + ChatColor.WHITE + upgradeLevel);
+      lore.add(ChatColor.GREEN + "Beh\u00e4lter: " + ChatColor.WHITE + this.islandService.getCachedInventoryBlockCount(island) + "/" + this.islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER));
       lore.add(ChatColor.GREEN + "Trichter: " + ChatColor.WHITE + this.islandService.getCachedHopperCount(island) + "/" + current.getHopperLimit());
       lore.add(ChatColor.GREEN + "Kolben: " + ChatColor.WHITE + this.islandService.getCachedPistonCount(island) + "/" + current.getPistonLimit());
       lore.add(ChatColor.GREEN + "Ruestungsstaender: " + ChatColor.WHITE + this.islandService.getArmorStandCount(island) + "/" + current.getArmorStandLimit());
@@ -741,50 +766,200 @@ public class CoreService {
 
    private List<String> buildUpgradeLore(IslandData island) {
       List<String> lines = new ArrayList<>();
-      IslandLevelDefinition next = this.islandService.getNextLevelDef(island);
-      int upgradeLevel = Math.max(0, island.getLevel() - 1);
-      double islandLevelScore = this.islandService.calculateIslandLevelValue(island);
-      double reservedLevelScore = this.islandService.calculateReservedUpgradeLevelValue(island);
-      if (next == null) {
-         lines.add(ChatColor.GOLD + "Upgrade-Level");
-         lines.add("" + ChatColor.WHITE + upgradeLevel);
+      lines.add(ChatColor.GOLD + "Techbaum");
+      lines.add(" ");
+      if (this.islandService.isMilestonePinned(island)) {
+         lines.add(ChatColor.WHITE + "Anzeige: " + ChatColor.GOLD + "Meilensteinpfad");
          lines.add(" ");
-         lines.add(ChatColor.GREEN + "Max Level erreicht");
-         return lines;
+         lines.addAll(this.buildMilestoneLore(island, false));
       } else {
-         lines.add(ChatColor.GOLD + "Upgrade-Level");
-         lines.add("" + ChatColor.WHITE + upgradeLevel + " -> " + Math.max(0, next.getLevel() - 1));
+         IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
+         lines.add(ChatColor.WHITE + "Anzeige: " + ChatColor.GOLD + pinned.displayName());
          lines.add(" ");
-         lines.add(ChatColor.GOLD + "Erreiche");
-         long reqIslandLevel = this.islandService.requiredIslandLevelForUpgrade(next.getLevel());
-         ChatColor islandLevelColor = islandLevelScore >= (double)reqIslandLevel ? ChatColor.GREEN : ChatColor.RED;
-         lines.add(
-            ChatColor.GREEN
-               + "Insel-Level: "
-               + islandLevelColor
-               + this.formatIslandLevelWithReserved(islandLevelScore, reservedLevelScore)
-               + ChatColor.WHITE
-               + "/"
-               + reqIslandLevel
+         lines.addAll(this.buildPinnedUpgradeLore(island, pinned, false));
+      }
+      return lines;
+   }
+
+   private ItemStack createMilestoneProgressItem(IslandData island) {
+      IslandService.MilestoneRequirement next = this.islandService.getNextMilestoneRequirement(island);
+      int currentMilestone = Math.max(0, island.getLevel() - 1);
+      int maxMilestone = Math.max(0, this.islandService.getLevelDefinitions().size() - 1);
+      List<String> lore = new ArrayList<>();
+      lore.add(ChatColor.GOLD + "Meilenstein Stufe");
+      lore.add(ChatColor.WHITE + String.valueOf(currentMilestone) + ChatColor.DARK_GRAY + "/" + maxMilestone);
+      lore.add(" ");
+      if (next == null) {
+         lore.add(ChatColor.GREEN + "Alle Meilensteine freigeschaltet");
+         lore.add(ChatColor.YELLOW + "Linksklick = im Display anzeigen");
+         lore.add(hiddenAction("milestone"));
+         return this.named(Material.EMERALD_BLOCK, ChatColor.GREEN + "Meilenstein", lore);
+      }
+      lore.addAll(this.buildMilestoneLore(island, false));
+      lore.add(" ");
+      lore.add((this.islandService.isMilestonePinned(island) ? ChatColor.GREEN : ChatColor.YELLOW) + "Linksklick = im Display anzeigen");
+      lore.add(ChatColor.YELLOW + "Rechtsklick = Meilenstein freischalten");
+      lore.add(hiddenAction("milestone"));
+      return this.named(this.islandService.canLevelUp(island) ? Material.SMITHING_TABLE : Material.ANVIL, ChatColor.GOLD + "Meilenstein", lore);
+   }
+
+   private ItemStack createDisplayFocusSummaryItem(IslandData island) {
+      if (this.islandService.isMilestonePinned(island)) {
+         return this.named(
+            Material.SMITHING_TABLE,
+            ChatColor.AQUA + "Anzeige: Meilensteinpfad",
+            List.of(
+               ChatColor.GRAY + "Standardanzeige des Displays",
+               ChatColor.GRAY + "Zeigt alle benoetigten Meilenstein-Items",
+               ChatColor.GRAY + "und die Belohnung an"
+            )
          );
-         lines.add(" ");
-         lines.add(ChatColor.GOLD + "Ben\u00f6tigt");
-         long reqXp = this.islandService.requiredExperienceForLevel(next.getLevel());
-         ChatColor xpColor = island.getStoredExperience() >= reqXp ? ChatColor.GREEN : ChatColor.RED;
-         lines.add(ChatColor.GREEN + "Erfahrung: " + xpColor + island.getStoredExperience() + ChatColor.WHITE + "/" + reqXp);
-         lines.add(" ");
-         lines.add(ChatColor.GOLD + "Ben\u00f6tigte Gegenst\u00e4nde");
+      }
+      IslandService.UpgradeBranch branch = this.islandService.getPinnedUpgrade(island);
+      List<String> lore = this.buildPinnedUpgradeLore(island, branch, true);
+      lore.add(" ");
+      lore.add(ChatColor.GRAY + "Aktuell im Display angeheftet");
+      return this.named(branch.icon(), ChatColor.AQUA + "Anzeige: " + branch.displayName(), lore);
+   }
 
-         for (Entry<Material, Integer> req : next.getRequirements().entrySet()) {
-            int cur = island.getProgress(req.getKey());
-            ChatColor curColor = cur >= req.getValue() ? ChatColor.GREEN : ChatColor.RED;
-            lines.add(
-               ChatColor.GREEN + this.materialDisplayNameDe(req.getKey()) + ChatColor.WHITE + ": " + curColor + cur + ChatColor.WHITE + "/" + req.getValue()
-            );
+   private ItemStack createTechTreeNodeItem(IslandData island, IslandService.UpgradeBranch branch) {
+      int currentTier = this.islandService.getUpgradeTier(island, branch);
+      int cap = this.islandService.getUnlockedUpgradeTierCap(island, branch);
+      boolean pinned = this.islandService.getPinnedUpgrade(island) == branch;
+      boolean canBuy = this.islandService.canUnlockUpgrade(island, branch);
+      List<String> lore = new ArrayList<>();
+      lore.add(ChatColor.GOLD + "Stufe");
+      lore.add(ChatColor.WHITE + String.valueOf(currentTier) + ChatColor.DARK_GRAY + "/" + branch.maxTier());
+      lore.add(" ");
+      if (branch == IslandService.UpgradeBranch.CHUNKS) {
+         lore.add(ChatColor.GRAY + "Freie Chunk-Unlocks: " + ChatColor.WHITE + island.getAvailableChunkUnlocks());
+      } else {
+         lore.add(ChatColor.GRAY + "Aktuelles Limit: " + ChatColor.WHITE + this.islandService.getCurrentUpgradeLimit(island, branch));
+      }
+      if (cap <= currentTier) {
+         lore.add(ChatColor.RED + (currentTier >= branch.maxTier() ? "Maximal ausgebaut" : "Mehr Stufen erst nach Meilensteinen"));
+      } else {
+         IslandService.UpgradeRequirement requirement = this.islandService.getNextUpgradeRequirement(island, branch);
+         if (requirement != null) {
+            lore.add(ChatColor.GRAY + "Insel-Level: " + colorizeRequirement(this.islandService.calculateIslandLevel(island) >= requirement.islandLevel()) + this.islandService.calculateIslandLevel(island) + ChatColor.WHITE + "/" + requirement.islandLevel());
+            lore.add(ChatColor.GRAY + "Erfahrung: " + colorizeRequirement(island.getStoredExperience() >= requirement.experience()) + island.getStoredExperience() + ChatColor.WHITE + "/" + requirement.experience());
+            for (Entry<Material, Integer> entry : requirement.materials().entrySet()) {
+               int current = island.getProgress(entry.getKey());
+               lore.add(ChatColor.GRAY + this.materialDisplayNameDe(entry.getKey()) + ": " + colorizeRequirement(current >= entry.getValue()) + current + ChatColor.WHITE + "/" + entry.getValue());
+            }
+            if (requirement.chunkUnlocksGranted() > 0) {
+               lore.add(" ");
+               lore.add(ChatColor.GOLD + "Belohnung");
+               lore.add(ChatColor.AQUA + "+" + requirement.chunkUnlocksGranted() + " freie Chunks");
+            }
          }
+      }
+      lore.add(" ");
+      lore.add((pinned ? ChatColor.GREEN : ChatColor.YELLOW) + "Linksklick = im Display anzeigen");
+      lore.add((canBuy ? ChatColor.GREEN : ChatColor.YELLOW) + "Rechtsklick = freischalten");
+      lore.add(hiddenBranch(branch));
+      ChatColor nameColor = pinned ? ChatColor.GREEN : canBuy ? ChatColor.AQUA : ChatColor.GOLD;
+      return this.named(branch.icon(), nameColor + branch.displayName(), lore);
+   }
 
+   private List<String> buildPinnedUpgradeLore(IslandData island, IslandService.UpgradeBranch branch, boolean compact) {
+      List<String> lines = new ArrayList<>();
+      int currentTier = this.islandService.getUpgradeTier(island, branch);
+      int cap = this.islandService.getUnlockedUpgradeTierCap(island, branch);
+      lines.add(ChatColor.GOLD + branch.displayName());
+      lines.add(ChatColor.GOLD + "Stufe");
+      lines.add(ChatColor.WHITE + String.valueOf(currentTier) + ChatColor.DARK_GRAY + "/" + branch.maxTier());
+      lines.add(" ");
+      if (branch == IslandService.UpgradeBranch.CHUNKS) {
+         lines.add(ChatColor.GREEN + "Freie Chunks: " + ChatColor.WHITE + island.getAvailableChunkUnlocks());
+      } else {
+         lines.add(ChatColor.GREEN + "Aktuelles Limit: " + ChatColor.WHITE + this.islandService.getCurrentUpgradeLimit(island, branch));
+      }
+      IslandService.UpgradeRequirement requirement = this.islandService.getNextUpgradeRequirement(island, branch);
+      if (requirement == null) {
+         lines.add(ChatColor.RED + (currentTier >= branch.maxTier() ? "Maximal ausgebaut" : "N\u00e4chste Stufe erst nach Meilenstein"));
+      } else {
+         lines.add(ChatColor.GOLD + "Fehlt bis Stufe " + (currentTier + 1));
+         lines.add(ChatColor.GREEN + "Insel-Level: " + colorizeRequirement(this.islandService.calculateIslandLevel(island) >= requirement.islandLevel()) + this.islandService.calculateIslandLevel(island) + ChatColor.WHITE + "/" + requirement.islandLevel());
+         lines.add(ChatColor.GREEN + "Erfahrung: " + colorizeRequirement(island.getStoredExperience() >= requirement.experience()) + island.getStoredExperience() + ChatColor.WHITE + "/" + requirement.experience());
+         int shown = 0;
+         for (Entry<Material, Integer> entry : requirement.materials().entrySet()) {
+            int current = island.getProgress(entry.getKey());
+            lines.add(ChatColor.GREEN + this.materialDisplayNameDe(entry.getKey()) + ": " + colorizeRequirement(current >= entry.getValue()) + current + ChatColor.WHITE + "/" + entry.getValue());
+            shown++;
+            if (compact && shown >= 3) break;
+         }
+         if (compact && requirement.materials().size() > shown) {
+            lines.add(ChatColor.DARK_GRAY + "+" + (requirement.materials().size() - shown) + " weitere Anforderungen");
+         }
+         if (requirement.chunkUnlocksGranted() > 0) {
+            lines.add(" ");
+            lines.add(ChatColor.GOLD + "Belohnung");
+            lines.add(ChatColor.AQUA + "+" + requirement.chunkUnlocksGranted() + " freie Chunks");
+         }
+      }
+      return lines;
+   }
+
+   private List<String> buildMilestoneLore(IslandData island, boolean compact) {
+      List<String> lines = new ArrayList<>();
+      IslandService.MilestoneRequirement next = this.islandService.getNextMilestoneRequirement(island);
+      if (next == null) {
+         lines.add(ChatColor.GREEN + "Meilensteinpfad abgeschlossen");
          return lines;
       }
+      long currentIslandLevel = this.islandService.calculateIslandLevel(island);
+      lines.add(ChatColor.GOLD + "Naechster Meilenstein");
+      lines.add(ChatColor.GREEN + "Insel-Level: " + colorizeRequirement(currentIslandLevel >= next.islandLevel()) + currentIslandLevel + ChatColor.WHITE + "/" + next.islandLevel());
+      lines.add(ChatColor.GREEN + "Erfahrung: " + colorizeRequirement(island.getStoredExperience() >= next.experience()) + island.getStoredExperience() + ChatColor.WHITE + "/" + next.experience());
+      int shown = 0;
+      for (Entry<Material, Integer> entry : next.materials().entrySet()) {
+         int current = island.getProgress(entry.getKey());
+         lines.add(ChatColor.GREEN + this.materialDisplayNameDe(entry.getKey()) + ": " + colorizeRequirement(current >= entry.getValue()) + current + ChatColor.WHITE + "/" + entry.getValue());
+         shown++;
+         if (compact && shown >= 4) break;
+      }
+      if (compact && next.materials().size() > shown) {
+         lines.add(ChatColor.DARK_GRAY + "+" + (next.materials().size() - shown) + " weitere Meilenstein-Items");
+      }
+      lines.add(" ");
+      lines.add(ChatColor.GOLD + "Belohnung");
+      lines.add(ChatColor.AQUA + "+" + next.chunkUnlocksGranted() + " freie Chunks");
+      return lines;
+   }
+
+   private ChatColor colorizeRequirement(boolean fulfilled) {
+      return fulfilled ? ChatColor.GREEN : ChatColor.RED;
+   }
+
+   private String hiddenBranch(IslandService.UpgradeBranch branch) {
+      return ChatColor.BLACK + "upgrade:" + branch.name();
+   }
+
+   private String hiddenAction(String action) {
+      return ChatColor.BLACK + "action:" + action;
+   }
+
+   public IslandService.UpgradeBranch readUpgradeBranch(ItemStack item) {
+      if (item == null || !item.hasItemMeta() || item.getItemMeta().getLore() == null) return null;
+      for (String line : item.getItemMeta().getLore()) {
+         String plain = ChatColor.stripColor(line);
+         if (plain != null && plain.startsWith("upgrade:")) {
+            return IslandService.UpgradeBranch.fromKey(plain.substring("upgrade:".length()));
+         }
+      }
+      return null;
+   }
+
+   public String readHiddenAction(ItemStack item) {
+      if (item == null || !item.hasItemMeta() || item.getItemMeta().getLore() == null) return null;
+      for (String line : item.getItemMeta().getLore()) {
+         String plain = ChatColor.stripColor(line);
+         if (plain != null && plain.startsWith("action:")) {
+            return plain.substring("action:".length());
+         }
+      }
+      return null;
    }
 
    public Inventory createIslandMenu(Player viewer, IslandData island) {
@@ -2854,6 +3029,30 @@ public class CoreService {
       }
    }
 
+   public boolean handleDisplayInteraction(Player player, ArmorStand stand) {
+      if (player == null || stand == null) return false;
+      boolean coreLine = stand.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_"));
+      if (!coreLine) return false;
+      IslandData island = this.islandService.getIslandAt(stand.getLocation());
+      if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
+      if (this.islandService.isMilestonePinned(island)) {
+         if (this.islandService.levelUp(island)) {
+            player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + Math.max(0, island.getLevel() - 1));
+         } else {
+            this.sendUpgradeStatusChat(player, island);
+         }
+      } else {
+         IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
+         if (this.islandService.unlockUpgrade(island, pinned)) {
+            player.sendMessage(ChatColor.GREEN + pinned.displayName() + " freigeschaltet.");
+         } else {
+            this.sendUpgradeStatusChat(player, island);
+         }
+      }
+      this.refreshCoreDisplay(island);
+      return true;
+   }
+
    private String animalLookTag(UUID animalId) {
       return "skycity_animal_look_" + animalId.toString().substring(0, 8);
    }
@@ -2867,7 +3066,7 @@ public class CoreService {
       if (this.islandService.isInventoryLimitedMaterial(type)) {
          label = "Behaelter";
          used = this.islandService.getCachedInventoryBlockCount(island);
-         limit = 100;
+         limit = this.islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER);
       } else if (type == Material.HOPPER) {
          label = "Trichter";
          used = this.islandService.getCachedHopperCount(island);
@@ -3017,6 +3216,32 @@ public class CoreService {
       DE_MATERIAL_NAMES.put(Material.GOLD_INGOT, "Goldbarren");
       DE_MATERIAL_NAMES.put(Material.REDSTONE, "Redstone");
       DE_MATERIAL_NAMES.put(Material.DIAMOND, "Diamant");
+      DE_MATERIAL_NAMES.put(Material.EMERALD, "Smaragd");
+      DE_MATERIAL_NAMES.put(Material.OBSIDIAN, "Obsidian");
+      DE_MATERIAL_NAMES.put(Material.QUARTZ, "Quarz");
+      DE_MATERIAL_NAMES.put(Material.LAPIS_LAZULI, "Lapislazuli");
+      DE_MATERIAL_NAMES.put(Material.COAL, "Kohle");
+      DE_MATERIAL_NAMES.put(Material.WHEAT, "Weizen");
+      DE_MATERIAL_NAMES.put(Material.CARROT, "Karotte");
+      DE_MATERIAL_NAMES.put(Material.POTATO, "Kartoffel");
+      DE_MATERIAL_NAMES.put(Material.BREAD, "Brot");
+      DE_MATERIAL_NAMES.put(Material.HAY_BLOCK, "Heuballen");
+      DE_MATERIAL_NAMES.put(Material.PUMPKIN, "Kuerbis");
+      DE_MATERIAL_NAMES.put(Material.CARVED_PUMPKIN, "Geschnitzter Kuerbis");
+      DE_MATERIAL_NAMES.put(Material.CHEST, "Truhe");
+      DE_MATERIAL_NAMES.put(Material.BARREL, "Fass");
+      DE_MATERIAL_NAMES.put(Material.STRING, "Faden");
+      DE_MATERIAL_NAMES.put(Material.BOW, "Bogen");
+      DE_MATERIAL_NAMES.put(Material.SCAFFOLDING, "Geruest");
+      DE_MATERIAL_NAMES.put(Material.SMOOTH_STONE_SLAB, "Glatte Steinplatte");
+      DE_MATERIAL_NAMES.put(Material.SLIME_BALL, "Schleimball");
+      DE_MATERIAL_NAMES.put(Material.LEATHER, "Leder");
+      DE_MATERIAL_NAMES.put(Material.KELP, "Kelp");
+      DE_MATERIAL_NAMES.put(Material.DRIED_KELP_BLOCK, "Getrockneter Kelpblock");
+      DE_MATERIAL_NAMES.put(Material.BAMBOO, "Bambus");
+      DE_MATERIAL_NAMES.put(Material.CACTUS, "Kaktus");
+      DE_MATERIAL_NAMES.put(Material.SAND, "Sand");
+      DE_MATERIAL_NAMES.put(Material.STONE, "Stein");
       DE_MATERIAL_NAMES.put(Material.REDSTONE_BLOCK, "Redstoneblock");
       DE_MATERIAL_NAMES.put(Material.OBSERVER, "Beobachter");
       DE_MATERIAL_NAMES.put(Material.RAW_IRON, "Roheisen");
@@ -3049,6 +3274,7 @@ public class CoreService {
       BLOCK_VALUE_BLACKLIST.add(Material.BEDROCK);
       BLOCK_VALUE_BLACKLIST.add(Material.EXPERIENCE_BOTTLE);
       BLOCK_VALUE_BLACKLIST.add(Material.BARRIER);
+      BLOCK_VALUE_BLACKLIST.add(Material.FARMLAND);
       loadPrototypeBlockValues();
    }
 
