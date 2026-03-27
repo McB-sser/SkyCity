@@ -645,9 +645,13 @@ public class PlayerListener implements Listener {
     }
 
     private void clearPvpScoreboard(Player player) {
-        if (Bukkit.getScoreboardManager() != null) {
-            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-        }
+        if (Bukkit.getScoreboardManager() == null) return;
+        Scoreboard scoreboard = player.getScoreboard();
+        if (scoreboard == null) return;
+        Objective parcelPvp = scoreboard.getObjective("parcelpvp");
+        Objective parcelPve = scoreboard.getObjective("parcelpve");
+        if (parcelPvp == null && parcelPve == null) return;
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
     private void refreshParcelPvpScoreboards(IslandData island, ParcelData parcel) {
