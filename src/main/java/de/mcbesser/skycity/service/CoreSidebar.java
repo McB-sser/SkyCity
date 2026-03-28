@@ -143,26 +143,27 @@ public final class CoreSidebar {
         IslandLevelDefinition current = islandService.getCurrentLevelDef(island);
         double islandLevelScore = islandService.calculateIslandLevelValue(island);
         double reservedLevelScore = islandService.calculateReservedUpgradeLevelValue(island);
-        lines.add(line(
-            "level:" + island.getLevel() + ":" + islandLevelScore + ":" + reservedLevelScore,
-            ChatColor.WHITE + "Level: " + ChatColor.YELLOW + formatIslandLevelWithReserved(islandLevelScore, reservedLevelScore)
-        ));
         lines.add(line("level_spacer", ChatColor.DARK_GRAY + " "));
         lines.add(line(
+            "level:" + island.getLevel() + ":" + islandLevelScore + ":" + reservedLevelScore,
+            ChatColor.YELLOW + "Level: " + ChatColor.WHITE + formatIslandLevelWithReserved(islandLevelScore, reservedLevelScore)
+        ));
+        lines.add(line(
             "xp:" + island.getStoredExperience(),
-            ChatColor.WHITE + "EXP: " + ChatColor.AQUA + island.getStoredExperience()
+            ChatColor.YELLOW + "EXP: " + ChatColor.WHITE + island.getStoredExperience()
         ));
         lines.add(line(
             "chunks:" + island.getUnlockedChunks().size() + ":" + island.getAvailableChunkUnlocks(),
-            ChatColor.WHITE + "Chunks: " + ChatColor.YELLOW + island.getUnlockedChunks().size()
+            ChatColor.YELLOW + "Chunks: " + ChatColor.WHITE + island.getUnlockedChunks().size()
                 + ChatColor.GRAY + " (+" + island.getAvailableChunkUnlocks() + ")"
                 + ChatColor.WHITE + "/" + islandService.getTotalIslandChunkCount()
         ));
         lines.add(line(
             "milestone:" + island.getLevel(),
-            ChatColor.WHITE + "Meilenst.: " + ChatColor.GOLD + Math.max(0, island.getLevel() - 1)
+            ChatColor.YELLOW + "Meilenst.: " + ChatColor.WHITE + Math.max(0, island.getLevel() - 1)
         ));
         lines.add(line("spacer", ChatColor.DARK_GRAY + " "));
+        lines.add(line("limits_title", ChatColor.GOLD + "Insellimits"));
         lines.add(limitLine(
             "living",
             "Tier", islandService.getAnimalCount(island), current.getAnimalLimit(),
@@ -197,9 +198,10 @@ public final class CoreSidebar {
     }
 
     private RenderedLine limitLine(String keyPrefix, String leftLabel, int leftUsed, int leftLimit, String rightLabel, int rightUsed, int rightLimit) {
-        String text = ChatColor.WHITE + padRight(leftLabel + " " + leftUsed + "/" + leftLimit, 14)
-            + ChatColor.GRAY + "| "
-            + ChatColor.WHITE + rightLabel + " " + rightUsed + "/" + rightLimit;
+        String text = ChatColor.GREEN + leftLabel + " " + ChatColor.WHITE + leftUsed + "/" + leftLimit
+            + ChatColor.GRAY + padRight("", Math.max(1, 14 - plainLength(leftLabel + " " + leftUsed + "/" + leftLimit)))
+            + "| "
+            + ChatColor.GREEN + rightLabel + " " + ChatColor.WHITE + rightUsed + "/" + rightLimit;
         return line(
             keyPrefix + ":" + leftUsed + ":" + leftLimit + ":" + rightUsed + ":" + rightLimit,
             trimLine(text)
@@ -238,6 +240,10 @@ public final class CoreSidebar {
             return text;
         }
         return text + " ".repeat(minLength - text.length());
+    }
+
+    private int plainLength(String text) {
+        return text == null ? 0 : ChatColor.stripColor(text).length();
     }
 
     private BoardState resolveBoardState(Player player) {
