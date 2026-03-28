@@ -6,6 +6,7 @@ import de.mcbesser.skycity.listener.CoreMenuListener;
 import de.mcbesser.skycity.listener.PlayerListener;
 import de.mcbesser.skycity.listener.PlotWandListener;
 import de.mcbesser.skycity.listener.ProtectionListener;
+import de.mcbesser.skycity.service.CoreSidebar;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.ParticlePreviewService;
@@ -26,6 +27,7 @@ public class SkyCityPlugin extends JavaPlugin {
     private SkyWorldService skyWorldService;
     private IslandService islandService;
     private CoreService coreService;
+    private CoreSidebar coreSidebar;
     private ParticlePreviewService particlePreviewService;
     private boolean runtimeInitialized;
 
@@ -39,6 +41,7 @@ public class SkyCityPlugin extends JavaPlugin {
         skyWorldService = new SkyWorldService(this);
         islandService = new IslandService(this, skyWorldService);
         coreService = new CoreService(this, islandService);
+        coreSidebar = new CoreSidebar(this, islandService, coreService);
         particlePreviewService = new ParticlePreviewService(this, islandService);
 
         Bukkit.getPluginManager().registerEvents(new PlayerListener(this, islandService, skyWorldService, coreService), this);
@@ -62,6 +65,9 @@ public class SkyCityPlugin extends JavaPlugin {
     public void onDisable() {
         if (coreService != null) {
             coreService.stopDisplayTask();
+        }
+        if (coreSidebar != null) {
+            coreSidebar.stop();
         }
         if (particlePreviewService != null) {
             particlePreviewService.stopTask();
@@ -98,6 +104,7 @@ public class SkyCityPlugin extends JavaPlugin {
         islandService.ensureSpawnPlotAndSpawnPlatform();
         coreService.registerRecipe();
         coreService.startDisplayTask();
+        coreSidebar.start();
         particlePreviewService.startTask();
         runtimeInitialized = true;
         getLogger().info("SkyCity Runtime initialisiert.");
