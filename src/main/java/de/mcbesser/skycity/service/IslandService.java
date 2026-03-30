@@ -2957,18 +2957,14 @@ public class IslandService {
 
     public long getGrowthBoostDurationMillis(int tier) {
         return switch (tier) {
-            case 1 -> 15L * 60L * 1000L;
-            case 2 -> 30L * 60L * 1000L;
-            case 3 -> 60L * 60L * 1000L;
+            case 1, 2, 3 -> 30L * 60L * 1000L;
             default -> 0L;
         };
     }
 
     public double getGrowthBoostVanillaMultiplier(int tier) {
         return switch (tier) {
-            case 1 -> 1.5D;
-            case 2 -> 2.0D;
-            case 3 -> 3.0D;
+            case 1, 2, 3 -> 3.0D;
             default -> 1.0D;
         };
     }

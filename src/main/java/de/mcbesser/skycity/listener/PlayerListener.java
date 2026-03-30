@@ -771,21 +771,13 @@ public class PlayerListener implements Listener {
                 removeChunkEffectBossBar(player);
                 continue;
             }
-            String effectTitle = ChatColor.GREEN + "Wachstumsboost"
-                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Chunk " + displayChunkX + ":" + displayChunkZ
+            String effectTitle = ChatColor.GREEN + "Wachstumsschub"
                     + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Stufe " + activeTier
-                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + formatMillisShort(remainingMs)
-                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "~" + formatGrowthMultiplier(islandService.getGrowthBoostVanillaMultiplier(activeTier)) + "x Wachstumsrate";
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Chunk " + displayChunkX + ":" + displayChunkZ
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Zeit " + formatMillisShort(remainingMs);
             double progress = fullDurationMs > 0L ? Math.max(0.0, Math.min(1.0, (double) remainingMs / (double) fullDurationMs)) : 1.0;
             showChunkEffectBossBar(player, effectTitle, BarColor.GREEN, progress);
         }
-    }
-
-    private String formatGrowthMultiplier(double multiplier) {
-        if (Math.abs(multiplier - Math.rint(multiplier)) < 0.0001D) {
-            return Integer.toString((int) Math.rint(multiplier));
-        }
-        return String.format(java.util.Locale.ROOT, "%.1f", multiplier);
     }
 
     private void applyIslandTimeMode(Player player, IslandData island) {

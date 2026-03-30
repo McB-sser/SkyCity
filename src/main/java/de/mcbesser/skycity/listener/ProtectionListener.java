@@ -10,7 +10,9 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.Tag;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
@@ -333,8 +335,8 @@ public class ProtectionListener implements Listener {
         Integer randomTickSpeedValue = world.getGameRuleValue(GameRule.RANDOM_TICK_SPEED);
         int randomTickSpeed = randomTickSpeedValue == null ? 3 : Math.max(0, randomTickSpeedValue);
         for (IslandData island : islandService.getAllIslands()) {
-            for (Map.Entry<String, Long> entry : island.getGrowthBoostUntil().entrySet()) {
-                int[] relChunk = parseChunkKey(entry.getKey());
+            for (String chunkKey : List.copyOf(island.getGrowthBoostUntil().keySet())) {
+                int[] relChunk = parseChunkKey(chunkKey);
                 if (relChunk == null) continue;
                 int tier = islandService.getGrowthBoostTier(island, relChunk[0], relChunk[1]);
                 if (tier <= 0) continue;
@@ -416,9 +418,12 @@ public class ProtectionListener implements Listener {
                     int worldZ = (chunk.getZ() << 4) + localZ;
                     Object blockPos = blockPosConstructor.newInstance(worldX, worldY, worldZ);
                     Object state = getBlockState(level, blockPos);
-                    randomTickMethod.invoke(state, level, blockPos, randomSource);
-                    hits++;
-                    hits += applyBambooHeadTick(chunk.getWorld().getBlockAt(worldX, worldY, worldZ), level, randomSource);
+                    Block block = chunk.getWorld().getBlockAt(worldX, worldY, worldZ);
+                    if (shouldSkipGrowthAttempt(tier)) {
+                        continue;
+                    }
+                    hits += applyRandomTickWithParticles(block, state, level, blockPos, randomSource);
+                    hits += applyBambooHeadTick(block, level, randomSource);
                 }
 
                 return new TickStats(attempts, hits, 0, growthTargets.positions().length, growthTargets.summary());
@@ -513,9 +518,12 @@ public class ProtectionListener implements Listener {
                     int worldY = ((location >>> 8) & 15) | offsetY;
                     int worldZ = ((location >>> 4) & 15) | chunkOffsetZ;
                     Object blockPos = blockPosConstructor.newInstance(worldX, worldY, worldZ);
-                    randomTickMethod.invoke(state, level, blockPos, randomSource);
-                    hits++;
-                    hits += applyBambooHeadTick(chunk.getWorld().getBlockAt(worldX, worldY, worldZ), level, randomSource);
+                    Block block = chunk.getWorld().getBlockAt(worldX, worldY, worldZ);
+                    if (shouldSkipGrowthAttempt(tier)) {
+                        continue;
+                    }
+                    hits += applyRandomTickWithParticles(block, state, level, blockPos, randomSource);
+                    hits += applyBambooHeadTick(block, level, randomSource);
                 }
             }
 
@@ -656,6 +664,34 @@ public class ProtectionListener implements Listener {
             return method.invoke(level, blockPos);
         }
 
+        private boolean shouldSkipGrowthAttempt(int tier) {
+            int skipChance = switch (tier) {
+                case 1 -> 99;
+                case 2 -> 95;
+                case 3 -> 90;
+                default -> 100;
+            };
+            return nextRandom(100) < skipChance;
+        }
+
+        private int applyRandomTickWithParticles(Block block, Object state, Object level, Object blockPos, Object randomSource) throws Exception {
+            if (block == null) return 0;
+            Block above = block.getRelative(BlockFace.UP);
+            Material beforeType = block.getType();
+            String beforeData = block.getBlockData().getAsString();
+            Material beforeAboveType = above.getType();
+            String beforeAboveData = above.getBlockData().getAsString();
+
+            randomTickMethod.invoke(state, level, blockPos, randomSource);
+
+            if (!didGrowthBlockChange(block, beforeType, beforeData, above, beforeAboveType, beforeAboveData)) {
+                return 0;
+            }
+
+            spawnGrowthBoostParticles(selectParticleBlock(block, beforeType, beforeData, above, beforeAboveType, beforeAboveData));
+            return 1;
+        }
+
         private int applyBambooHeadTick(Block block, Object level, Object randomSource) throws Exception {
             if (block == null) return 0;
             Material type = block.getType();
@@ -668,9 +704,14 @@ public class ProtectionListener implements Listener {
             }
             if (head.getType() == Material.BAMBOO_SAPLING) {
                 head.setBlockData(createBambooData(Bamboo.Leaves.SMALL, false), false);
+                spawnGrowthBoostParticles(head);
                 return 1;
             }
-            return growBambooNaturally(head) ? 1 : 0;
+            if (!growBambooNaturally(head)) {
+                return 0;
+            }
+            spawnGrowthBoostParticles(head.getRelative(BlockFace.UP).getType() == Material.BAMBOO ? head.getRelative(BlockFace.UP) : head);
+            return 1;
         }
 
         private Block resolveBambooHead(Block block) {
@@ -754,6 +795,41 @@ public class ProtectionListener implements Listener {
                 current = current.getRelative(BlockFace.DOWN);
                 indexFromTop++;
             }
+        }
+
+        private boolean didGrowthBlockChange(Block block, Material beforeType, String beforeData, Block above, Material beforeAboveType, String beforeAboveData) {
+            return isRelevantGrowthChange(beforeType, beforeData, block.getType(), block.getBlockData().getAsString())
+                    || isRelevantGrowthChange(beforeAboveType, beforeAboveData, above.getType(), above.getBlockData().getAsString());
+        }
+
+        private boolean isRelevantGrowthChange(Material beforeType, String beforeData, Material afterType, String afterData) {
+            if (beforeType == afterType && beforeData.equals(afterData)) {
+                return false;
+            }
+            return GROWTH_BOOST_MATERIALS.contains(beforeType) || GROWTH_BOOST_MATERIALS.contains(afterType);
+        }
+
+        private Block selectParticleBlock(Block block, Material beforeType, String beforeData, Block above, Material beforeAboveType, String beforeAboveData) {
+            if (isRelevantGrowthChange(beforeAboveType, beforeAboveData, above.getType(), above.getBlockData().getAsString())) {
+                return above;
+            }
+            return block;
+        }
+
+        private void spawnGrowthBoostParticles(Block block) {
+            if (block == null) return;
+            World world = block.getWorld();
+            world.spawnParticle(
+                    Particle.VILLAGER_HAPPY,
+                    block.getX() + 0.5D,
+                    block.getY() + 0.65D,
+                    block.getZ() + 0.5D,
+                    5,
+                    0.18D,
+                    0.22D,
+                    0.18D,
+                    0.01D
+            );
         }
 
         private int nextRandom(int bound) {
