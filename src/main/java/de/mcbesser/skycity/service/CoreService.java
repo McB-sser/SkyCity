@@ -1486,10 +1486,12 @@ public class CoreService {
             ChatColor.GREEN + "Wachstumsboost Chunk " + displayX + ":" + displayZ,
             List.of(
                ChatColor.GRAY + "Aktiv: " + ChatColor.WHITE + activeBoost,
-               ChatColor.GRAY + "Stufe 1: + Wachstum, 15m, " + this.islandService.getGrowthBoostCost(1) + " XP",
-               ChatColor.GRAY + "Stufe 2: + Wachstum, 30m, " + this.islandService.getGrowthBoostCost(2) + " XP",
-               ChatColor.GRAY + "Stufe 3: + Wachstum, 60m, " + this.islandService.getGrowthBoostCost(3) + " XP",
-               ChatColor.YELLOW + "Linksklick Stufe 1 | Rechtsklick Stufe 2 | Shift-Rechtsklick Stufe 3"
+               ChatColor.GRAY + "Wachstum Stufe 1: 30m, " + this.islandService.getGrowthBoostCost(1) + " XP",
+               ChatColor.GRAY + "Wachstum Stufe 2: 30m, " + this.islandService.getGrowthBoostCost(2) + " XP",
+               ChatColor.GRAY + "Wachstum Stufe 3: 30m, " + this.islandService.getGrowthBoostCost(3) + " XP",
+               ChatColor.YELLOW + "Linksklick: Wachstum Stufe 1",
+               ChatColor.YELLOW + "Rechtsklick: Wachstum Stufe 2",
+               ChatColor.YELLOW + "Shift-Rechtsklick: Wachstum Stufe 3"
             )
          )
       );

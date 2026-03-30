@@ -591,7 +591,7 @@ public class CoreMenuListener implements Listener {
                 player.sendMessage(ChatColor.RED + "Wachstumsboost konnte nicht gekauft werden.");
                 return;
             }
-            player.sendMessage(ChatColor.GREEN + "Wachstumsboost gekauft: Stufe " + tier);
+            player.sendMessage(ChatColor.GREEN + "Wachstum Stufe " + tier + " gekauft.");
             player.openInventory(coreService.createIslandShopMenu(player, island));
             return;
         }
