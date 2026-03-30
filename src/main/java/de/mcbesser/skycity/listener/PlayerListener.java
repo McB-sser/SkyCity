@@ -775,7 +775,7 @@ public class PlayerListener implements Listener {
                     + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Chunk " + displayChunkX + ":" + displayChunkZ
                     + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Stufe " + activeTier
                     + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + formatMillisShort(remainingMs)
-                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "~" + formatGrowthMultiplier(islandService.getGrowthBoostVanillaMultiplier(activeTier)) + "x Vanilla";
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "~" + formatGrowthMultiplier(islandService.getGrowthBoostVanillaMultiplier(activeTier)) + "x Wachstumsrate";
             double progress = fullDurationMs > 0L ? Math.max(0.0, Math.min(1.0, (double) remainingMs / (double) fullDurationMs)) : 1.0;
             showChunkEffectBossBar(player, effectTitle, BarColor.GREEN, progress);
         }
