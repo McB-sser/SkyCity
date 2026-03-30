@@ -303,6 +303,7 @@ public class IslandService {
     private static final long TIME_MODE_CHANGE_COST = 180L;
     private static final long XP_BOTTLE_POINTS = 10L;
     private static final long XP_BOTTLE_COST_POINTS = 11L; // 10% loss
+    private static final long GROWTH_DEBUG_WINDOW_MILLIS = 5_000L;
     private static final int CENTER_A = 31;
     private static final int CENTER_B = 32;
     private static final int MACRO_CELL_SIZE_CHUNKS = 5;
@@ -322,6 +323,12 @@ public class IslandService {
     private final SkyCityPlugin plugin;
     private final SkyWorldService skyWorldService;
     private final Map<UUID, IslandData> islands = new HashMap<>();
+    private final Map<String, Long> growthDebugWindowStart = new HashMap<>();
+    private final Map<String, Integer> growthDebugAttempts = new HashMap<>();
+    private final Map<String, Integer> growthDebugHits = new HashMap<>();
+    private final Map<String, Integer> growthDebugBridgeFailures = new HashMap<>();
+    private final Map<String, Integer> growthDebugTargets = new HashMap<>();
+    private final Map<String, String> growthDebugTargetSummary = new HashMap<>();
     private final Map<Integer, IslandLevelDefinition> levelDefinitions = IslandLevelDefinition.defaults();
     private final File legacyDataFile;
     private final File databaseFile;
@@ -2955,6 +2962,93 @@ public class IslandService {
             case 3 -> 60L * 60L * 1000L;
             default -> 0L;
         };
+    }
+
+    public int getGrowthBoostVanillaMultiplier(int tier) {
+        return switch (tier) {
+            case 1 -> 16;
+            case 2 -> 32;
+            case 3 -> 64;
+            default -> 1;
+        };
+    }
+
+    public int getGrowthBoostExtraRandomTickAttemptsPerSection(int tier, int randomTickSpeed, int intervalTicks) {
+        int multiplier = Math.max(1, getGrowthBoostVanillaMultiplier(tier));
+        int safeRandomTickSpeed = Math.max(0, randomTickSpeed);
+        int safeIntervalTicks = Math.max(1, intervalTicks);
+        return safeRandomTickSpeed * Math.max(0, multiplier - 1) * safeIntervalTicks;
+    }
+
+    public void recordGrowthDebugAttempt(IslandData island, int relChunkX, int relChunkZ) {
+        recordGrowthDebugAttempt(island, relChunkX, relChunkZ, 1);
+    }
+
+    public void recordGrowthDebugAttempt(IslandData island, int relChunkX, int relChunkZ, int amount) {
+        String key = growthDebugKey(island, relChunkX, relChunkZ);
+        if (key == null || amount <= 0) return;
+        advanceGrowthDebugWindow(key);
+        growthDebugAttempts.merge(key, amount, Integer::sum);
+    }
+
+    public void recordGrowthDebugHit(IslandData island, int relChunkX, int relChunkZ) {
+        recordGrowthDebugHit(island, relChunkX, relChunkZ, 1);
+    }
+
+    public void recordGrowthDebugHit(IslandData island, int relChunkX, int relChunkZ, int amount) {
+        String key = growthDebugKey(island, relChunkX, relChunkZ);
+        if (key == null || amount <= 0) return;
+        advanceGrowthDebugWindow(key);
+        growthDebugHits.merge(key, amount, Integer::sum);
+    }
+
+    public String getGrowthDebugSummary(IslandData island, int relChunkX, int relChunkZ) {
+        String key = growthDebugKey(island, relChunkX, relChunkZ);
+        if (key == null) return "dbg 0/0";
+        advanceGrowthDebugWindow(key);
+        int attempts = growthDebugAttempts.getOrDefault(key, 0);
+        int hits = growthDebugHits.getOrDefault(key, 0);
+        int bridgeFailures = growthDebugBridgeFailures.getOrDefault(key, 0);
+        int targets = growthDebugTargets.getOrDefault(key, 0);
+        String targetSummary = growthDebugTargetSummary.getOrDefault(key, "-");
+        return "dbg " + hits + "/" + attempts + " rf" + bridgeFailures + " t" + targets + " " + targetSummary + " 5s";
+    }
+
+    public void recordGrowthDebugBridgeFailure(IslandData island, int relChunkX, int relChunkZ) {
+        recordGrowthDebugBridgeFailure(island, relChunkX, relChunkZ, 1);
+    }
+
+    public void recordGrowthDebugBridgeFailure(IslandData island, int relChunkX, int relChunkZ, int amount) {
+        String key = growthDebugKey(island, relChunkX, relChunkZ);
+        if (key == null || amount <= 0) return;
+        advanceGrowthDebugWindow(key);
+        growthDebugBridgeFailures.merge(key, amount, Integer::sum);
+    }
+
+    public void recordGrowthDebugTargets(IslandData island, int relChunkX, int relChunkZ, int amount, String summary) {
+        String key = growthDebugKey(island, relChunkX, relChunkZ);
+        if (key == null || amount < 0) return;
+        advanceGrowthDebugWindow(key);
+        growthDebugTargets.put(key, amount);
+        growthDebugTargetSummary.put(key, summary == null || summary.isBlank() ? "-" : summary);
+    }
+
+    private void advanceGrowthDebugWindow(String key) {
+        long now = System.currentTimeMillis();
+        long start = growthDebugWindowStart.getOrDefault(key, 0L);
+        if (start <= 0L || now - start >= GROWTH_DEBUG_WINDOW_MILLIS) {
+            growthDebugWindowStart.put(key, now);
+            growthDebugAttempts.put(key, 0);
+            growthDebugHits.put(key, 0);
+            growthDebugBridgeFailures.put(key, 0);
+            growthDebugTargets.put(key, 0);
+            growthDebugTargetSummary.put(key, "-");
+        }
+    }
+
+    private String growthDebugKey(IslandData island, int relChunkX, int relChunkZ) {
+        if (island == null) return null;
+        return island.getOwner() + "|" + chunkKey(relChunkX, relChunkZ);
     }
 
     public int getGrowthBoostTier(IslandData island, int relChunkX, int relChunkZ) {

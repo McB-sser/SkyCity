@@ -1,11 +1,13 @@
 package de.mcbesser.skycity.listener;
 
+import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.SkyWorldService;
 import org.bukkit.ChatColor;
+import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -49,17 +51,69 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ProtectionListener implements Listener {
+    private static final long GROWTH_BOOST_INTERVAL_TICKS = 20L;
+    private static final Set<Material> GROWTH_BOOST_MATERIALS = EnumSet.of(
+            Material.WHEAT,
+            Material.CARROTS,
+            Material.POTATOES,
+            Material.BEETROOTS,
+            Material.NETHER_WART,
+            Material.COCOA,
+            Material.SWEET_BERRY_BUSH,
+            Material.BROWN_MUSHROOM,
+            Material.RED_MUSHROOM,
+            Material.CHORUS_FLOWER,
+            Material.CAVE_VINES,
+            Material.CAVE_VINES_PLANT,
+            Material.WEEPING_VINES,
+            Material.WEEPING_VINES_PLANT,
+            Material.TWISTING_VINES,
+            Material.TWISTING_VINES_PLANT,
+            Material.VINE,
+            Material.PUMPKIN_STEM,
+            Material.MELON_STEM,
+            Material.ATTACHED_PUMPKIN_STEM,
+            Material.ATTACHED_MELON_STEM,
+            Material.TORCHFLOWER_CROP,
+            Material.PITCHER_CROP,
+            Material.OAK_SAPLING,
+            Material.SPRUCE_SAPLING,
+            Material.BIRCH_SAPLING,
+            Material.JUNGLE_SAPLING,
+            Material.ACACIA_SAPLING,
+            Material.CHERRY_SAPLING,
+            Material.DARK_OAK_SAPLING,
+            Material.MANGROVE_PROPAGULE,
+            Material.BAMBOO,
+            Material.BAMBOO_SAPLING,
+            Material.SUGAR_CANE,
+            Material.CACTUS,
+            Material.KELP,
+            Material.KELP_PLANT
+    );
+
+    private final SkyCityPlugin plugin;
     private final IslandService islandService;
     private final CoreService coreService;
     private final SkyWorldService skyWorldService;
+    private final RandomTickBridge randomTickBridge = new RandomTickBridge();
 
-    public ProtectionListener(IslandService islandService, CoreService coreService, SkyWorldService skyWorldService) {
+    public ProtectionListener(SkyCityPlugin plugin, IslandService islandService, CoreService coreService, SkyWorldService skyWorldService) {
+        this.plugin = plugin;
         this.islandService = islandService;
         this.coreService = coreService;
         this.skyWorldService = skyWorldService;
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runPeriodicGrowthBoosts, GROWTH_BOOST_INTERVAL_TICKS, GROWTH_BOOST_INTERVAL_TICKS);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -268,15 +322,361 @@ public class ProtectionListener implements Listener {
         if (island == null) return;
         int relX = islandService.relativeChunkX(island, event.getBlock().getChunk().getX());
         int relZ = islandService.relativeChunkZ(island, event.getBlock().getChunk().getZ());
-        int tier = islandService.getGrowthBoostTier(island, relX, relZ);
-        if (tier <= 0) return;
-        if (!(event.getNewState().getBlockData() instanceof Ageable ageable)) return;
-        int currentAge = ageable.getAge();
-        int maxAge = ageable.getMaximumAge();
-        if (currentAge >= maxAge) return;
-        int boosted = Math.min(maxAge, currentAge + tier);
-        ageable.setAge(boosted);
-        event.getNewState().setBlockData(ageable);
+        islandService.getGrowthBoostTier(island, relX, relZ);
+    }
+
+    private void runPeriodicGrowthBoosts() {
+        var world = skyWorldService.getWorld();
+        if (world == null) return;
+        Integer randomTickSpeedValue = world.getGameRuleValue(GameRule.RANDOM_TICK_SPEED);
+        int randomTickSpeed = randomTickSpeedValue == null ? 3 : Math.max(0, randomTickSpeedValue);
+        for (IslandData island : islandService.getAllIslands()) {
+            for (Map.Entry<String, Long> entry : island.getGrowthBoostUntil().entrySet()) {
+                int[] relChunk = parseChunkKey(entry.getKey());
+                if (relChunk == null) continue;
+                int tier = islandService.getGrowthBoostTier(island, relChunk[0], relChunk[1]);
+                if (tier <= 0) continue;
+                int worldChunkX = islandService.plotMinChunkX(island.getGridX()) + relChunk[0];
+                int worldChunkZ = islandService.plotMinChunkZ(island.getGridZ()) + relChunk[1];
+                if (!world.isChunkLoaded(worldChunkX, worldChunkZ)) continue;
+                var chunk = world.getChunkAt(worldChunkX, worldChunkZ);
+                int attemptsPerSection = islandService.getGrowthBoostExtraRandomTickAttemptsPerSection(tier, randomTickSpeed, (int) GROWTH_BOOST_INTERVAL_TICKS);
+                if (attemptsPerSection <= 0) continue;
+                randomTickBridge.tickChunk(chunk, attemptsPerSection, tier);
+            }
+        }
+    }
+
+    private int[] parseChunkKey(String chunkKey) {
+        if (chunkKey == null || chunkKey.isBlank()) return null;
+        String[] parts = chunkKey.split(":", 2);
+        if (parts.length != 2) return null;
+        try {
+            return new int[]{Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static final class RandomTickBridge {
+        private record GrowthTargets(int[] positions, String summary) { }
+        private record TickStats(int attempts, int hits, int bridgeFailures, int targets, String targetSummary) { }
+
+        private boolean initialized;
+        private boolean available;
+        private Method getWorldHandleMethod;
+        private Method getChunkHandleMethod;
+        private Object chunkHandleStatusArgument;
+        private Method getChunkSectionsMethod;
+        private Method sectionIsRandomlyTickingBlocksMethod;
+        private Method sectionGetBlockStateMethod;
+        private Constructor<?> blockPosConstructor;
+        private Method isRandomlyTickingMethod;
+        private Method randomTickMethod;
+        private Method getRandomMethod;
+        private Object[] emptySections = new Object[0];
+        private int random = ThreadLocalRandom.current().nextInt();
+
+        TickStats tickChunk(org.bukkit.Chunk chunk, int tickSpeed, int tier) {
+            if (chunk == null || tickSpeed <= 0) return new TickStats(0, 0, 0, 0, "-");
+            try {
+                ensureInitialized(chunk);
+                if (!available) return new TickStats(0, 0, 1, 0, "-");
+                Object level = getWorldHandleMethod.invoke(chunk.getWorld());
+                Object randomSource = getRandomMethod.invoke(level);
+                GrowthTargets growthTargets = collectGrowthTargets(chunk, level);
+                if (growthTargets.positions().length == 0) {
+                    return new TickStats(0, 0, 0, 0, growthTargets.summary());
+                }
+                int attempts = 0;
+                int hits = 0;
+                for (int i = 0; i < tickSpeed; i++) {
+                    attempts++;
+                    int packedLocation = growthTargets.positions()[nextRandom(growthTargets.positions().length)];
+                    int localX = packedLocation & 15;
+                    int localZ = (packedLocation >>> 4) & 15;
+                    int worldY = packedLocation >> 8;
+                    int worldX = (chunk.getX() << 4) + localX;
+                    int worldZ = (chunk.getZ() << 4) + localZ;
+                    Object blockPos = blockPosConstructor.newInstance(worldX, worldY, worldZ);
+                    Object state = getBlockState(level, blockPos);
+                    randomTickMethod.invoke(state, level, blockPos, randomSource);
+                    hits++;
+                    hits += applyVerticalBurst(chunk.getWorld().getBlockAt(worldX, worldY, worldZ), level, randomSource, tier);
+                }
+
+                return new TickStats(attempts, hits, 0, growthTargets.positions().length, growthTargets.summary());
+            } catch (Throwable ignored) {
+                return new TickStats(0, 0, 1, 0, "-");
+            }
+        }
+
+        private void ensureInitialized(org.bukkit.Chunk chunk) throws Exception {
+            if (initialized) return;
+            initialized = true;
+
+            getWorldHandleMethod = chunk.getWorld().getClass().getMethod("getHandle");
+            getChunkHandleMethod = resolveChunkHandleMethod(chunk.getClass());
+            if (getChunkHandleMethod == null) return;
+            Class<?> levelChunkClass = getChunkHandleMethod.getReturnType();
+            getChunkSectionsMethod = levelChunkClass.getMethod("getSections");
+
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            blockPosConstructor = blockPosClass.getConstructor(int.class, int.class, int.class);
+
+            Class<?> sectionClass = Class.forName("net.minecraft.world.level.chunk.LevelChunkSection");
+            sectionIsRandomlyTickingBlocksMethod = sectionClass.getMethod("isRandomlyTickingBlocks");
+            sectionGetBlockStateMethod = sectionClass.getMethod("getBlockState", int.class, int.class, int.class);
+
+            Class<?> blockStateClass = sectionGetBlockStateMethod.getReturnType();
+            isRandomlyTickingMethod = blockStateClass.getMethod("isRandomlyTicking");
+
+            Class<?> serverLevelClass = getWorldHandleMethod.getReturnType();
+            Class<?> randomSourceClass = Class.forName("net.minecraft.util.RandomSource");
+            randomTickMethod = resolveMethod(blockStateClass, "randomTick", serverLevelClass, blockPosClass, randomSourceClass);
+            getRandomMethod = resolveMethod(serverLevelClass, "getRandom");
+
+            if (getChunkSectionsMethod == null
+                    || sectionIsRandomlyTickingBlocksMethod == null
+                    || sectionGetBlockStateMethod == null
+                    || blockPosConstructor == null
+                    || isRandomlyTickingMethod == null
+                    || randomTickMethod == null
+                    || getRandomMethod == null) {
+                return;
+            }
+
+            available = true;
+        }
+
+        private GrowthTargets collectGrowthTargets(org.bukkit.Chunk chunk, Object level) throws Exception {
+            int[] targets = new int[512];
+            int targetCount = 0;
+            int ageableCount = 0;
+            int kelpCount = 0;
+            int cactusCount = 0;
+            int caneCount = 0;
+            int bambooCount = 0;
+            int presentAgeableCount = 0;
+            int presentKelpCount = 0;
+            int presentCactusCount = 0;
+            int presentCaneCount = 0;
+            int presentBambooCount = 0;
+            int chunkOffsetX = chunk.getX() << 4;
+            int chunkOffsetZ = chunk.getZ() << 4;
+            int minY = chunk.getWorld().getMinHeight();
+            int maxY = chunk.getWorld().getMaxHeight() - 1;
+            for (int worldY = minY; worldY <= maxY; worldY++) {
+                for (int localX = 0; localX < 16; localX++) {
+                    for (int localZ = 0; localZ < 16; localZ++) {
+                        int worldX = chunkOffsetX + localX;
+                        int worldZ = chunkOffsetZ + localZ;
+                        Block candidate = chunk.getWorld().getBlockAt(worldX, worldY, worldZ);
+                        switch (candidate.getType()) {
+                            case KELP, KELP_PLANT -> presentKelpCount++;
+                            case CACTUS -> presentCactusCount++;
+                            case SUGAR_CANE -> presentCaneCount++;
+                            case BAMBOO, BAMBOO_SAPLING -> presentBambooCount++;
+                            default -> {
+                                if (candidate.getBlockData() instanceof Ageable) {
+                                    presentAgeableCount++;
+                                }
+                            }
+                        }
+                        if (!isPotentialGrowthTarget(candidate)) continue;
+                        Object blockPos = blockPosConstructor.newInstance(worldX, worldY, worldZ);
+                        if (targetCount == targets.length) {
+                            int[] grown = new int[targets.length * 2];
+                            System.arraycopy(targets, 0, grown, 0, targets.length);
+                            targets = grown;
+                        }
+                        targets[targetCount++] = localX | (localZ << 4) | (worldY << 8);
+                        switch (candidate.getType()) {
+                            case KELP, KELP_PLANT -> kelpCount++;
+                            case CACTUS -> cactusCount++;
+                            case SUGAR_CANE -> caneCount++;
+                            case BAMBOO, BAMBOO_SAPLING -> bambooCount++;
+                            default -> ageableCount++;
+                        }
+                    }
+                }
+            }
+            int[] compact = new int[targetCount];
+            System.arraycopy(targets, 0, compact, 0, targetCount);
+            String summary = "a" + ageableCount + " k" + kelpCount + " c" + cactusCount + " s" + caneCount + " b" + bambooCount
+                    + " pa" + presentAgeableCount + " pk" + presentKelpCount + " pc" + presentCactusCount
+                    + " ps" + presentCaneCount + " pb" + presentBambooCount;
+            return new GrowthTargets(compact, summary);
+        }
+
+        private boolean isPotentialGrowthTarget(Block block) {
+            if (block == null || !GROWTH_BOOST_MATERIALS.contains(block.getType())) return false;
+
+            Material type = block.getType();
+
+            if (type == Material.PUMPKIN_STEM || type == Material.MELON_STEM) {
+                return true;
+            }
+            if (type == Material.ATTACHED_PUMPKIN_STEM || type == Material.ATTACHED_MELON_STEM) {
+                return false;
+            }
+
+            if (block.getBlockData() instanceof Ageable ageable) {
+                return ageable.getAge() < ageable.getMaximumAge();
+            }
+            Block above = block.getRelative(BlockFace.UP);
+
+            return switch (type) {
+                case OAK_SAPLING, SPRUCE_SAPLING, BIRCH_SAPLING, JUNGLE_SAPLING,
+                        ACACIA_SAPLING, CHERRY_SAPLING, DARK_OAK_SAPLING,
+                        MANGROVE_PROPAGULE, BROWN_MUSHROOM, RED_MUSHROOM,
+                        CHORUS_FLOWER, VINE, WEEPING_VINES, WEEPING_VINES_PLANT,
+                        TWISTING_VINES, TWISTING_VINES_PLANT -> true;
+                case BAMBOO, BAMBOO_SAPLING -> above.getType() == Material.AIR;
+                case SUGAR_CANE -> above.getType() == Material.AIR;
+                case CACTUS -> isCactusGrowthTarget(block, above);
+                case KELP, KELP_PLANT -> isKelpGrowthTarget(block, above);
+                default -> false;
+            };
+        }
+
+        private boolean isCactusGrowthTarget(Block block, Block above) {
+            if (block.getType() != Material.CACTUS || above.getType() != Material.AIR) return false;
+            if (block.getRelative(BlockFace.NORTH).getType().isSolid()) return false;
+            if (block.getRelative(BlockFace.SOUTH).getType().isSolid()) return false;
+            if (block.getRelative(BlockFace.EAST).getType().isSolid()) return false;
+            if (block.getRelative(BlockFace.WEST).getType().isSolid()) return false;
+            if (block.getRelative(BlockFace.DOWN).getType() == Material.CACTUS
+                    && block.getRelative(BlockFace.UP).getType() == Material.AIR) {
+                int height = 1;
+                Block cursor = block.getRelative(BlockFace.DOWN);
+                while (cursor.getType() == Material.CACTUS) {
+                    height++;
+                    if (height >= 3) {
+                        return false;
+                    }
+                    cursor = cursor.getRelative(BlockFace.DOWN);
+                }
+            }
+            return true;
+        }
+
+        private boolean isKelpGrowthTarget(Block block, Block above) {
+            if (above.getType() != Material.WATER) return false;
+            return switch (block.getType()) {
+                case KELP -> true;
+                case KELP_PLANT -> true;
+                default -> false;
+            };
+        }
+
+        private Object getBlockState(Object level, Object blockPos) throws Exception {
+            Method method = resolveMethod(level.getClass(), "getBlockState", blockPos.getClass());
+            return method.invoke(level, blockPos);
+        }
+
+        private int applyVerticalBurst(Block block, Object level, Object randomSource, int tier) throws Exception {
+            if (block == null || tier <= 0) return 0;
+            Material type = block.getType();
+            if (type != Material.BAMBOO && type != Material.BAMBOO_SAPLING) {
+                return 0;
+            }
+
+            int extraTicks = switch (tier) {
+                case 1 -> 1;
+                case 2 -> 2;
+                case 3 -> 4;
+                default -> 0;
+            };
+            int applied = 0;
+            Block target = resolveVerticalGrowthHead(block);
+            for (int i = 0; i < extraTicks && target != null && isPotentialGrowthTarget(target); i++) {
+                Object blockPos = blockPosConstructor.newInstance(target.getX(), target.getY(), target.getZ());
+                Object state = getBlockState(level, blockPos);
+                randomTickMethod.invoke(state, level, blockPos, randomSource);
+                applied++;
+                target = resolveVerticalGrowthHead(target);
+            }
+            return applied;
+        }
+
+        private Block resolveVerticalGrowthHead(Block block) {
+            if (block == null) return null;
+            Material type = block.getType();
+            if (type != Material.BAMBOO && type != Material.BAMBOO_SAPLING) {
+                return block;
+            }
+            Block current = block;
+            while (current.getRelative(BlockFace.UP).getType() == type
+                    || (type == Material.BAMBOO && current.getRelative(BlockFace.UP).getType() == Material.BAMBOO_SAPLING)) {
+                current = current.getRelative(BlockFace.UP);
+            }
+            return current;
+        }
+
+        private int nextRandom(int bound) {
+            random = random * 3 + 1013904223;
+            return ((random >>> 2) & Integer.MAX_VALUE) % bound;
+        }
+
+        private Object invokeChunkHandle(org.bukkit.Chunk chunk) throws Exception {
+            if (chunkHandleStatusArgument == null) {
+                return getChunkHandleMethod.invoke(chunk);
+            }
+            return getChunkHandleMethod.invoke(chunk, chunkHandleStatusArgument);
+        }
+
+        private Method resolveChunkHandleMethod(Class<?> chunkClass) {
+            try {
+                chunkHandleStatusArgument = null;
+                return chunkClass.getMethod("getHandle");
+            } catch (NoSuchMethodException ignored) {
+            }
+
+            for (Method method : chunkClass.getMethods()) {
+                if (!method.getName().equals("getHandle") || method.getParameterCount() != 1) continue;
+                Object status = resolveFullChunkStatus(method.getParameterTypes()[0]);
+                if (status == null) continue;
+                chunkHandleStatusArgument = status;
+                return method;
+            }
+            return null;
+        }
+
+        private Object resolveFullChunkStatus(Class<?> statusClass) {
+            if (statusClass == null) return null;
+            if (statusClass.isEnum()) {
+                for (Object constant : statusClass.getEnumConstants()) {
+                    if ("FULL".equals(String.valueOf(constant))) {
+                        return constant;
+                    }
+                }
+            }
+            try {
+                Field fullField = statusClass.getField("FULL");
+                return fullField.get(null);
+            } catch (ReflectiveOperationException ignored) {
+                return null;
+            }
+        }
+
+        private Method resolveMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+            Class<?> current = type;
+            while (current != null) {
+                try {
+                    Method method = current.getDeclaredMethod(name, parameterTypes);
+                    method.setAccessible(true);
+                    return method;
+                } catch (NoSuchMethodException ignored) {
+                    current = current.getSuperclass();
+                }
+            }
+            try {
+                return type.getMethod(name, parameterTypes);
+            } catch (NoSuchMethodException ignored) {
+                return null;
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

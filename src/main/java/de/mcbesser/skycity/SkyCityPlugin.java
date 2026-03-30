@@ -45,7 +45,7 @@ public class SkyCityPlugin extends JavaPlugin {
         particlePreviewService = new ParticlePreviewService(this, islandService);
 
         Bukkit.getPluginManager().registerEvents(new PlayerListener(this, islandService, skyWorldService, coreService), this);
-        Bukkit.getPluginManager().registerEvents(new ProtectionListener(islandService, coreService, skyWorldService), this);
+        Bukkit.getPluginManager().registerEvents(new ProtectionListener(this, islandService, coreService, skyWorldService), this);
         Bukkit.getPluginManager().registerEvents(new PlotWandListener(this, islandService, skyWorldService, coreService), this);
         Bukkit.getPluginManager().registerEvents(new CoreMenuListener(islandService, coreService, particlePreviewService), this);
         Bukkit.getPluginManager().registerEvents(new BootstrapListener(), this);

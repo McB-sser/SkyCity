@@ -63,6 +63,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, CombatTag> parcelPvpCombatTags = new HashMap<>();
     private final Map<UUID, String> islandPresenceState = new HashMap<>();
     private final Map<UUID, BossBar> islandBossBars = new HashMap<>();
+    private final Map<UUID, BossBar> chunkEffectBossBars = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -117,6 +118,7 @@ public class PlayerListener implements Listener {
         parcelPvpCombatTags.remove(event.getPlayer().getUniqueId());
         islandPresenceState.remove(event.getPlayer().getUniqueId());
         removeIslandBossBar(event.getPlayer());
+        removeChunkEffectBossBar(event.getPlayer());
     }
 
     @EventHandler
@@ -163,6 +165,7 @@ public class PlayerListener implements Listener {
             clearParcelPveState(event.getPlayer().getUniqueId());
             islandPresenceState.remove(event.getPlayer().getUniqueId());
             removeIslandBossBar(event.getPlayer());
+            removeChunkEffectBossBar(event.getPlayer());
         } else {
             updateParcelPvpState(event.getPlayer(), event.getPlayer().getLocation());
             updateParcelPveState(event.getPlayer(), event.getPlayer().getLocation());
@@ -736,17 +739,20 @@ public class PlayerListener implements Listener {
             if (!skyWorldService.isSkyCityWorld(player.getWorld())) {
                 applyIslandTimeMode(player, null);
                 removeIslandBossBar(player);
+                removeChunkEffectBossBar(player);
                 continue;
             }
             if (islandService.isInSpawnPlot(player.getLocation())) {
                 applyIslandTimeMode(player, null);
                 showIslandBossBar(player, ChatColor.GOLD + "Spawn" + ChatColor.GRAY + " | " + ChatColor.WHITE + "SkyCity");
+                removeChunkEffectBossBar(player);
                 continue;
             }
             IslandData island = islandService.getIslandAt(player.getLocation());
             if (island == null) {
                 applyIslandTimeMode(player, null);
                 removeIslandBossBar(player);
+                removeChunkEffectBossBar(player);
                 continue;
             }
             applyIslandTimeMode(player, island);
@@ -754,6 +760,24 @@ public class PlayerListener implements Listener {
             String title = parts.length > 0 ? parts[0] : islandService.getIslandTitleDisplay(island);
             String master = parts.length > 1 ? parts[1] : islandService.getIslandMasterDisplay(island);
             showIslandBossBar(player, ChatColor.GOLD + title + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + master);
+            int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
+            int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
+            int displayChunkX = islandService.displayChunkX(relChunkX);
+            int displayChunkZ = islandService.displayChunkZ(relChunkZ);
+            int activeTier = islandService.getGrowthBoostTier(island, relChunkX, relChunkZ);
+            long remainingMs = islandService.getGrowthBoostRemainingMillis(island, relChunkX, relChunkZ);
+            long fullDurationMs = islandService.getGrowthBoostDurationMillis(activeTier);
+            if (activeTier <= 0) {
+                removeChunkEffectBossBar(player);
+                continue;
+            }
+            String effectTitle = ChatColor.GREEN + "Wachstumsboost"
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Chunk " + displayChunkX + ":" + displayChunkZ
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Stufe " + activeTier
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + formatMillisShort(remainingMs)
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "~" + islandService.getGrowthBoostVanillaMultiplier(activeTier) + "x Vanilla";
+            double progress = fullDurationMs > 0L ? Math.max(0.0, Math.min(1.0, (double) remainingMs / (double) fullDurationMs)) : 1.0;
+            showChunkEffectBossBar(player, effectTitle, BarColor.GREEN, progress);
         }
     }
 
@@ -786,9 +810,47 @@ public class PlayerListener implements Listener {
         bar.setVisible(true);
     }
 
+    private void showChunkEffectBossBar(Player player, String title, BarColor color, double progress) {
+        BossBar bar = chunkEffectBossBars.computeIfAbsent(player.getUniqueId(), id -> {
+            BossBar created = Bukkit.createBossBar("", BarColor.GREEN, BarStyle.SOLID);
+            created.setProgress(1.0);
+            created.addPlayer(player);
+            created.setVisible(true);
+            return created;
+        });
+        if (!bar.getPlayers().contains(player)) {
+            bar.addPlayer(player);
+        }
+        bar.setTitle(title);
+        bar.setColor(color == null ? BarColor.GREEN : color);
+        bar.setStyle(BarStyle.SOLID);
+        bar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
+        bar.setVisible(true);
+    }
+
+    private String formatMillisShort(long ms) {
+        if (ms <= 0L) return "0s";
+        long totalSeconds = ms / 1000L;
+        long hours = totalSeconds / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        long seconds = totalSeconds % 60L;
+        if (hours > 0L) return hours + "h " + minutes + "m";
+        if (minutes > 0L) return minutes + "m " + seconds + "s";
+        return seconds + "s";
+    }
+
     private void removeIslandBossBar(Player player) {
         if (player == null) return;
         BossBar bar = islandBossBars.remove(player.getUniqueId());
+        if (bar != null) {
+            bar.removePlayer(player);
+            bar.setVisible(false);
+        }
+    }
+
+    private void removeChunkEffectBossBar(Player player) {
+        if (player == null) return;
+        BossBar bar = chunkEffectBossBars.remove(player.getUniqueId());
         if (bar != null) {
             bar.removePlayer(player);
             bar.setVisible(false);
