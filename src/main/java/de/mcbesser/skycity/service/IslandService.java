@@ -2964,20 +2964,20 @@ public class IslandService {
         };
     }
 
-    public int getGrowthBoostVanillaMultiplier(int tier) {
+    public double getGrowthBoostVanillaMultiplier(int tier) {
         return switch (tier) {
-            case 1 -> 16;
-            case 2 -> 32;
-            case 3 -> 64;
-            default -> 1;
+            case 1 -> 1.5D;
+            case 2 -> 2.0D;
+            case 3 -> 3.0D;
+            default -> 1.0D;
         };
     }
 
     public int getGrowthBoostExtraRandomTickAttemptsPerSection(int tier, int randomTickSpeed, int intervalTicks) {
-        int multiplier = Math.max(1, getGrowthBoostVanillaMultiplier(tier));
+        double multiplier = Math.max(1.0D, getGrowthBoostVanillaMultiplier(tier));
         int safeRandomTickSpeed = Math.max(0, randomTickSpeed);
         int safeIntervalTicks = Math.max(1, intervalTicks);
-        return safeRandomTickSpeed * Math.max(0, multiplier - 1) * safeIntervalTicks;
+        return (int) Math.round(safeRandomTickSpeed * Math.max(0.0D, multiplier - 1.0D) * safeIntervalTicks);
     }
 
     public void recordGrowthDebugAttempt(IslandData island, int relChunkX, int relChunkZ) {

@@ -16,6 +16,8 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Bamboo;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.EntityType;
@@ -370,6 +372,12 @@ public class ProtectionListener implements Listener {
         private Method getChunkSectionsMethod;
         private Method sectionIsRandomlyTickingBlocksMethod;
         private Method sectionGetBlockStateMethod;
+        private Field sectionTickingListField;
+        private Field sectionStatesField;
+        private Method tickingListSizeMethod;
+        private Method tickingListGetRawMethod;
+        private Method palettedContainerGetMethod;
+        private Method blockStateGetBlockMethod;
         private Constructor<?> blockPosConstructor;
         private Method isRandomlyTickingMethod;
         private Method randomTickMethod;
@@ -382,8 +390,16 @@ public class ProtectionListener implements Listener {
             try {
                 ensureInitialized(chunk);
                 if (!available) return new TickStats(0, 0, 1, 0, "-");
+                Object levelChunk = invokeChunkHandle(chunk);
                 Object level = getWorldHandleMethod.invoke(chunk.getWorld());
                 Object randomSource = getRandomMethod.invoke(level);
+                Object[] sections = (Object[]) getChunkSectionsMethod.invoke(levelChunk);
+                if (sections == null) sections = emptySections;
+                if (sectionTickingListField != null && sectionStatesField != null
+                        && tickingListSizeMethod != null && tickingListGetRawMethod != null
+                        && palettedContainerGetMethod != null && blockStateGetBlockMethod != null) {
+                    return tickChunkViaTickingList(chunk, level, randomSource, sections, tickSpeed, tier);
+                }
                 GrowthTargets growthTargets = collectGrowthTargets(chunk, level);
                 if (growthTargets.positions().length == 0) {
                     return new TickStats(0, 0, 0, 0, growthTargets.summary());
@@ -402,7 +418,7 @@ public class ProtectionListener implements Listener {
                     Object state = getBlockState(level, blockPos);
                     randomTickMethod.invoke(state, level, blockPos, randomSource);
                     hits++;
-                    hits += applyVerticalBurst(chunk.getWorld().getBlockAt(worldX, worldY, worldZ), level, randomSource, tier);
+                    hits += applyBambooHeadTick(chunk.getWorld().getBlockAt(worldX, worldY, worldZ), level, randomSource);
                 }
 
                 return new TickStats(attempts, hits, 0, growthTargets.positions().length, growthTargets.summary());
@@ -427,14 +443,25 @@ public class ProtectionListener implements Listener {
             Class<?> sectionClass = Class.forName("net.minecraft.world.level.chunk.LevelChunkSection");
             sectionIsRandomlyTickingBlocksMethod = sectionClass.getMethod("isRandomlyTickingBlocks");
             sectionGetBlockStateMethod = sectionClass.getMethod("getBlockState", int.class, int.class, int.class);
+            sectionTickingListField = resolveField(sectionClass, "tickingList");
+            sectionStatesField = resolveField(sectionClass, "states");
 
             Class<?> blockStateClass = sectionGetBlockStateMethod.getReturnType();
             isRandomlyTickingMethod = blockStateClass.getMethod("isRandomlyTicking");
+            blockStateGetBlockMethod = resolveMethod(blockStateClass, "getBlock");
 
             Class<?> serverLevelClass = getWorldHandleMethod.getReturnType();
             Class<?> randomSourceClass = Class.forName("net.minecraft.util.RandomSource");
             randomTickMethod = resolveMethod(blockStateClass, "randomTick", serverLevelClass, blockPosClass, randomSourceClass);
             getRandomMethod = resolveMethod(serverLevelClass, "getRandom");
+            if (sectionTickingListField != null) {
+                Class<?> tickingListClass = sectionTickingListField.getType();
+                tickingListSizeMethod = resolveMethod(tickingListClass, "size");
+                tickingListGetRawMethod = resolveMethod(tickingListClass, "getRaw", int.class);
+            }
+            if (sectionStatesField != null) {
+                palettedContainerGetMethod = resolveGetByIndexMethod(sectionStatesField.getType());
+            }
 
             if (getChunkSectionsMethod == null
                     || sectionIsRandomlyTickingBlocksMethod == null
@@ -447,6 +474,52 @@ public class ProtectionListener implements Listener {
             }
 
             available = true;
+        }
+
+        private TickStats tickChunkViaTickingList(org.bukkit.Chunk chunk, Object level, Object randomSource, Object[] sections, int tickSpeed, int tier) throws Exception {
+            int attempts = 0;
+            int hits = 0;
+            int targets = 0;
+            int minSection = Math.floorDiv(chunk.getWorld().getMinHeight(), 16);
+            int chunkOffsetX = chunk.getX() << 4;
+            int chunkOffsetZ = chunk.getZ() << 4;
+
+            for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+                Object section = sections[sectionIndex];
+                if (section == null) continue;
+                if (!(boolean) sectionIsRandomlyTickingBlocksMethod.invoke(section)) continue;
+                Object tickingList = sectionTickingListField.get(section);
+                if (tickingList == null) continue;
+                int tickingBlocks = ((Number) tickingListSizeMethod.invoke(tickingList)).intValue();
+                if (tickingBlocks <= 0) continue;
+                Object states = sectionStatesField.get(section);
+                int offsetY = (sectionIndex + minSection) << 4;
+
+                for (int i = 0; i < tickSpeed; i++) {
+                    attempts++;
+                    int index = nextRawIndex();
+                    if (index >= tickingBlocks) {
+                        continue;
+                    }
+                    int location = ((Number) tickingListGetRawMethod.invoke(tickingList, index)).intValue() & 0xFFFF;
+                    Object state = palettedContainerGetMethod.invoke(states, location);
+                    Object nmsBlock = blockStateGetBlockMethod.invoke(state);
+                    Material material = toBukkitMaterial(nmsBlock);
+                    if (!isPotentialGrowthTarget(chunk.getWorld(), chunkOffsetX, chunkOffsetZ, offsetY, location, material)) {
+                        continue;
+                    }
+                    targets++;
+                    int worldX = (location & 15) | chunkOffsetX;
+                    int worldY = ((location >>> 8) & 15) | offsetY;
+                    int worldZ = ((location >>> 4) & 15) | chunkOffsetZ;
+                    Object blockPos = blockPosConstructor.newInstance(worldX, worldY, worldZ);
+                    randomTickMethod.invoke(state, level, blockPos, randomSource);
+                    hits++;
+                    hits += applyBambooHeadTick(chunk.getWorld().getBlockAt(worldX, worldY, worldZ), level, randomSource);
+                }
+            }
+
+            return new TickStats(attempts, hits, 0, targets, "nms");
         }
 
         private GrowthTargets collectGrowthTargets(org.bukkit.Chunk chunk, Object level) throws Exception {
@@ -540,6 +613,14 @@ public class ProtectionListener implements Listener {
             };
         }
 
+        private boolean isPotentialGrowthTarget(org.bukkit.World world, int chunkOffsetX, int chunkOffsetZ, int offsetY, int location, Material material) {
+            if (material == null || !GROWTH_BOOST_MATERIALS.contains(material)) return false;
+            int worldX = (location & 15) | chunkOffsetX;
+            int worldY = ((location >>> 8) & 15) | offsetY;
+            int worldZ = ((location >>> 4) & 15) | chunkOffsetZ;
+            return isPotentialGrowthTarget(world.getBlockAt(worldX, worldY, worldZ));
+        }
+
         private boolean isCactusGrowthTarget(Block block, Block above) {
             if (block.getType() != Material.CACTUS || above.getType() != Material.AIR) return false;
             if (block.getRelative(BlockFace.NORTH).getType().isSolid()) return false;
@@ -575,43 +656,104 @@ public class ProtectionListener implements Listener {
             return method.invoke(level, blockPos);
         }
 
-        private int applyVerticalBurst(Block block, Object level, Object randomSource, int tier) throws Exception {
-            if (block == null || tier <= 0) return 0;
+        private int applyBambooHeadTick(Block block, Object level, Object randomSource) throws Exception {
+            if (block == null) return 0;
             Material type = block.getType();
             if (type != Material.BAMBOO && type != Material.BAMBOO_SAPLING) {
                 return 0;
             }
-
-            int extraTicks = switch (tier) {
-                case 1 -> 1;
-                case 2 -> 2;
-                case 3 -> 4;
-                default -> 0;
-            };
-            int applied = 0;
-            Block target = resolveVerticalGrowthHead(block);
-            for (int i = 0; i < extraTicks && target != null && isPotentialGrowthTarget(target); i++) {
-                Object blockPos = blockPosConstructor.newInstance(target.getX(), target.getY(), target.getZ());
-                Object state = getBlockState(level, blockPos);
-                randomTickMethod.invoke(state, level, blockPos, randomSource);
-                applied++;
-                target = resolveVerticalGrowthHead(target);
+            Block head = resolveBambooHead(block);
+            if (head == null || !isPotentialGrowthTarget(head)) {
+                return 0;
             }
-            return applied;
+            if (head.getType() == Material.BAMBOO_SAPLING) {
+                head.setBlockData(createBambooData(Bamboo.Leaves.SMALL, false), false);
+                return 1;
+            }
+            return growBambooNaturally(head) ? 1 : 0;
         }
 
-        private Block resolveVerticalGrowthHead(Block block) {
-            if (block == null) return null;
-            Material type = block.getType();
-            if (type != Material.BAMBOO && type != Material.BAMBOO_SAPLING) {
-                return block;
-            }
+        private Block resolveBambooHead(Block block) {
             Block current = block;
-            while (current.getRelative(BlockFace.UP).getType() == type
-                    || (type == Material.BAMBOO && current.getRelative(BlockFace.UP).getType() == Material.BAMBOO_SAPLING)) {
+            while (current.getRelative(BlockFace.UP).getType() == Material.BAMBOO
+                    || current.getRelative(BlockFace.UP).getType() == Material.BAMBOO_SAPLING) {
                 current = current.getRelative(BlockFace.UP);
             }
             return current;
+        }
+
+        private boolean growBambooNaturally(Block head) {
+            if (head == null || head.getType() != Material.BAMBOO) return false;
+            if (head.getRelative(BlockFace.UP).getType() != Material.AIR) return false;
+
+            int height = getBambooHeight(head);
+            int maxHeight = getBambooTargetHeight(head);
+            if (height >= maxHeight) return false;
+
+            Block above = head.getRelative(BlockFace.UP);
+            above.setBlockData(createBambooData(Bamboo.Leaves.SMALL, height + 1 >= maxHeight), false);
+            updateBambooLeaves(above);
+
+            return true;
+        }
+
+        private int getBambooTargetHeight(Block head) {
+            Block base = head;
+            while (base.getRelative(BlockFace.DOWN).getType() == Material.BAMBOO
+                    || base.getRelative(BlockFace.DOWN).getType() == Material.BAMBOO_SAPLING) {
+                base = base.getRelative(BlockFace.DOWN);
+            }
+
+            long mixed = 1469598103934665603L;
+            mixed ^= base.getX();
+            mixed *= 1099511628211L;
+            mixed ^= (long) base.getY() << 21;
+            mixed *= 1099511628211L;
+            mixed ^= (long) base.getZ() << 42;
+            mixed *= 1099511628211L;
+
+            // Natural-looking spread without visible +1 stair patterns between nearby stalks.
+            return 7 + (int) Math.floorMod(mixed ^ (mixed >>> 32), 10L);
+        }
+
+        private int getBambooHeight(Block head) {
+            int height = 0;
+            Block current = head;
+            while (current.getType() == Material.BAMBOO || current.getType() == Material.BAMBOO_SAPLING) {
+                height++;
+                current = current.getRelative(BlockFace.DOWN);
+            }
+            return height;
+        }
+
+        private BlockData createBambooData(Bamboo.Leaves leaves, boolean mature) {
+            Bamboo data = (Bamboo) Material.BAMBOO.createBlockData();
+            data.setLeaves(leaves == null ? Bamboo.Leaves.NONE : leaves);
+            data.setStage(mature ? 1 : 0);
+            return data;
+        }
+
+        private void updateBambooLeaves(Block head) {
+            if (head == null) return;
+            Block top = resolveBambooHead(head);
+            if (top == null) return;
+
+            Block current = top;
+            int indexFromTop = 0;
+            while (current.getType() == Material.BAMBOO || current.getType() == Material.BAMBOO_SAPLING) {
+                if (current.getType() == Material.BAMBOO && current.getBlockData() instanceof Bamboo bambooData) {
+                    Bamboo.Leaves leaves = switch (indexFromTop) {
+                        case 0 -> Bamboo.Leaves.LARGE;
+                        case 1, 2 -> Bamboo.Leaves.SMALL;
+                        default -> Bamboo.Leaves.NONE;
+                    };
+                    bambooData.setLeaves(leaves);
+                    bambooData.setStage(indexFromTop == 0 ? 1 : 0);
+                    current.setBlockData(bambooData, false);
+                }
+                current = current.getRelative(BlockFace.DOWN);
+                indexFromTop++;
+            }
         }
 
         private int nextRandom(int bound) {
@@ -674,6 +816,56 @@ public class ProtectionListener implements Listener {
             try {
                 return type.getMethod(name, parameterTypes);
             } catch (NoSuchMethodException ignored) {
+                return null;
+            }
+        }
+
+        private Field resolveField(Class<?> type, String name) {
+            Class<?> current = type;
+            while (current != null) {
+                try {
+                    Field field = current.getDeclaredField(name);
+                    field.setAccessible(true);
+                    return field;
+                } catch (NoSuchFieldException ignored) {
+                    current = current.getSuperclass();
+                }
+            }
+            return null;
+        }
+
+        private Method resolveGetByIndexMethod(Class<?> type) {
+            Class<?> current = type;
+            while (current != null) {
+                for (Method method : current.getDeclaredMethods()) {
+                    if (!method.getName().equals("get")) continue;
+                    if (method.getParameterCount() != 1) continue;
+                    Class<?> parameterType = method.getParameterTypes()[0];
+                    if (parameterType != int.class && parameterType != Integer.class) continue;
+                    method.setAccessible(true);
+                    return method;
+                }
+                current = current.getSuperclass();
+            }
+            return null;
+        }
+
+        private int nextRawIndex() {
+            random = random * 3 + 1013904223;
+            return (random >>> 2) & 0xFFF;
+        }
+
+        private Material toBukkitMaterial(Object nmsBlock) {
+            if (nmsBlock == null) return null;
+            String path = String.valueOf(nmsBlock);
+            int separator = path.lastIndexOf(':');
+            if (separator >= 0 && separator + 1 < path.length()) {
+                path = path.substring(separator + 1);
+            }
+            path = path.toUpperCase(java.util.Locale.ROOT);
+            try {
+                return Material.valueOf(path);
+            } catch (IllegalArgumentException ignored) {
                 return null;
             }
         }
