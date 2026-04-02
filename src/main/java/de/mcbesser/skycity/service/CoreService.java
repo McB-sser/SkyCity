@@ -1503,7 +1503,8 @@ public class CoreService {
             List.of(
                ChatColor.GRAY + "Pro Flasche: " + ChatColor.WHITE + this.islandService.getXpBottlePointsPerBottle() + " XP",
                ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getXpBottleCostPerBottle() + " XP (10% Verlust)",
-               ChatColor.YELLOW + "Linksklick = 1 Flasche, Shift-Klick = 16 Flaschen"
+               ChatColor.YELLOW + "Linksklick: 1 Flasche",
+               ChatColor.YELLOW + "Shift-Klick: 16 Flaschen"
             )
          )
       );
