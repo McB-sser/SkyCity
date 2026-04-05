@@ -849,11 +849,7 @@ public class CoreService {
                int current = island.getProgress(entry.getKey());
                lore.add(ChatColor.GRAY + this.materialDisplayNameDe(entry.getKey()) + ": " + colorizeRequirement(current >= entry.getValue()) + current + ChatColor.WHITE + "/" + entry.getValue());
             }
-            if (requirement.chunkUnlocksGranted() > 0) {
-               lore.add(" ");
-               lore.add(ChatColor.GOLD + "Belohnung");
-               lore.add(ChatColor.AQUA + "+" + requirement.chunkUnlocksGranted() + " freie Chunks");
-            }
+            addUpgradeRewardLore(lore, island, branch, requirement);
          }
       }
       lore.add(" ");
@@ -894,13 +890,23 @@ public class CoreService {
          if (compact && requirement.materials().size() > shown) {
             lines.add(ChatColor.DARK_GRAY + "+" + (requirement.materials().size() - shown) + " weitere Anforderungen");
          }
-         if (requirement.chunkUnlocksGranted() > 0) {
-            lines.add(" ");
-            lines.add(ChatColor.GOLD + "Belohnung");
-            lines.add(ChatColor.AQUA + "+" + requirement.chunkUnlocksGranted() + " freie Chunks");
-         }
+         addUpgradeRewardLore(lines, island, branch, requirement);
       }
       return lines;
+   }
+
+   private void addUpgradeRewardLore(List<String> lines, IslandData island, IslandService.UpgradeBranch branch, IslandService.UpgradeRequirement requirement) {
+      lines.add(" ");
+      lines.add(ChatColor.GOLD + "Belohnung");
+      if (branch == IslandService.UpgradeBranch.CHUNKS) {
+         lines.add(ChatColor.AQUA + "+" + requirement.chunkUnlocksGranted() + " freie Chunks");
+         lines.add(ChatColor.GRAY + "Danach: " + ChatColor.WHITE + (island.getAvailableChunkUnlocks() + requirement.chunkUnlocksGranted()));
+         return;
+      }
+      int currentLimit = this.islandService.getCurrentUpgradeLimit(island, branch);
+      int limitAfterBuy = currentLimit + branch.step();
+      lines.add(ChatColor.AQUA + "+" + branch.step() + " Limit");
+      lines.add(ChatColor.GRAY + "Danach: " + ChatColor.WHITE + limitAfterBuy);
    }
 
    private List<String> buildMilestoneLore(IslandData island, boolean compact) {

@@ -745,7 +745,7 @@
               : `<span class="pill warn">Ab M${req.minMilestone}</span>`;
             const reward = branch.key === "CHUNKS"
               ? `<span class="pill ok">+${req.chunkUnlocksGranted} freie Chunks</span>`
-              : `<span class="pill ok">Limit danach: ${formatNumber(req.limitAfterBuy)}</span>`;
+              : `<span class="pill ok">+${formatNumber(branch.step)} Limit</span><br><span class="pill warn">Danach: ${formatNumber(req.limitAfterBuy)}</span>`;
             rows.push({
               stufe: `${req.tier}/${branch.maxTier}`,
               freiAb: reachable,
