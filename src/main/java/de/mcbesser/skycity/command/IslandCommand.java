@@ -442,14 +442,19 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if ("buy".equals(sub) || "rent".equals(sub)) {
-            var parcel = islandService.getParcelAt(island, player.getLocation());
+            IslandData targetIsland = islandService.getIslandAt(player.getLocation());
+            if (targetIsland == null) {
+                player.sendMessage(ChatColor.RED + "Du stehst auf keiner Insel.");
+                return;
+            }
+            var parcel = islandService.getParcelAt(targetIsland, player.getLocation());
             if (parcel == null) {
                 player.sendMessage(ChatColor.RED + "Du musst im gew\u00fcnschten Plot stehen.");
                 return;
             }
             IslandService.ParcelMarketResult result = "buy".equals(sub)
-                    ? islandService.buyParcel(island, parcel, player.getUniqueId())
-                    : islandService.rentParcel(island, parcel, player.getUniqueId());
+                    ? islandService.buyParcel(targetIsland, parcel, player.getUniqueId())
+                    : islandService.rentParcel(targetIsland, parcel, player.getUniqueId());
             switch (result) {
                 case SUCCESS -> player.sendMessage(ChatColor.GREEN + ("buy".equals(sub)
                         ? "Plot gekauft: " + islandService.getParcelDisplayName(parcel)

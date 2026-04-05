@@ -2867,7 +2867,6 @@ public class CoreService {
          this.processCoreShulkerBuffer(island);
          Location coreTop = island.getCoreLocation().clone().add(0.5, 1.01, 0.5);
          List<String> lines = this.buildCoreDisplayLines(island);
-         this.removeTaggedDisplaysByPrefixInIsland(island, "skycity_core_line_");
          double yOffset = 0.0;
          int lineIndex = 0;
 
@@ -2892,7 +2891,7 @@ public class CoreService {
 
    private void updateParcelOfferDisplays(IslandData island) {
       if (island == null) return;
-      this.removeTaggedDisplaysByPrefixInIsland(island, "skycity_parcel_offer_");
+      Set<String> activeTags = new java.util.HashSet<>();
       for (ParcelData parcel : island.getParcels().values()) {
          if (parcel == null || parcel.getSpawn() == null || parcel.getSpawn().getWorld() == null) continue;
          this.islandService.expireParcelRentalIfNeeded(island, parcel);
@@ -2908,11 +2907,14 @@ public class CoreService {
                yOffset += 0.18;
                continue;
             }
-            this.ensureText(base.clone().add(0.0, yOffset, 0.0), "skycity_parcel_offer_" + parcelTagKey + "_" + lineIndex, line);
+            String tag = "skycity_parcel_offer_" + parcelTagKey + "_" + lineIndex;
+            activeTags.add(tag);
+            this.ensureText(base.clone().add(0.0, yOffset, 0.0), tag, line);
             yOffset += 0.28;
             lineIndex++;
          }
       }
+      this.removeStaleTaggedDisplaysInIsland(island, "skycity_parcel_offer_", activeTags);
    }
 
    private List<String> buildParcelOfferDisplayLines(ParcelData parcel) {
@@ -3235,6 +3237,20 @@ public class CoreService {
          for (Entity e : world.getEntities()) {
             if (e instanceof ArmorStand && e.getScoreboardTags().contains(tag)) {
                e.remove();
+            }
+         }
+      }
+   }
+
+   private void removeStaleTaggedDisplaysInIsland(IslandData island, String prefix, Set<String> activeTags) {
+      for (Entity e : this.islandService.getEntitiesInIsland(island)) {
+         if (!(e instanceof ArmorStand stand)) {
+            continue;
+         }
+         for (String tag : stand.getScoreboardTags()) {
+            if (tag.startsWith(prefix) && (activeTags == null || !activeTags.contains(tag))) {
+               stand.remove();
+               break;
             }
          }
       }
