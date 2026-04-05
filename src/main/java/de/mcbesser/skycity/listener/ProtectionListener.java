@@ -1033,12 +1033,12 @@ public class ProtectionListener implements Listener {
             }
             if (!islandService.isWithinArmorStandLimit(island)) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Ruestungsstaenderlimit erreicht: " + islandService.getCurrentLevelDef(island).getArmorStandLimit());
+                player.sendMessage(ChatColor.RED + "R\u00fcstungsst\u00e4nderlimit erreicht: " + islandService.getCurrentLevelDef(island).getArmorStandLimit());
                 return;
             }
             if (!placeArmorStand(player, event.getHand(), placeLocation)) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Hier kann kein Ruestungsstaender platziert werden.");
+                player.sendMessage(ChatColor.RED + "Hier kann kein R\u00fcstungsst\u00e4nder platziert werden.");
                 return;
             }
             event.setCancelled(true);

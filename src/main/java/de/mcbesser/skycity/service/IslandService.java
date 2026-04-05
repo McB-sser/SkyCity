@@ -118,7 +118,7 @@ public class IslandService {
         CONTAINER("container", "Behaelter", Material.BARREL, 100, 25, 12),
         HOPPER("hopper", "Trichter", Material.HOPPER, 8, 4, 24),
         PISTON("piston", "Kolben", Material.PISTON, 16, 4, 24),
-        ARMOR_STAND("armor_stand", "Ruestungsstaender", Material.ARMOR_STAND, 4, 2, 14),
+        ARMOR_STAND("armor_stand", "R\u00fcstungsst\u00e4nder", Material.ARMOR_STAND, 4, 2, 14),
         MINECART("minecart", "Minecartlimit", Material.MINECART, 8, 4, 9),
         BOAT("boat", "Bootlimit", Material.OAK_BOAT, 6, 3, 20),
         OBSERVER("observer", "Observer", Material.OBSERVER, 12, 6, 20),

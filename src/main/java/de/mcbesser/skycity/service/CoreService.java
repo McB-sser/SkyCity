@@ -755,7 +755,7 @@ public class CoreService {
       lore.add(ChatColor.GREEN + "Beh\u00e4lter: " + ChatColor.WHITE + this.islandService.getCachedInventoryBlockCount(island) + "/" + this.islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER));
       lore.add(ChatColor.GREEN + "Trichter: " + ChatColor.WHITE + this.islandService.getCachedHopperCount(island) + "/" + current.getHopperLimit());
       lore.add(ChatColor.GREEN + "Kolben: " + ChatColor.WHITE + this.islandService.getCachedPistonCount(island) + "/" + current.getPistonLimit());
-      lore.add(ChatColor.GREEN + "Ruestungsstaender: " + ChatColor.WHITE + this.islandService.getArmorStandCount(island) + "/" + current.getArmorStandLimit());
+      lore.add(ChatColor.GREEN + "R\u00fcstungsst\u00e4nder: " + ChatColor.WHITE + this.islandService.getArmorStandCount(island) + "/" + current.getArmorStandLimit());
       lore.add(ChatColor.GREEN + "Minecarts: " + ChatColor.WHITE + this.islandService.getMinecartCount(island) + "/" + current.getMinecartLimit());
       lore.add(ChatColor.GREEN + "Boote: " + ChatColor.WHITE + this.islandService.getBoatCount(island) + "/" + current.getBoatLimit());
       lore.add(ChatColor.GREEN + "Observer: " + ChatColor.WHITE + this.islandService.getCachedObserverCount(island) + "/" + current.getObserverLimit());
@@ -3169,7 +3169,7 @@ public class CoreService {
 
    public void showArmorStandLimitHint(Player player, IslandData island) {
       if (player == null || island == null) return;
-      this.showLimitHint(player, "Ruestungsstaender", this.islandService.getArmorStandCount(island), this.islandService.getCurrentLevelDef(island).getArmorStandLimit());
+      this.showLimitHint(player, "R\u00fcstungsst\u00e4nder", this.islandService.getArmorStandCount(island), this.islandService.getCurrentLevelDef(island).getArmorStandLimit());
    }
 
    public void showMinecartLimitHint(Player player, IslandData island) {
