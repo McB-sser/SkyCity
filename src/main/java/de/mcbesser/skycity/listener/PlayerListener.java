@@ -738,6 +738,8 @@ public class PlayerListener implements Listener {
     }
 
     private void tickIslandActionbar() {
+        double serverTps = getServerTps();
+        Map<UUID, Integer> islandLoadCache = new HashMap<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.isOnline()) continue;
             if (!skyWorldService.isSkyCityWorld(player.getWorld())) {
@@ -750,7 +752,9 @@ public class PlayerListener implements Listener {
             if (islandService.isInSpawnPlot(player.getLocation())) {
                 applyIslandTimeMode(player, null);
                 applyIslandNightVision(player, null);
-                showIslandBossBar(player, ChatColor.GOLD + "Spawn" + ChatColor.GRAY + " | " + ChatColor.WHITE + "SkyCity");
+                showIslandBossBar(player, ChatColor.GOLD + "Spawn"
+                        + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps)
+                        + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "SkyCity");
                 removeChunkEffectBossBar(player);
                 continue;
             }
@@ -764,16 +768,19 @@ public class PlayerListener implements Listener {
             }
             applyIslandTimeMode(player, island);
             applyIslandNightVision(player, island);
-            String[] parts = islandService.getIslandBossBarText(island).split("\\s*\\|\\s*", 2);
-            String title = parts.length > 0 ? parts[0] : islandService.getIslandTitleDisplay(island);
-            String master = parts.length > 1 ? parts[1] : islandService.getIslandMasterDisplay(island);
+            String title = islandService.getIslandTitleDisplay(island);
+            long masterRotationStep = System.currentTimeMillis() / 700L;
+            String master = islandService.getIslandMasterTickerDisplay(island, masterRotationStep, 22);
             String timeIcon = switch (islandService.getIslandTimeMode(island)) {
                 case DAY, SUNSET -> "☀";
                 case MIDNIGHT -> "☾";
                 case NORMAL -> "";
             };
             String timeSegment = timeIcon.isEmpty() ? "" : ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + timeIcon;
-            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + master);
+            int islandLoad = islandLoadCache.computeIfAbsent(island.getOwner(), id -> islandService.getIslandLoadPercent(island));
+            String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
+            String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Last " + islandLoad + "%";
+            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + master);
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
             int displayChunkX = islandService.displayChunkX(relChunkX);
@@ -794,6 +801,23 @@ public class PlayerListener implements Listener {
         }
     }
 
+    private double getServerTps() {
+        try {
+            Object raw = Bukkit.getServer().getClass().getMethod("getTPS").invoke(Bukkit.getServer());
+            if (raw instanceof double[] tps && tps.length > 0) {
+                double value = tps[0];
+                if (!Double.isNaN(value) && !Double.isInfinite(value)) {
+                    return Math.max(0.0, Math.min(20.0, value));
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        return 20.0;
+    }
+
+    private String formatTps(double tps) {
+        return String.format(java.util.Locale.US, "%.1f", Math.max(0.0, Math.min(20.0, tps)));
+    }
     private void applyIslandTimeMode(Player player, IslandData island) {
         if (player == null) return;
         IslandService.IslandTimeMode mode = islandService.getIslandTimeMode(island);

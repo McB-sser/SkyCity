@@ -1086,15 +1086,61 @@ public class IslandService {
 
     public String getIslandMasterDisplay(IslandData island) {
         if (island == null) return "?";
+        String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
+        String primary = ownerName == null || ownerName.isBlank() ? "?" : ownerName;
+        int extraMasters = island.getMasters().size();
+        return extraMasters <= 0 ? primary : primary + " +" + extraMasters;
+    }
+
+    public String getIslandMasterDisplay(IslandData island, long rotationStep) {
+        if (island == null) return "?";
         List<String> names = new ArrayList<>();
         String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
-        names.add(ownerName == null ? "?" : ownerName);
+        names.add(ownerName == null || ownerName.isBlank() ? "?" : ownerName);
         for (UUID master : island.getMasters()) {
             String name = Bukkit.getOfflinePlayer(master).getName();
-            if (name != null && !name.isBlank()) names.add(name);
+            if (name != null && !name.isBlank()) {
+                names.add(name);
+            }
+        }
+        if (names.size() <= 2) {
+            return String.join(", ", names);
+        }
+        int start = (int) Math.floorMod(rotationStep, names.size());
+        String first = names.get(start);
+        String second = names.get((start + 1) % names.size());
+        return first + ", " + second + " +" + (names.size() - 2);
+    }
+
+    public String getIslandMasterTickerDisplay(IslandData island, long rotationStep, int windowSize) {
+        if (island == null) return "?";
+        List<String> names = new ArrayList<>();
+        String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
+        names.add(ownerName == null || ownerName.isBlank() ? "?" : ownerName);
+        for (UUID master : island.getMasters()) {
+            String name = Bukkit.getOfflinePlayer(master).getName();
+            if (name != null && !name.isBlank()) {
+                names.add(name);
+            }
         }
         String joined = String.join(", ", names);
-        return joined.length() > 60 ? joined.substring(0, 57) + "..." : joined;
+        if (names.size() <= 2 || joined.length() <= windowSize) {
+            return joined;
+        }
+        String suffix = " " + names.size() + "M";
+        int safeWindow = Math.max(8, windowSize);
+        int textWindow = Math.max(4, safeWindow - suffix.length());
+        if (joined.length() <= textWindow) {
+            return joined + suffix;
+        }
+        String spacer = "   ";
+        String loop = joined + spacer + joined;
+        int start = (int) Math.floorMod(rotationStep, joined.length() + spacer.length());
+        String visible = loop.substring(start, start + textWindow).trim();
+        if (visible.isBlank()) {
+            visible = joined.substring(0, Math.min(joined.length(), textWindow));
+        }
+        return visible + suffix;
     }
 
     public String getIslandBossBarText(IslandData island) {
@@ -1111,6 +1157,42 @@ public class IslandService {
 
     public String getWarpTeleportDisplay(IslandData island) {
         return getIslandWarpDisplay(island) + " | " + getIslandMasterDisplay(island);
+    }
+
+    public int getIslandLoadPercent(IslandData island) {
+        if (island == null) return 0;
+        List<Entity> entities = getEntitiesInIsland(island);
+        int animals = (int) entities.stream().filter(e -> e instanceof Animals).count();
+        int golems = (int) entities.stream().filter(e -> isTrackedGolem(e.getType())).count();
+        int villagers = (int) entities.stream().filter(e -> e instanceof Villager).count();
+        int armorStands = (int) entities.stream()
+                .filter(e -> e instanceof ArmorStand)
+                .filter(e -> e.getScoreboardTags().stream().noneMatch(tag -> tag.startsWith("skycity_")))
+                .count();
+        int minecarts = (int) entities.stream().filter(e -> e instanceof org.bukkit.entity.Minecart).count();
+        int boats = (int) entities.stream().filter(e -> e instanceof org.bukkit.entity.Boat).count();
+        int players = (int) entities.stream().filter(e -> e instanceof Player).count();
+
+        double load = 0.0;
+        load += weightedLoadComponent(animals, getCurrentUpgradeLimit(island, UpgradeBranch.ANIMAL), 0.18);
+        load += weightedLoadComponent(golems, getCurrentUpgradeLimit(island, UpgradeBranch.GOLEM), 0.08);
+        load += weightedLoadComponent(villagers, getCurrentUpgradeLimit(island, UpgradeBranch.VILLAGER), 0.18);
+        load += weightedLoadComponent(armorStands, getCurrentUpgradeLimit(island, UpgradeBranch.ARMOR_STAND), 0.08);
+        load += weightedLoadComponent(minecarts, getCurrentUpgradeLimit(island, UpgradeBranch.MINECART), 0.04);
+        load += weightedLoadComponent(boats, getCurrentUpgradeLimit(island, UpgradeBranch.BOAT), 0.03);
+        load += weightedLoadComponent(getCachedInventoryBlockCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.CONTAINER), 0.10);
+        load += weightedLoadComponent(getCachedHopperCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.HOPPER), 0.16);
+        load += weightedLoadComponent(getCachedPistonCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.PISTON), 0.08);
+        load += weightedLoadComponent(getCachedObserverCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.OBSERVER), 0.04);
+        load += weightedLoadComponent(getCachedDispenserCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.DISPENSER), 0.03);
+        load += weightedLoadComponent(island.getUnlockedChunks().size(), ISLAND_CHUNKS * ISLAND_CHUNKS, 0.06);
+        load += weightedLoadComponent(players, 6, 0.04);
+        return (int) Math.max(0, Math.min(100, Math.round(load * 100.0)));
+    }
+
+    private double weightedLoadComponent(int used, int limit, double weight) {
+        if (limit <= 0 || weight <= 0.0) return 0.0;
+        return Math.min(1.0, Math.max(0.0, used / (double) limit)) * weight;
     }
 
     public String normalizeIslandLabel(String input) {
