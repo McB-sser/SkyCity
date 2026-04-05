@@ -9,6 +9,17 @@ import java.util.Set;
 import java.util.UUID;
 
 public class ParcelData {
+    public enum MarketPaymentType {
+        EXPERIENCE,
+        VAULT
+    }
+
+    public enum RentDurationUnit {
+        MINUTES,
+        HOURS,
+        DAYS
+    }
+
     private final String chunkKey;
     private String name;
     private final Set<UUID> owners = new HashSet<>();
@@ -19,6 +30,15 @@ public class ParcelData {
     private final AccessSettings visitorSettings = new AccessSettings();
     private boolean pvpEnabled;
     private boolean pveEnabled;
+    private boolean saleOfferEnabled;
+    private long salePrice;
+    private boolean rentOfferEnabled;
+    private long rentPrice;
+    private String paymentType = MarketPaymentType.EXPERIENCE.name();
+    private int rentDurationAmount;
+    private String rentDurationUnit = RentDurationUnit.DAYS.name();
+    private UUID renter;
+    private long rentUntil;
     private Location spawn;
     private int minX;
     private int minY;
@@ -45,6 +65,45 @@ public class ParcelData {
     public void setPvpEnabled(boolean pvpEnabled) { this.pvpEnabled = pvpEnabled; }
     public boolean isPveEnabled() { return pveEnabled; }
     public void setPveEnabled(boolean pveEnabled) { this.pveEnabled = pveEnabled; }
+    public boolean isSaleOfferEnabled() { return saleOfferEnabled; }
+    public void setSaleOfferEnabled(boolean saleOfferEnabled) { this.saleOfferEnabled = saleOfferEnabled; }
+    public long getSalePrice() { return salePrice; }
+    public void setSalePrice(long salePrice) { this.salePrice = Math.max(0L, salePrice); }
+    public boolean isRentOfferEnabled() { return rentOfferEnabled; }
+    public void setRentOfferEnabled(boolean rentOfferEnabled) { this.rentOfferEnabled = rentOfferEnabled; }
+    public long getRentPrice() { return rentPrice; }
+    public void setRentPrice(long rentPrice) { this.rentPrice = Math.max(0L, rentPrice); }
+    public MarketPaymentType getPaymentType() {
+        try {
+            return MarketPaymentType.valueOf(paymentType == null ? MarketPaymentType.EXPERIENCE.name() : paymentType);
+        } catch (IllegalArgumentException ignored) {
+            return MarketPaymentType.EXPERIENCE;
+        }
+    }
+    public void setPaymentType(MarketPaymentType paymentType) {
+        this.paymentType = paymentType == null ? MarketPaymentType.EXPERIENCE.name() : paymentType.name();
+    }
+    public int getRentDurationAmount() { return rentDurationAmount; }
+    public void setRentDurationAmount(int rentDurationAmount) { this.rentDurationAmount = Math.max(0, rentDurationAmount); }
+    public RentDurationUnit getRentDurationUnit() {
+        try {
+            return RentDurationUnit.valueOf(rentDurationUnit == null ? RentDurationUnit.DAYS.name() : rentDurationUnit);
+        } catch (IllegalArgumentException ignored) {
+            return RentDurationUnit.DAYS;
+        }
+    }
+    public void setRentDurationUnit(RentDurationUnit rentDurationUnit) {
+        this.rentDurationUnit = rentDurationUnit == null ? RentDurationUnit.DAYS.name() : rentDurationUnit.name();
+    }
+    public int getRentDurationDays() { return getRentDurationUnit() == RentDurationUnit.DAYS ? rentDurationAmount : 0; }
+    public void setRentDurationDays(int rentDurationDays) {
+        this.rentDurationAmount = Math.max(0, rentDurationDays);
+        this.rentDurationUnit = RentDurationUnit.DAYS.name();
+    }
+    public UUID getRenter() { return renter; }
+    public void setRenter(UUID renter) { this.renter = renter; }
+    public long getRentUntil() { return rentUntil; }
+    public void setRentUntil(long rentUntil) { this.rentUntil = Math.max(0L, rentUntil); }
     public Location getSpawn() { return spawn; }
     public void setSpawn(Location spawn) { this.spawn = spawn; }
     public int getMinX() { return minX; }

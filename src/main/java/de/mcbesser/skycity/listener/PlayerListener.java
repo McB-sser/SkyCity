@@ -752,7 +752,9 @@ public class PlayerListener implements Listener {
             if (islandService.isInSpawnPlot(player.getLocation())) {
                 applyIslandTimeMode(player, null);
                 applyIslandNightVision(player, null);
+                String timeSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + getWorldTimeIcon(player.getWorld());
                 showIslandBossBar(player, ChatColor.GOLD + "Spawn"
+                        + timeSegment
                         + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps)
                         + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "SkyCity");
                 removeChunkEffectBossBar(player);
@@ -769,14 +771,12 @@ public class PlayerListener implements Listener {
             applyIslandTimeMode(player, island);
             applyIslandNightVision(player, island);
             String title = islandService.getIslandTitleDisplay(island);
-            long masterRotationStep = System.currentTimeMillis() / 700L;
-            String master = islandService.getIslandMasterTickerDisplay(island, masterRotationStep, 22);
             String timeIcon = getWorldTimeIcon(player.getWorld());
             String timeSegment = timeIcon.isEmpty() ? "" : ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + timeIcon;
             int islandLoad = islandLoadCache.computeIfAbsent(island.getOwner(), id -> islandService.getIslandLoadPercent(island));
             String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
             String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Last " + islandLoad + "%";
-            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + master);
+            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment);
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
             int displayChunkX = islandService.displayChunkX(relChunkX);

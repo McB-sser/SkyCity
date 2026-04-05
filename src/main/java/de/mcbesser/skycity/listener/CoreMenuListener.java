@@ -1,6 +1,7 @@
 package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.model.IslandData;
+import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.ParticlePreviewService;
@@ -63,6 +64,8 @@ public class CoreMenuListener implements Listener {
             handleParcelMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder holder) {
             handleParcelVisitorSettingsClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelMarketInventoryHolder holder) {
+            handleParcelMarketMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.TeleportInventoryHolder holder) {
             handleTeleportMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.IslandTrustMembersInventoryHolder holder) {
@@ -334,6 +337,13 @@ public class CoreMenuListener implements Listener {
         var parcel = islandService.getParcel(island, relX, relZ);
         if (parcel != null) {
             inventory.setItem(20, namedItem(
+                    Material.KNOWLEDGE_BOOK,
+                    ChatColor.GOLD + "Plot-Markt",
+                    java.util.List.of(
+                            ChatColor.GRAY + "Verkauf / Miete festlegen",
+                            ChatColor.YELLOW + "Klick = oeffnen"
+                    )));
+            inventory.setItem(22, namedItem(
                     Material.ANVIL,
                     ChatColor.GOLD + "GS umbenennen",
                     java.util.List.of(
@@ -739,9 +749,15 @@ public class CoreMenuListener implements Listener {
         if (!islandService.hasBuildAccess(player.getUniqueId(), island) && !hasParcelAccess) return;
         switch (event.getRawSlot()) {
             case 22 -> {
-                player.getInventory().addItem(islandService.createPlotWand());
-                player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
-                player.sendMessage(ChatColor.GRAY + "Setze Pos1/Pos2 und nutze /is plot create.");
+                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                if (parcel == null) {
+                    player.getInventory().addItem(islandService.createPlotWand());
+                    player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
+                    player.sendMessage(ChatColor.GRAY + "Setze Pos1/Pos2 und nutze /is plot create.");
+                } else if (islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    coreService.beginParcelRenameInput(player, island, parcel);
+                    return;
+                }
             }
             case 10 -> {
                 var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
@@ -775,7 +791,7 @@ public class CoreMenuListener implements Listener {
             case 20 -> {
                 var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
-                    coreService.beginParcelRenameInput(player, island, parcel);
+                    player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), false));
                     return;
                 }
             }
@@ -852,6 +868,97 @@ public class CoreMenuListener implements Listener {
             }
         }
         openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+    }
+
+    private void handleParcelMarketMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelMarketInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+        if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) return;
+        boolean rentMode = holder.rentMode();
+        switch (event.getRawSlot()) {
+            case 10 -> {
+                player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), !rentMode));
+                return;
+            }
+            case 12 -> adjustParcelMarketPrice(island, parcel, player, rentMode, event, 1L);
+            case 14 -> adjustParcelMarketPrice(island, parcel, player, rentMode, event, 10L);
+            case 16 -> {
+                long step = event.isShiftClick() ? 1000L : 100L;
+                adjustParcelMarketPrice(island, parcel, player, rentMode, event, step);
+            }
+            case 19 -> {
+                if (!rentMode) {
+                    return;
+                }
+                int step = event.isShiftClick() ? 10 : 1;
+                int next = event.isLeftClick() ? parcel.getRentDurationAmount() + step : Math.max(0, parcel.getRentDurationAmount() - step);
+                islandService.configureParcelRentOffer(island, parcel, player.getUniqueId(), parcel.getRentPrice(), next, parcel.getRentDurationUnit(), parcel.isRentOfferEnabled());
+            }
+            case 21 -> {
+                if (!rentMode) {
+                    return;
+                }
+                ParcelData.RentDurationUnit nextUnit = switch (parcel.getRentDurationUnit()) {
+                    case MINUTES -> ParcelData.RentDurationUnit.HOURS;
+                    case HOURS -> ParcelData.RentDurationUnit.DAYS;
+                    case DAYS -> ParcelData.RentDurationUnit.MINUTES;
+                };
+                islandService.configureParcelRentOffer(island, parcel, player.getUniqueId(), parcel.getRentPrice(), parcel.getRentDurationAmount(), nextUnit, parcel.isRentOfferEnabled());
+            }
+            case 22 -> {
+                if (!rentMode) {
+                    boolean enable = !parcel.isSaleOfferEnabled();
+                    if (enable && parcel.getSalePrice() <= 0L) {
+                        player.sendMessage(ChatColor.RED + "Setze zuerst einen Verkaufspreis.");
+                        return;
+                    }
+                    islandService.configureParcelSaleOffer(island, parcel, player.getUniqueId(), parcel.getSalePrice(), enable);
+                } else {
+                    boolean enable = !parcel.isRentOfferEnabled();
+                    if (enable && (parcel.getRentPrice() <= 0L || parcel.getRentDurationAmount() <= 0)) {
+                        player.sendMessage(ChatColor.RED + "Setze zuerst Mietpreis und Mietdauer.");
+                        return;
+                    }
+                    islandService.configureParcelRentOffer(island, parcel, player.getUniqueId(), parcel.getRentPrice(), parcel.getRentDurationAmount(), parcel.getRentDurationUnit(), enable);
+                }
+            }
+            case 24 -> {
+                if (islandService.isParcelVaultAvailable()) {
+                    ParcelData.MarketPaymentType nextType = parcel.getPaymentType() == ParcelData.MarketPaymentType.EXPERIENCE
+                            ? ParcelData.MarketPaymentType.VAULT
+                            : ParcelData.MarketPaymentType.EXPERIENCE;
+                    islandService.configureParcelPaymentType(island, parcel, player.getUniqueId(), nextType);
+                } else {
+                    player.sendMessage(ChatColor.RED + "CraftTaler sind aktuell nicht verfuegbar.");
+                }
+            }
+            case 25 -> {
+                if (!rentMode) {
+                    return;
+                }
+                islandService.clearParcelRentState(island, parcel, player.getUniqueId());
+            }
+            case 31 -> {
+                openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+                return;
+            }
+            default -> {
+                return;
+            }
+        }
+        player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), rentMode));
+    }
+
+    private void adjustParcelMarketPrice(IslandData island, ParcelData parcel, Player player, boolean rentMode, InventoryClickEvent event, long step) {
+        long current = rentMode ? parcel.getRentPrice() : parcel.getSalePrice();
+        long next = event.isLeftClick() ? current + step : Math.max(0L, current - step);
+        if (rentMode) {
+            islandService.configureParcelRentOffer(island, parcel, player.getUniqueId(), next, parcel.getRentDurationAmount(), parcel.getRentDurationUnit(), parcel.isRentOfferEnabled());
+        } else {
+            islandService.configureParcelSaleOffer(island, parcel, player.getUniqueId(), next, parcel.isSaleOfferEnabled());
+        }
     }
 
     private void handleParcelVisitorSettingsClick(InventoryClickEvent event, Player player, CoreService.ParcelVisitorSettingsInventoryHolder holder) {
@@ -1195,6 +1302,7 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.VisitorSettingsInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelMarketInventoryHolder
                 || top.getHolder() instanceof CoreService.TeleportInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandTrustMembersInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandOwnersInventoryHolder

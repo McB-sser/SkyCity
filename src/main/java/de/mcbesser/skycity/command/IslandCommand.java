@@ -389,7 +389,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
 
     private void handlePlotRole(Player player, IslandData island, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Nutze /is plot <wand|create|delete|list|owner|member> ...");
+            player.sendMessage(ChatColor.RED + "Nutze /is plot <wand|create|delete|list|buy|rent|owner|member> ...");
             return;
         }
         String sub = args[1].toLowerCase(Locale.ROOT);
@@ -441,8 +441,33 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             return;
         }
+        if ("buy".equals(sub) || "rent".equals(sub)) {
+            var parcel = islandService.getParcelAt(island, player.getLocation());
+            if (parcel == null) {
+                player.sendMessage(ChatColor.RED + "Du musst im gew\u00fcnschten Plot stehen.");
+                return;
+            }
+            IslandService.ParcelMarketResult result = "buy".equals(sub)
+                    ? islandService.buyParcel(island, parcel, player.getUniqueId())
+                    : islandService.rentParcel(island, parcel, player.getUniqueId());
+            switch (result) {
+                case SUCCESS -> player.sendMessage(ChatColor.GREEN + ("buy".equals(sub)
+                        ? "Plot gekauft: " + islandService.getParcelDisplayName(parcel)
+                        : "Plot gemietet: " + islandService.getParcelDisplayName(parcel)));
+                case NOT_AVAILABLE -> player.sendMessage(ChatColor.RED + ("buy".equals(sub) ? "Dieser Plot steht nicht zum Verkauf." : "Dieser Plot steht nicht zur Miete."));
+                case NO_BUYER_ISLAND -> player.sendMessage(ChatColor.RED + "Du brauchst eine eigene Insel.");
+                case NOT_ENOUGH_EXPERIENCE -> player.sendMessage(ChatColor.RED + "Nicht genug gespeicherte Erfahrung auf deiner Insel.");
+                case NOT_ENOUGH_MONEY -> player.sendMessage(ChatColor.RED + "Nicht genug CraftTaler.");
+                case VAULT_UNAVAILABLE -> player.sendMessage(ChatColor.RED + "CraftTaler sind aktuell nicht verfuegbar.");
+                case ALREADY_RENTED -> player.sendMessage(ChatColor.RED + "Dieser Plot ist aktuell bereits vermietet.");
+                case INVALID_CONFIGURATION -> player.sendMessage(ChatColor.RED + "Das Mietangebot ist noch nicht vollst\u00e4ndig konfiguriert.");
+                case NOT_AUTHORIZED -> player.sendMessage(ChatColor.RED + "Master oder Owner dieser Insel k\u00f6nnen das nicht nutzen.");
+                default -> player.sendMessage(ChatColor.RED + "Aktion konnte nicht ausgef\u00fchrt werden.");
+            }
+            return;
+        }
         if (args.length < 4) {
-            player.sendMessage(ChatColor.RED + "Nutze /is plot <owner|member> <add|remove> <spieler>");
+            player.sendMessage(ChatColor.RED + "Nutze /is plot <owner|member|buy|rent> ...");
             return;
         }
         var parcel = islandService.getParcelAt(island, player.getLocation());
@@ -538,7 +563,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
-        if (args.length == 2 && "plot".equalsIgnoreCase(args[0])) return List.of("wand", "create", "delete", "list", "owner", "member");
+        if (args.length == 2 && "plot".equalsIgnoreCase(args[0])) return List.of("wand", "create", "delete", "list", "buy", "rent", "owner", "member");
         if (args.length == 2 && "owner".equalsIgnoreCase(args[0])) return List.of("add", "remove");
         if (args.length == 3 && "plot".equalsIgnoreCase(args[0]) && ("owner".equalsIgnoreCase(args[1]) || "member".equalsIgnoreCase(args[1]))) return List.of("add", "remove");
         if (args.length == 2 && List.of("kick","ban","unban","pkick","pban","punban").contains(args[0].toLowerCase(Locale.ROOT))) {

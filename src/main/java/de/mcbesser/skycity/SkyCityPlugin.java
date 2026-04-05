@@ -13,13 +13,18 @@ import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.ParticlePreviewService;
 import de.mcbesser.skycity.service.SkyWorldService;
 import de.mcbesser.skycity.world.VoidBarrierChunkGenerator;
+import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.RegisteredServiceProvider;
+
+import java.util.UUID;
 
 public class SkyCityPlugin extends JavaPlugin {
     private NamespacedKey coreItemKey;
@@ -33,6 +38,8 @@ public class SkyCityPlugin extends JavaPlugin {
     private SkyCityPlaceholderExpansion placeholderExpansion;
     private boolean runtimeInitialized;
     private int placeholderRetryTaskId = -1;
+    private int vaultRetryTaskId = -1;
+    private Economy vaultEconomy;
 
     @Override
     public void onEnable() {
@@ -47,6 +54,7 @@ public class SkyCityPlugin extends JavaPlugin {
         coreSidebar = new CoreSidebar(this, islandService, coreService);
         particlePreviewService = new ParticlePreviewService(this, islandService);
         registerPlaceholderExpansionIfAvailable();
+        registerVaultEconomyIfAvailable();
         placeholderRetryTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
             if (placeholderExpansion != null && placeholderExpansion.isRegistered()) {
                 Bukkit.getScheduler().cancelTask(placeholderRetryTaskId);
@@ -54,6 +62,14 @@ public class SkyCityPlugin extends JavaPlugin {
                 return;
             }
             registerPlaceholderExpansionIfAvailable();
+        }, 20L, 40L);
+        vaultRetryTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+            if (vaultEconomy != null) {
+                Bukkit.getScheduler().cancelTask(vaultRetryTaskId);
+                vaultRetryTaskId = -1;
+                return;
+            }
+            registerVaultEconomyIfAvailable();
         }, 20L, 40L);
 
         Bukkit.getPluginManager().registerEvents(new PlayerListener(this, islandService, skyWorldService, coreService), this);
@@ -88,6 +104,10 @@ public class SkyCityPlugin extends JavaPlugin {
             Bukkit.getScheduler().cancelTask(placeholderRetryTaskId);
             placeholderRetryTaskId = -1;
         }
+        if (vaultRetryTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(vaultRetryTaskId);
+            vaultRetryTaskId = -1;
+        }
         if (placeholderExpansion != null) {
             placeholderExpansion.unregister();
         }
@@ -101,6 +121,39 @@ public class SkyCityPlugin extends JavaPlugin {
     public NamespacedKey getCoreItemKey() { return coreItemKey; }
     public NamespacedKey getCoreBlockKey() { return coreBlockKey; }
     public NamespacedKey getCoreDisplayModeKey() { return coreDisplayModeKey; }
+    public boolean hasVaultEconomy() { return vaultEconomy != null; }
+
+    public double getVaultBalance(UUID playerId) {
+        if (vaultEconomy == null || playerId == null) {
+            return 0.0D;
+        }
+        OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
+        return vaultEconomy.getBalance(player);
+    }
+
+    public boolean withdrawVault(UUID playerId, double amount) {
+        if (vaultEconomy == null || playerId == null || amount < 0.0D) {
+            return false;
+        }
+        OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
+        return vaultEconomy.withdrawPlayer(player, amount).transactionSuccess();
+    }
+
+    public void depositVault(UUID playerId, double amount) {
+        if (vaultEconomy == null || playerId == null || amount <= 0.0D) {
+            return;
+        }
+        OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
+        vaultEconomy.depositPlayer(player, amount);
+    }
+
+    public String getVaultCurrencyName(double amount) {
+        if (vaultEconomy == null) {
+            return "CraftTaler";
+        }
+        String name = amount == 1.0D ? vaultEconomy.currencyNameSingular() : vaultEconomy.currencyNamePlural();
+        return name == null || name.isBlank() ? "CraftTaler" : name;
+    }
 
     @Override
     public ChunkGenerator getDefaultWorldGenerator(String worldName, String id) {
@@ -142,6 +195,20 @@ public class SkyCityPlugin extends JavaPlugin {
         if (!placeholderExpansion.isRegistered()) {
             placeholderExpansion.register();
         }
+    }
+
+    private void registerVaultEconomyIfAvailable() {
+        if (vaultEconomy != null) {
+            return;
+        }
+        if (Bukkit.getPluginManager().getPlugin("Vault") == null) {
+            return;
+        }
+        RegisteredServiceProvider<Economy> registration = Bukkit.getServicesManager().getRegistration(Economy.class);
+        if (registration == null) {
+            return;
+        }
+        vaultEconomy = registration.getProvider();
     }
 
     private final class BootstrapListener implements Listener {

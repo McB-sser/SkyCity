@@ -1703,6 +1703,8 @@ public class CoreService {
          inv.setItem(12, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Fremde")));
          inv.setItem(14, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Plot-Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "Plot-Member vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(20, this.named(Material.KNOWLEDGE_BOOK, ChatColor.GOLD + "Plot-Markt", List.of(ChatColor.GRAY + "Verkauf / Miete festlegen", ChatColor.YELLOW + "Klick = \u00f6ffnen")));
+         inv.setItem(22, this.named(Material.ANVIL, ChatColor.YELLOW + "GS umbenennen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getParcelDisplayName(parcel), ChatColor.YELLOW + "Klick = Name im Chat setzen")));
          inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
@@ -1724,6 +1726,99 @@ public class CoreService {
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       }
+   }
+
+   public Inventory createParcelMarketMenu(IslandData island, int relX, int relZ, boolean rentMode) {
+      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      Inventory inv = Bukkit.createInventory(new CoreService.ParcelMarketInventoryHolder(island.getOwner(), relX, relZ, rentMode), 36, "Plot-Markt");
+      this.fillWithPanes(inv);
+      if (parcel == null) {
+         inv.setItem(31, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+         return inv;
+      }
+
+      boolean saleMode = !rentMode;
+      String saleStatus = parcel.isSaleOfferEnabled() ? ChatColor.GREEN + "Aktiv" : ChatColor.GRAY + "Inaktiv";
+      String rentStatus = parcel.isRentOfferEnabled() ? ChatColor.GREEN + "Aktiv" : ChatColor.GRAY + "Inaktiv";
+      String renterName = parcel.getRenter() == null ? "-" : Optional.ofNullable(Bukkit.getOfflinePlayer(parcel.getRenter()).getName()).orElse(parcel.getRenter().toString().substring(0, 8));
+      long currentPrice = saleMode ? parcel.getSalePrice() : parcel.getRentPrice();
+      String currentStatus = saleMode ? saleStatus : rentStatus;
+      String modeLabel = saleMode ? "Verkauf" : "Miete";
+      ChatColor modeColor = saleMode ? ChatColor.GOLD : ChatColor.AQUA;
+      boolean vaultAvailable = this.islandService.isParcelVaultAvailable();
+      boolean vaultMode = parcel.getPaymentType() == ParcelData.MarketPaymentType.VAULT;
+
+      inv.setItem(10, this.named(Material.COMPARATOR, modeColor + "Art: " + modeLabel,
+         List.of(
+            ChatColor.GRAY + "Links/Rechts = Modus wechseln",
+            ChatColor.GRAY + "Aktuell: " + (saleMode ? ChatColor.GOLD + "Verkaufen" : ChatColor.AQUA + "Vermieten")
+         )));
+      inv.setItem(12, this.named(Material.GOLD_NUGGET, modeColor + "Preis 1er",
+         List.of(
+            ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.formatParcelPrice(parcel, currentPrice),
+            ChatColor.YELLOW + "Links = +1",
+            ChatColor.YELLOW + "Rechts = -1"
+         )));
+      inv.setItem(14, this.named(Material.GOLD_INGOT, modeColor + "Preis 10er",
+         List.of(
+            ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.formatParcelPrice(parcel, currentPrice),
+            ChatColor.YELLOW + "Links = +10",
+            ChatColor.YELLOW + "Rechts = -10"
+         )));
+      inv.setItem(16, this.named(Material.GOLD_BLOCK, modeColor + "Preis 100er",
+         List.of(
+            ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.formatParcelPrice(parcel, currentPrice),
+            ChatColor.YELLOW + "Links = +100",
+            ChatColor.YELLOW + "Rechts = -100",
+            ChatColor.YELLOW + "Shift-Links = +1000",
+            ChatColor.YELLOW + "Shift-Rechts = -1000"
+         )));
+      inv.setItem(24, this.named(vaultMode ? Material.EMERALD : Material.EXPERIENCE_BOTTLE, ChatColor.GREEN + "Zahlungsart",
+         List.of(
+            ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.parcelPaymentTypeLabel(parcel),
+            ChatColor.GRAY + "Gilt fuer Verkauf und Miete",
+            vaultAvailable
+               ? ChatColor.YELLOW + "Klick = XP/CraftTaler wechseln"
+               : ChatColor.RED + "Vault / CraftTaler nicht verfuegbar"
+         )));
+      inv.setItem(22, this.named((saleMode ? parcel.isSaleOfferEnabled() : parcel.isRentOfferEnabled()) ? Material.LIME_DYE : Material.GRAY_DYE, modeColor + modeLabel + " umschalten",
+         List.of(
+            ChatColor.GRAY + "Status: " + currentStatus,
+            ChatColor.GRAY + (saleMode ? "Kauf per: /is plot buy" : "Miete per: /is plot rent"),
+            ChatColor.YELLOW + "Klick = an/aus"
+         )));
+
+      if (rentMode) {
+         inv.setItem(19, this.named(Material.CLOCK, ChatColor.AQUA + "Mietdauer",
+            List.of(
+               ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + parcel.getRentDurationAmount() + " " + this.islandService.formatParcelRentOffer(parcel).replaceFirst("^\\d+\\s*", ""),
+               ChatColor.YELLOW + "Links = +1",
+               ChatColor.YELLOW + "Rechts = -1",
+               ChatColor.YELLOW + "Shift-Links = +10",
+               ChatColor.YELLOW + "Shift-Rechts = -10"
+            )));
+         inv.setItem(21, this.named(Material.PAPER, ChatColor.AQUA + "Zeiteinheit",
+            List.of(
+               ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.formatParcelRentOffer(parcel),
+               ChatColor.YELLOW + "Klick = Minuten/Stunden/Tage"
+            )));
+         inv.setItem(25, this.named(Material.NAME_TAG, ChatColor.AQUA + "Aktuelle Miete",
+            List.of(
+               ChatColor.GRAY + "Mieter: " + ChatColor.WHITE + renterName,
+               ChatColor.GRAY + "Restzeit: " + ChatColor.WHITE + this.islandService.formatParcelRentRemaining(parcel),
+               ChatColor.YELLOW + "Klick = Miete beenden"
+            )));
+      } else {
+         inv.setItem(19, this.named(Material.PAPER, ChatColor.GOLD + "Verkaufshinweis",
+            List.of(
+               ChatColor.GRAY + "Hologramm zeigt Kaufpreis am Spawn",
+               ChatColor.GRAY + "Kauf per /is plot buy",
+               ChatColor.GRAY + "Erloes folgt der Zahlungsart"
+            )));
+      }
+
+      inv.setItem(31, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Plot-Men\u00fc")));
+      return inv;
    }
 
    public Inventory createParcelVisitorSettingsMenu(IslandData island, int relX, int relZ) {
@@ -2788,9 +2883,60 @@ public class CoreService {
          }
 
          this.removeStaleCoreDisplays(island, coreTop, lines);
-      } else {
+      }
+      this.updateParcelOfferDisplays(island);
+      if (island.getCoreLocation() == null || island.getCoreLocation().getWorld() == null) {
          this.removeCoreDisplays(island);
       }
+   }
+
+   private void updateParcelOfferDisplays(IslandData island) {
+      if (island == null) return;
+      this.removeTaggedDisplaysByPrefixInIsland(island, "skycity_parcel_offer_");
+      for (ParcelData parcel : island.getParcels().values()) {
+         if (parcel == null || parcel.getSpawn() == null || parcel.getSpawn().getWorld() == null) continue;
+         this.islandService.expireParcelRentalIfNeeded(island, parcel);
+         List<String> lines = this.buildParcelOfferDisplayLines(parcel);
+         if (lines.isEmpty()) continue;
+         String parcelTagKey = parcel.getChunkKey().replace(':', '_');
+         Location base = parcel.getSpawn().clone().add(0.0, 1.8, 0.0);
+         double yOffset = 0.0;
+         int lineIndex = 0;
+         for (int i = lines.size() - 1; i >= 0; i--) {
+            String line = this.sanitizeLegacyText(lines.get(i));
+            if (line == null || line.isBlank()) {
+               yOffset += 0.18;
+               continue;
+            }
+            this.ensureText(base.clone().add(0.0, yOffset, 0.0), "skycity_parcel_offer_" + parcelTagKey + "_" + lineIndex, line);
+            yOffset += 0.28;
+            lineIndex++;
+         }
+      }
+   }
+
+   private List<String> buildParcelOfferDisplayLines(ParcelData parcel) {
+      List<String> lines = new ArrayList<>();
+      if (parcel == null) return lines;
+      boolean hasSale = parcel.isSaleOfferEnabled() && parcel.getSalePrice() > 0L;
+      boolean hasRent = parcel.isRentOfferEnabled() && parcel.getRentPrice() > 0L && parcel.getRentDurationAmount() > 0;
+      boolean rented = parcel.getRenter() != null && parcel.getRentUntil() > System.currentTimeMillis();
+      if (!hasSale && !hasRent && !rented) return lines;
+      lines.add(ChatColor.GOLD + this.islandService.getParcelDisplayName(parcel));
+      if (hasSale) {
+         lines.add(ChatColor.YELLOW + "Kauf: " + ChatColor.WHITE + this.islandService.formatParcelPrice(parcel, parcel.getSalePrice()));
+         lines.add(ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is plot buy");
+      }
+      if (hasRent) {
+         lines.add(ChatColor.AQUA + "Miete: " + ChatColor.WHITE + this.islandService.formatParcelPrice(parcel, parcel.getRentPrice()) + ChatColor.GRAY + " / " + ChatColor.WHITE + this.islandService.formatParcelRentOffer(parcel));
+         lines.add(ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is plot rent");
+      }
+      if (rented) {
+         String renterName = parcel.getRenter() == null ? "-" : Optional.ofNullable(Bukkit.getOfflinePlayer(parcel.getRenter()).getName()).orElse(parcel.getRenter().toString().substring(0, 8));
+         lines.add(ChatColor.GREEN + "Vermietet an: " + ChatColor.WHITE + renterName);
+         lines.add(ChatColor.GREEN + "Rest: " + ChatColor.WHITE + this.islandService.formatParcelRentRemaining(parcel));
+      }
+      return lines;
    }
 
    private void processCoreShulkerBuffer(IslandData island) {
@@ -3544,6 +3690,12 @@ public class CoreService {
    }
 
    public static record ParcelVisitorSettingsInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record ParcelMarketInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, boolean rentMode) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

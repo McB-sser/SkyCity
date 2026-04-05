@@ -109,7 +109,7 @@ barcolors:
     - GREEN
     - YELLOW
 craft_title:
-  change-interval: 250
+  change-interval: 300
   texts:
     - '&e&lC&6&lraftStuebchen'
     - '&6&lC&e&lr&6&laftStuebchen'
@@ -125,3 +125,15 @@ craft_title:
     - '&6&lCraftStuebc&e&lh&6&len'
     - '&6&lCraftStuebch&e&le&6&ln'
     - '&6&lCraftStuebche&e&ln'
+    - '&6&lCraftStuebch&e&le&6&ln'
+    - '&6&lCraftStuebc&e&lh&6&len'
+    - '&6&lCraftStueb&e&lc&6&lhen'
+    - '&6&lCraftStue&e&lb&6&lchen'
+    - '&6&lCraftStu&e&le&6&lbchen'
+    - '&6&lCraftSt&e&lu&6&lebchen'
+    - '&6&lCraftS&e&lt&6&luebchen'
+    - '&6&lCraft&e&lS&6&ltuebchen'
+    - '&6&lCraf&e&lt&6&lStuebchen'
+    - '&6&lCra&e&lf&6&ltStuebchen'
+    - '&6&lCr&e&la&6&lftStuebchen'
+    - '&6&lC&e&lr&6&laftStuebchen'

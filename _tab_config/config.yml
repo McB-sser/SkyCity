@@ -16,7 +16,7 @@ header-footer:
       footer:
         - ""
         - "&bSpieler Online: &f%online%"
-        - "&3&nSkyCity&7: &f? &8| &3Creative&7: &f? &8| &3City&7: &f? &8| &3Lobby&7: &f? &8| &3MineZ3&7: &f?"
+        - "&3&nSkyCity&7: &f%online% &8| &3Creative&7: &f? &8| &3Sky&7: &f? &8| &3City&7: &f? &8| &3Lobby&7: &f? &8| &3MineZ3&7: &f?"
         - ""
         - "&7Besuche unser Forum: &ewww.craftstuebchen.de"
 
@@ -127,7 +127,7 @@ layout:
       fixed-slots:
         - '61|&6&lInsel'
         - '62|&6%skycity_island_title%'
-        - '63|&eDeine Rolle: %skycity_island_viewer_role%'
+        - '63|&7Deine Rolle: %skycity_island_viewer_role%'
         - '64|&8'
         - '65|%skycity_island_master_header%'
         - '66|%skycity_island_master_1%'
