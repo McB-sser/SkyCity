@@ -6,6 +6,7 @@ import de.mcbesser.skycity.listener.CoreMenuListener;
 import de.mcbesser.skycity.listener.PlayerListener;
 import de.mcbesser.skycity.listener.PlotWandListener;
 import de.mcbesser.skycity.listener.ProtectionListener;
+import de.mcbesser.skycity.placeholder.SkyCityPlaceholderExpansion;
 import de.mcbesser.skycity.service.CoreSidebar;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
@@ -29,7 +30,9 @@ public class SkyCityPlugin extends JavaPlugin {
     private CoreService coreService;
     private CoreSidebar coreSidebar;
     private ParticlePreviewService particlePreviewService;
+    private SkyCityPlaceholderExpansion placeholderExpansion;
     private boolean runtimeInitialized;
+    private int placeholderRetryTaskId = -1;
 
     @Override
     public void onEnable() {
@@ -43,6 +46,15 @@ public class SkyCityPlugin extends JavaPlugin {
         coreService = new CoreService(this, islandService);
         coreSidebar = new CoreSidebar(this, islandService, coreService);
         particlePreviewService = new ParticlePreviewService(this, islandService);
+        registerPlaceholderExpansionIfAvailable();
+        placeholderRetryTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+            if (placeholderExpansion != null && placeholderExpansion.isRegistered()) {
+                Bukkit.getScheduler().cancelTask(placeholderRetryTaskId);
+                placeholderRetryTaskId = -1;
+                return;
+            }
+            registerPlaceholderExpansionIfAvailable();
+        }, 20L, 40L);
 
         Bukkit.getPluginManager().registerEvents(new PlayerListener(this, islandService, skyWorldService, coreService), this);
         Bukkit.getPluginManager().registerEvents(new ProtectionListener(this, islandService, coreService, skyWorldService), this);
@@ -71,6 +83,13 @@ public class SkyCityPlugin extends JavaPlugin {
         }
         if (particlePreviewService != null) {
             particlePreviewService.stopTask();
+        }
+        if (placeholderRetryTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(placeholderRetryTaskId);
+            placeholderRetryTaskId = -1;
+        }
+        if (placeholderExpansion != null) {
+            placeholderExpansion.unregister();
         }
         if (islandService != null) {
             islandService.stopIslandCreationTask();
@@ -108,6 +127,21 @@ public class SkyCityPlugin extends JavaPlugin {
         particlePreviewService.startTask();
         runtimeInitialized = true;
         getLogger().info("SkyCity Runtime initialisiert.");
+    }
+
+    private void registerPlaceholderExpansionIfAvailable() {
+        if (placeholderExpansion != null && placeholderExpansion.isRegistered()) {
+            return;
+        }
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
+            return;
+        }
+        if (placeholderExpansion == null) {
+            placeholderExpansion = new SkyCityPlaceholderExpansion(this, islandService);
+        }
+        if (!placeholderExpansion.isRegistered()) {
+            placeholderExpansion.register();
+        }
     }
 
     private final class BootstrapListener implements Listener {

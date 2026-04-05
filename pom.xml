@@ -16,6 +16,10 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
+        <repository>
+            <id>placeholderapi</id>
+            <url>https://repo.helpch.at/releases</url>
+        </repository>
     </repositories>
     <dependencies>
         <dependency>
@@ -33,6 +37,12 @@
             <groupId>org.dizitart</groupId>
             <artifactId>nitrite-mvstore-adapter</artifactId>
             <version>4.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>2.11.6</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
     <build>

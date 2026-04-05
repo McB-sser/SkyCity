@@ -771,11 +771,7 @@ public class PlayerListener implements Listener {
             String title = islandService.getIslandTitleDisplay(island);
             long masterRotationStep = System.currentTimeMillis() / 700L;
             String master = islandService.getIslandMasterTickerDisplay(island, masterRotationStep, 22);
-            String timeIcon = switch (islandService.getIslandTimeMode(island)) {
-                case DAY, SUNSET -> "☀";
-                case MIDNIGHT -> "☾";
-                case NORMAL -> "";
-            };
+            String timeIcon = getWorldTimeIcon(player.getWorld());
             String timeSegment = timeIcon.isEmpty() ? "" : ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + timeIcon;
             int islandLoad = islandLoadCache.computeIfAbsent(island.getOwner(), id -> islandService.getIslandLoadPercent(island));
             String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
@@ -818,6 +814,13 @@ public class PlayerListener implements Listener {
     private String formatTps(double tps) {
         return String.format(java.util.Locale.US, "%.1f", Math.max(0.0, Math.min(20.0, tps)));
     }
+
+    private String getWorldTimeIcon(org.bukkit.World world) {
+        if (world == null) return "";
+        long time = world.getTime() % 24000L;
+        return time >= 13000L && time < 23000L ? "\u263e" : "\u2600";
+    }
+
     private void applyIslandTimeMode(Player player, IslandData island) {
         if (player == null) return;
         IslandService.IslandTimeMode mode = islandService.getIslandTimeMode(island);
