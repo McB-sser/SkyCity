@@ -34,6 +34,8 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
@@ -64,6 +66,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, String> islandPresenceState = new HashMap<>();
     private final Map<UUID, BossBar> islandBossBars = new HashMap<>();
     private final Map<UUID, BossBar> chunkEffectBossBars = new HashMap<>();
+    private final Map<UUID, Boolean> skyCityNightVisionApplied = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -117,6 +120,7 @@ public class PlayerListener implements Listener {
         clearParcelPvpState(event.getPlayer().getUniqueId());
         parcelPvpCombatTags.remove(event.getPlayer().getUniqueId());
         islandPresenceState.remove(event.getPlayer().getUniqueId());
+        clearSkyCityNightVision(event.getPlayer());
         removeIslandBossBar(event.getPlayer());
         removeChunkEffectBossBar(event.getPlayer());
     }
@@ -738,12 +742,14 @@ public class PlayerListener implements Listener {
             if (!player.isOnline()) continue;
             if (!skyWorldService.isSkyCityWorld(player.getWorld())) {
                 applyIslandTimeMode(player, null);
+                applyIslandNightVision(player, null);
                 removeIslandBossBar(player);
                 removeChunkEffectBossBar(player);
                 continue;
             }
             if (islandService.isInSpawnPlot(player.getLocation())) {
                 applyIslandTimeMode(player, null);
+                applyIslandNightVision(player, null);
                 showIslandBossBar(player, ChatColor.GOLD + "Spawn" + ChatColor.GRAY + " | " + ChatColor.WHITE + "SkyCity");
                 removeChunkEffectBossBar(player);
                 continue;
@@ -751,15 +757,23 @@ public class PlayerListener implements Listener {
             IslandData island = islandService.getIslandAt(player.getLocation());
             if (island == null) {
                 applyIslandTimeMode(player, null);
+                applyIslandNightVision(player, null);
                 removeIslandBossBar(player);
                 removeChunkEffectBossBar(player);
                 continue;
             }
             applyIslandTimeMode(player, island);
+            applyIslandNightVision(player, island);
             String[] parts = islandService.getIslandBossBarText(island).split("\\s*\\|\\s*", 2);
             String title = parts.length > 0 ? parts[0] : islandService.getIslandTitleDisplay(island);
             String master = parts.length > 1 ? parts[1] : islandService.getIslandMasterDisplay(island);
-            showIslandBossBar(player, ChatColor.GOLD + title + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + master);
+            String timeIcon = switch (islandService.getIslandTimeMode(island)) {
+                case DAY, SUNSET -> "☀";
+                case MIDNIGHT -> "☾";
+                case NORMAL -> "";
+            };
+            String timeSegment = timeIcon.isEmpty() ? "" : ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + timeIcon;
+            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + master);
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
             int displayChunkX = islandService.displayChunkX(relChunkX);
@@ -844,6 +858,31 @@ public class PlayerListener implements Listener {
         if (bar != null) {
             bar.removePlayer(player);
             bar.setVisible(false);
+        }
+    }
+
+    private void applyIslandNightVision(Player player, IslandData island) {
+        if (player == null) return;
+        boolean shouldHaveNightVision = false;
+        if (island != null && skyWorldService.isSkyCityWorld(player.getWorld()) && !islandService.isInSpawnPlot(player.getLocation())) {
+            int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
+            int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
+            shouldHaveNightVision = islandService.hasNightVision(island, relChunkX, relChunkZ);
+        }
+        if (shouldHaveNightVision) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 220, 0, false, false, false));
+            skyCityNightVisionApplied.put(player.getUniqueId(), true);
+            return;
+        }
+        clearSkyCityNightVision(player);
+    }
+
+    private void clearSkyCityNightVision(Player player) {
+        if (player == null) return;
+        if (!Boolean.TRUE.equals(skyCityNightVisionApplied.remove(player.getUniqueId()))) return;
+        PotionEffect active = player.getPotionEffect(PotionEffectType.NIGHT_VISION);
+        if (active != null && active.getAmplifier() == 0 && active.getDuration() <= 260) {
+            player.removePotionEffect(PotionEffectType.NIGHT_VISION);
         }
     }
 

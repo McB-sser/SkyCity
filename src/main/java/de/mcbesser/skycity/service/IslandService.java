@@ -304,6 +304,8 @@ public class IslandService {
     private static final long BIOME_CHANGE_COST_CHUNK = 120L;
     private static final long BIOME_CHANGE_COST_ISLAND = 3000L;
     private static final long TIME_MODE_CHANGE_COST = 180L;
+    private static final long NIGHT_VISION_COST_CHUNK = 220L;
+    private static final long NIGHT_VISION_COST_ISLAND = 2400L;
     private static final long XP_BOTTLE_POINTS = 10L;
     private static final long XP_BOTTLE_COST_POINTS = 11L; // 10% loss
     private static final long GROWTH_DEBUG_WINDOW_MILLIS = 5_000L;
@@ -412,6 +414,7 @@ public class IslandService {
                 island.setCoreDisplayMode(sec.getString("coreDisplayMode", "ALL"));
                 island.setPinnedUpgradeKey(sec.getString("pinnedUpgradeKey", "MILESTONE"));
                 island.setIslandTimeMode(sec.getString("islandTimeMode", "NORMAL"));
+                island.setIslandNightVisionEnabled(sec.getBoolean("islandNightVisionEnabled", false));
                 island.setPoints(sec.getLong("points", 0L));
                 island.setStoredExperience(sec.getLong("storedExperience", 0L));
                 island.setLastActiveAt(sec.getLong("lastActiveAt", 0L));
@@ -445,6 +448,7 @@ public class IslandService {
                         island.getGrowthBoostTier().put(chunkKey, Math.max(0, growthTier.getInt(chunkKey, 0)));
                     }
                 }
+                island.getNightVisionChunks().addAll(sec.getStringList("nightVisionChunks"));
                 ConfigurationSection parcels = sec.getConfigurationSection("parcels");
                 if (parcels != null) {
                     for (String parcelKey : parcels.getKeys(false)) {
@@ -1255,6 +1259,7 @@ public class IslandService {
         migrated.setWarpName(island.getWarpName());
         migrated.setPinnedUpgradeKey(island.getPinnedUpgradeKey());
         migrated.setIslandTimeMode(island.getIslandTimeMode());
+        migrated.setIslandNightVisionEnabled(island.isIslandNightVisionEnabled());
         migrated.setPoints(island.getPoints());
         migrated.setStoredExperience(island.getStoredExperience());
         migrated.setLastActiveAt(island.getLastActiveAt());
@@ -1268,6 +1273,7 @@ public class IslandService {
         migrated.getIslandBanned().addAll(island.getIslandBanned());
         migrated.getUnlockedChunks().addAll(island.getUnlockedChunks());
         migrated.getGeneratedChunks().addAll(island.getGeneratedChunks());
+        migrated.getNightVisionChunks().addAll(island.getNightVisionChunks());
         migrated.getProgress().putAll(island.getProgress());
         migrated.getUpgradeTiers().putAll(island.getUpgradeTiers());
         migrated.getCachedBlockCounts().putAll(island.getCachedBlockCounts());
@@ -2941,6 +2947,60 @@ public class IslandService {
         return TIME_MODE_CHANGE_COST;
     }
 
+    public long getNightVisionCost(boolean islandWide) {
+        return islandWide ? NIGHT_VISION_COST_ISLAND : NIGHT_VISION_COST_CHUNK;
+    }
+
+    public boolean isIslandNightVisionEnabled(IslandData island) {
+        return island != null && island.isIslandNightVisionEnabled();
+    }
+
+    public boolean isChunkNightVisionEnabled(IslandData island, int relChunkX, int relChunkZ) {
+        return island != null && island.getNightVisionChunks().contains(chunkKey(relChunkX, relChunkZ));
+    }
+
+    public boolean hasNightVision(IslandData island, int relChunkX, int relChunkZ) {
+        return isIslandNightVisionEnabled(island) || isChunkNightVisionEnabled(island, relChunkX, relChunkZ);
+    }
+
+    public boolean buyChunkNightVision(IslandData island, int relChunkX, int relChunkZ) {
+        if (island == null || !isChunkUnlocked(island, relChunkX, relChunkZ)) return false;
+        if (isChunkNightVisionEnabled(island, relChunkX, relChunkZ)) return false;
+        long cost = getNightVisionCost(false);
+        if (!spendStoredExperience(island, cost)) return false;
+        island.getNightVisionChunks().add(chunkKey(relChunkX, relChunkZ));
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean disableChunkNightVision(IslandData island, int relChunkX, int relChunkZ) {
+        if (island == null) return false;
+        boolean changed = island.getNightVisionChunks().remove(chunkKey(relChunkX, relChunkZ));
+        if (!changed) return false;
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean buyIslandNightVision(IslandData island) {
+        if (island == null || island.isIslandNightVisionEnabled()) return false;
+        long cost = getNightVisionCost(true);
+        if (!spendStoredExperience(island, cost)) return false;
+        island.setIslandNightVisionEnabled(true);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean disableIslandNightVision(IslandData island) {
+        if (island == null || !island.isIslandNightVisionEnabled()) return false;
+        island.setIslandNightVisionEnabled(false);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
     public long getXpBottleCostPerBottle() {
         return XP_BOTTLE_COST_POINTS;
     }
@@ -4566,6 +4626,7 @@ public class IslandService {
                 .put("coreDisplayMode", island.getCoreDisplayMode())
                 .put("pinnedUpgradeKey", island.getPinnedUpgradeKey())
                 .put("islandTimeMode", island.getIslandTimeMode())
+                .put("islandNightVisionEnabled", island.isIslandNightVisionEnabled())
                 .put("points", island.getPoints())
                 .put("storedExperience", island.getStoredExperience())
                 .put("lastActiveAt", island.getLastActiveAt())
@@ -4580,6 +4641,7 @@ public class IslandService {
                 .put("islandBanned", stringify(island.getIslandBanned()))
                 .put("unlockedChunks", new ArrayList<>(island.getUnlockedChunks()))
                 .put("generatedChunks", new ArrayList<>(island.getGeneratedChunks()))
+                .put("nightVisionChunks", new ArrayList<>(island.getNightVisionChunks()))
                 .put("visitorSettings", accessSettingsDocument(island.getIslandVisitorSettings()))
                 .put("progress", new LinkedHashMap<>(island.getProgress()))
                 .put("upgradeTiers", new LinkedHashMap<>(island.getUpgradeTiers()))
@@ -4608,6 +4670,7 @@ public class IslandService {
         island.setCoreDisplayMode(defaultString(document.get("coreDisplayMode", String.class), "ALL"));
         island.setPinnedUpgradeKey(defaultString(document.get("pinnedUpgradeKey", String.class), "MILESTONE"));
         island.setIslandTimeMode(defaultString(document.get("islandTimeMode", String.class), "NORMAL"));
+        island.setIslandNightVisionEnabled(Boolean.TRUE.equals(document.get("islandNightVisionEnabled", Boolean.class)));
         island.setPoints(longValue(document.get("points")));
         island.setStoredExperience(longValue(document.get("storedExperience")));
         island.setLastActiveAt(longValue(document.get("lastActiveAt")));
@@ -4622,6 +4685,7 @@ public class IslandService {
         addUuidStrings((List<String>) document.get("islandBanned", List.class), island.getIslandBanned());
         addStrings((List<String>) document.get("unlockedChunks", List.class), island.getUnlockedChunks());
         addStrings((List<String>) document.get("generatedChunks", List.class), island.getGeneratedChunks());
+        addStrings((List<String>) document.get("nightVisionChunks", List.class), island.getNightVisionChunks());
         applyAccessSettings(document.get("visitorSettings", Document.class), island.getIslandVisitorSettings());
         putIntMap((Map<String, Object>) document.get("progress", Map.class), island.getProgress());
         putIntMap((Map<String, Object>) document.get("upgradeTiers", Map.class), island.getUpgradeTiers());

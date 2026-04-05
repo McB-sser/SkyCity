@@ -85,6 +85,8 @@ public class CoreMenuListener implements Listener {
             handleIslandShopMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.TimeModeShopInventoryHolder holder) {
             handleTimeModeShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.NightVisionShopInventoryHolder holder) {
+            handleNightVisionShopMenuClick(event, player, holder);
         }
     }
 
@@ -599,6 +601,10 @@ public class CoreMenuListener implements Listener {
             int amount = event.isShiftClick() ? 16 : 1;
             coreService.fillExperienceBottles(player, island, amount);
             player.openInventory(coreService.createIslandShopMenu(player, island));
+            return;
+        }
+        if (raw == 30) {
+            player.openInventory(coreService.createNightVisionShopMenu(player, island));
         }
     }
 
@@ -637,6 +643,62 @@ public class CoreMenuListener implements Listener {
         islandService.setIslandTimeMode(island, target);
         player.sendMessage(ChatColor.GREEN + "Zeitmodus gesetzt: " + islandService.islandTimeModeLabel(target) + " (Kosten: " + cost + ")");
         player.openInventory(coreService.createTimeModeShopMenu(island, holder.backTarget()));
+    }
+
+    private void handleNightVisionShopMenuClick(InventoryClickEvent event, Player player, CoreService.NightVisionShopInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
+        int raw = event.getRawSlot();
+        if (raw == 40) {
+            player.openInventory(coreService.createIslandShopMenu(player, island));
+            return;
+        }
+        if (raw == 11) {
+            long cost = islandService.getNightVisionCost(false);
+            if (!islandService.buyChunkNightVision(island, holder.relChunkX(), holder.relChunkZ())) {
+                player.sendMessage(ChatColor.RED + "Chunk-Nachtsicht konnte nicht gekauft werden.");
+                return;
+            }
+            player.sendMessage(ChatColor.GREEN + "Chunk-Nachtsicht aktiviert. Kosten: " + cost);
+            player.openInventory(coreService.createNightVisionShopMenu(player, island));
+            return;
+        }
+        if (raw == 15) {
+            if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
+                player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                return;
+            }
+            long cost = islandService.getNightVisionCost(true);
+            if (!islandService.buyIslandNightVision(island)) {
+                player.sendMessage(ChatColor.RED + "Inselweite Nachtsicht konnte nicht gekauft werden.");
+                return;
+            }
+            player.sendMessage(ChatColor.GREEN + "Inselweite Nachtsicht aktiviert. Kosten: " + cost);
+            player.openInventory(coreService.createNightVisionShopMenu(player, island));
+            return;
+        }
+        if (raw == 29) {
+            if (!islandService.disableChunkNightVision(island, holder.relChunkX(), holder.relChunkZ())) {
+                player.sendMessage(ChatColor.RED + "Chunk-Nachtsicht war nicht aktiv.");
+                return;
+            }
+            player.sendMessage(ChatColor.YELLOW + "Chunk-Nachtsicht deaktiviert.");
+            player.openInventory(coreService.createNightVisionShopMenu(player, island));
+            return;
+        }
+        if (raw == 33) {
+            if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
+                player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                return;
+            }
+            if (!islandService.disableIslandNightVision(island)) {
+                player.sendMessage(ChatColor.RED + "Inselweite Nachtsicht war nicht aktiv.");
+                return;
+            }
+            player.sendMessage(ChatColor.YELLOW + "Inselweite Nachtsicht deaktiviert.");
+            player.openInventory(coreService.createNightVisionShopMenu(player, island));
+        }
     }
 
     private void handleVisitorSettingsClick(InventoryClickEvent event, Player player, UUID islandOwner) {
@@ -1141,7 +1203,8 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.ParcelMembersInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelModerationInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandShopInventoryHolder
-                || top.getHolder() instanceof CoreService.TimeModeShopInventoryHolder) {
+                || top.getHolder() instanceof CoreService.TimeModeShopInventoryHolder
+                || top.getHolder() instanceof CoreService.NightVisionShopInventoryHolder) {
             event.setCancelled(true);
             return;
         }

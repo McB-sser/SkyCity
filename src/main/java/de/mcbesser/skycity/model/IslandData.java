@@ -29,6 +29,7 @@ public class IslandData {
     private final Map<String, ParcelData> parcels = new HashMap<>();
     private final Map<String, Long> growthBoostUntil = new HashMap<>();
     private final Map<String, Integer> growthBoostTier = new HashMap<>();
+    private final Set<String> nightVisionChunks = new HashSet<>();
     private final AccessSettings islandVisitorSettings = new AccessSettings();
     private int level = 1;
     private int availableChunkUnlocks = 0;
@@ -38,6 +39,7 @@ public class IslandData {
     private String coreDisplayMode = "ALL";
     private String pinnedUpgradeKey = "MILESTONE";
     private String islandTimeMode = "NORMAL";
+    private boolean islandNightVisionEnabled;
     private long points = 0L;
     private long storedExperience = 0L;
     private long lastActiveAt = 0L;
@@ -69,6 +71,7 @@ public class IslandData {
     public Map<String, ParcelData> getParcels() { return parcels; }
     public Map<String, Long> getGrowthBoostUntil() { return growthBoostUntil; }
     public Map<String, Integer> getGrowthBoostTier() { return growthBoostTier; }
+    public Set<String> getNightVisionChunks() { return nightVisionChunks; }
     public AccessSettings getIslandVisitorSettings() { return islandVisitorSettings; }
     public int getLevel() { return level; }
     public void setLevel(int level) { this.level = level; }
@@ -98,6 +101,8 @@ public class IslandData {
                 ? "NORMAL"
                 : islandTimeMode.toUpperCase(java.util.Locale.ROOT);
     }
+    public boolean isIslandNightVisionEnabled() { return islandNightVisionEnabled; }
+    public void setIslandNightVisionEnabled(boolean islandNightVisionEnabled) { this.islandNightVisionEnabled = islandNightVisionEnabled; }
     public long getPoints() { return points; }
     public void setPoints(long points) { this.points = points; }
     public long getStoredExperience() { return storedExperience; }

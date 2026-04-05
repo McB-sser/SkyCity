@@ -1510,6 +1510,24 @@ public class CoreService {
             )
          )
       );
+      long nightVisionChunkCost = this.islandService.getNightVisionCost(false);
+      long nightVisionIslandCost = this.islandService.getNightVisionCost(true);
+      boolean chunkNightVision = this.islandService.isChunkNightVisionEnabled(island, relX, relZ);
+      boolean islandNightVision = this.islandService.isIslandNightVisionEnabled(island);
+      inv.setItem(
+         30,
+         this.named(
+            Material.ENDER_EYE,
+            ChatColor.AQUA + "Nachtsicht",
+            List.of(
+               ChatColor.GRAY + "Chunk " + displayX + ":" + displayZ + ": " + ChatColor.WHITE + (chunkNightVision ? "AN" : "AUS"),
+               ChatColor.GRAY + "Inselweit: " + ChatColor.WHITE + (islandNightVision ? "AN" : "AUS"),
+               ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + nightVisionChunkCost,
+               ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + nightVisionIslandCost,
+               ChatColor.YELLOW + "Klick = Nachtsicht-Shop oeffnen"
+            )
+         )
+      );
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       return inv;
    }
@@ -1531,6 +1549,48 @@ public class CoreService {
               List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
       String backName = "shop".equals(safeBack) ? "Zum Insel-Shop" : "Zu Insel-Einstellungen";
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + backName)));
+      return inv;
+   }
+
+   public Inventory createNightVisionShopMenu(Player player, IslandData island) {
+      int relX = this.islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
+      int relZ = this.islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
+      int displayX = this.islandService.displayChunkX(relX);
+      int displayZ = this.islandService.displayChunkZ(relZ);
+      boolean chunkEnabled = this.islandService.isChunkNightVisionEnabled(island, relX, relZ);
+      boolean islandEnabled = this.islandService.isIslandNightVisionEnabled(island);
+      long chunkCost = this.islandService.getNightVisionCost(false);
+      long islandCost = this.islandService.getNightVisionCost(true);
+      Inventory inv = Bukkit.createInventory(new NightVisionShopInventoryHolder(island.getOwner(), relX, relZ), 45, "Nachtsicht-Shop");
+      this.fillWithPanes(inv);
+      inv.setItem(4, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Nachtsicht", List.of(
+         ChatColor.GRAY + "Aktueller Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
+         ChatColor.GRAY + "Wirkt dauerhaft auf deiner Insel",
+         ChatColor.GRAY + "solange die Option aktiv ist"
+      )));
+      inv.setItem(11, this.named(chunkEnabled ? Material.LIME_DYE : Material.YELLOW_DYE, (chunkEnabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Chunk-Nachtsicht aktivieren", List.of(
+         ChatColor.GRAY + "Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
+         ChatColor.GRAY + "Status: " + ChatColor.WHITE + (chunkEnabled ? "bereits aktiv" : "aus"),
+         ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + chunkCost + " Erfahrung",
+         ChatColor.YELLOW + "Klick = fuer diesen Chunk kaufen"
+      )));
+      inv.setItem(15, this.named(islandEnabled ? Material.LIME_DYE : Material.YELLOW_DYE, (islandEnabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Inselweite Nachtsicht aktivieren", List.of(
+         ChatColor.GRAY + "Status: " + ChatColor.WHITE + (islandEnabled ? "bereits aktiv" : "aus"),
+         ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + islandCost + " Erfahrung",
+         ChatColor.GRAY + "Nur Inselbesitzer",
+         ChatColor.YELLOW + "Klick = fuer ganze Insel kaufen"
+      )));
+      inv.setItem(29, this.named(chunkEnabled ? Material.BARRIER : Material.GRAY_DYE, (chunkEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Chunk-Nachtsicht deaktivieren", List.of(
+         ChatColor.GRAY + "Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
+         ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0",
+         ChatColor.YELLOW + "Klick = fuer diesen Chunk ausschalten"
+      )));
+      inv.setItem(33, this.named(islandEnabled ? Material.BARRIER : Material.GRAY_DYE, (islandEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Inselweite Nachtsicht deaktivieren", List.of(
+         ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0",
+         ChatColor.GRAY + "Nur Inselbesitzer",
+         ChatColor.YELLOW + "Klick = inselweite Nachtsicht ausschalten"
+      )));
+      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zurueck", List.of(ChatColor.GRAY + "Zum Insel-Shop")));
       return inv;
    }
    public Inventory createVisitorSettingsMenu(IslandData island) {
@@ -3423,6 +3483,12 @@ public class CoreService {
    }
 
    public static record TimeModeShopInventoryHolder(UUID islandOwner, String backTarget) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record NightVisionShopInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
