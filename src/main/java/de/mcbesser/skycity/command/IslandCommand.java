@@ -463,7 +463,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 case NO_BUYER_ISLAND -> player.sendMessage(ChatColor.RED + "Du brauchst eine eigene Insel.");
                 case NOT_ENOUGH_EXPERIENCE -> player.sendMessage(ChatColor.RED + "Nicht genug gespeicherte Erfahrung auf deiner Insel.");
                 case NOT_ENOUGH_MONEY -> player.sendMessage(ChatColor.RED + "Nicht genug CraftTaler.");
-                case VAULT_UNAVAILABLE -> player.sendMessage(ChatColor.RED + "CraftTaler sind aktuell nicht verfuegbar.");
+                case VAULT_UNAVAILABLE -> player.sendMessage(ChatColor.RED + "CraftTaler sind aktuell nicht verf\u00fcgbar.");
                 case ALREADY_RENTED -> player.sendMessage(ChatColor.RED + "Dieser Plot ist aktuell bereits vermietet.");
                 case INVALID_CONFIGURATION -> player.sendMessage(ChatColor.RED + "Das Mietangebot ist noch nicht vollst\u00e4ndig konfiguriert.");
                 case NOT_AUTHORIZED -> player.sendMessage(ChatColor.RED + "Master oder Owner dieser Insel k\u00f6nnen das nicht nutzen.");

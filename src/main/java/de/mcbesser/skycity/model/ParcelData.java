@@ -28,8 +28,13 @@ public class ParcelData {
     private final Set<UUID> pvpWhitelist = new HashSet<>();
     private final Map<UUID, Integer> pvpKills = new HashMap<>();
     private final AccessSettings visitorSettings = new AccessSettings();
+    private final AccessSettings memberSettings = new AccessSettings();
     private boolean pvpEnabled;
     private boolean pveEnabled;
+    private boolean memberAnimalBreed;
+    private boolean memberAnimalKill;
+    private boolean memberAnimalKeepTwo = true;
+    private boolean memberAnimalShear;
     private boolean saleOfferEnabled;
     private long salePrice;
     private boolean rentOfferEnabled;
@@ -39,6 +44,12 @@ public class ParcelData {
     private String rentDurationUnit = RentDurationUnit.DAYS.name();
     private UUID renter;
     private long rentUntil;
+    private UUID lastSaleBuyer;
+    private long lastSalePrice;
+    private String lastSalePaymentType = MarketPaymentType.EXPERIENCE.name();
+    private UUID lastRentBuyer;
+    private long lastRentPrice;
+    private String lastRentPaymentType = MarketPaymentType.EXPERIENCE.name();
     private Location spawn;
     private int minX;
     private int minY;
@@ -61,10 +72,19 @@ public class ParcelData {
     public Set<UUID> getPvpWhitelist() { return pvpWhitelist; }
     public Map<UUID, Integer> getPvpKills() { return pvpKills; }
     public AccessSettings getVisitorSettings() { return visitorSettings; }
+    public AccessSettings getMemberSettings() { return memberSettings; }
     public boolean isPvpEnabled() { return pvpEnabled; }
     public void setPvpEnabled(boolean pvpEnabled) { this.pvpEnabled = pvpEnabled; }
     public boolean isPveEnabled() { return pveEnabled; }
     public void setPveEnabled(boolean pveEnabled) { this.pveEnabled = pveEnabled; }
+    public boolean isMemberAnimalBreed() { return memberAnimalBreed; }
+    public void setMemberAnimalBreed(boolean memberAnimalBreed) { this.memberAnimalBreed = memberAnimalBreed; }
+    public boolean isMemberAnimalKill() { return memberAnimalKill; }
+    public void setMemberAnimalKill(boolean memberAnimalKill) { this.memberAnimalKill = memberAnimalKill; }
+    public boolean isMemberAnimalKeepTwo() { return memberAnimalKeepTwo; }
+    public void setMemberAnimalKeepTwo(boolean memberAnimalKeepTwo) { this.memberAnimalKeepTwo = memberAnimalKeepTwo; }
+    public boolean isMemberAnimalShear() { return memberAnimalShear; }
+    public void setMemberAnimalShear(boolean memberAnimalShear) { this.memberAnimalShear = memberAnimalShear; }
     public boolean isSaleOfferEnabled() { return saleOfferEnabled; }
     public void setSaleOfferEnabled(boolean saleOfferEnabled) { this.saleOfferEnabled = saleOfferEnabled; }
     public long getSalePrice() { return salePrice; }
@@ -104,6 +124,34 @@ public class ParcelData {
     public void setRenter(UUID renter) { this.renter = renter; }
     public long getRentUntil() { return rentUntil; }
     public void setRentUntil(long rentUntil) { this.rentUntil = Math.max(0L, rentUntil); }
+    public UUID getLastSaleBuyer() { return lastSaleBuyer; }
+    public void setLastSaleBuyer(UUID lastSaleBuyer) { this.lastSaleBuyer = lastSaleBuyer; }
+    public long getLastSalePrice() { return lastSalePrice; }
+    public void setLastSalePrice(long lastSalePrice) { this.lastSalePrice = Math.max(0L, lastSalePrice); }
+    public MarketPaymentType getLastSalePaymentType() {
+        try {
+            return MarketPaymentType.valueOf(lastSalePaymentType == null ? MarketPaymentType.EXPERIENCE.name() : lastSalePaymentType);
+        } catch (IllegalArgumentException ignored) {
+            return MarketPaymentType.EXPERIENCE;
+        }
+    }
+    public void setLastSalePaymentType(MarketPaymentType paymentType) {
+        this.lastSalePaymentType = paymentType == null ? MarketPaymentType.EXPERIENCE.name() : paymentType.name();
+    }
+    public UUID getLastRentBuyer() { return lastRentBuyer; }
+    public void setLastRentBuyer(UUID lastRentBuyer) { this.lastRentBuyer = lastRentBuyer; }
+    public long getLastRentPrice() { return lastRentPrice; }
+    public void setLastRentPrice(long lastRentPrice) { this.lastRentPrice = Math.max(0L, lastRentPrice); }
+    public MarketPaymentType getLastRentPaymentType() {
+        try {
+            return MarketPaymentType.valueOf(lastRentPaymentType == null ? MarketPaymentType.EXPERIENCE.name() : lastRentPaymentType);
+        } catch (IllegalArgumentException ignored) {
+            return MarketPaymentType.EXPERIENCE;
+        }
+    }
+    public void setLastRentPaymentType(MarketPaymentType paymentType) {
+        this.lastRentPaymentType = paymentType == null ? MarketPaymentType.EXPERIENCE.name() : paymentType.name();
+    }
     public Location getSpawn() { return spawn; }
     public void setSpawn(Location spawn) { this.spawn = spawn; }
     public int getMinX() { return minX; }

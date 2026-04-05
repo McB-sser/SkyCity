@@ -50,6 +50,7 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.vehicle.VehicleCreateEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
@@ -105,6 +106,11 @@ public class ProtectionListener implements Listener {
             Material.CACTUS,
             Material.KELP,
             Material.KELP_PLANT
+    );
+    private static final Set<EntityType> SHEARABLE_TYPES = EnumSet.of(
+            EntityType.SHEEP,
+            EntityType.MUSHROOM_COW,
+            EntityType.SNOWMAN
     );
 
     private final SkyCityPlugin plugin;
@@ -973,6 +979,34 @@ public class ProtectionListener implements Listener {
                 islandService.recordPveMobPlayerHit(pveAttacker, victim);
             }
         }
+        if (event.getEntity() instanceof Animals animals) {
+            Player attacker = resolveDamagingPlayer(event);
+            if (attacker == null || attacker.isOp() || !skyWorldService.isSkyCityWorld(animals.getWorld())) return;
+            IslandData island = islandService.getIslandAt(animals.getLocation());
+            if (island == null) return;
+            ParcelData parcel = islandService.getParcelAt(island, animals.getLocation());
+            if (parcel == null) {
+                if (!islandService.hasBuildAccess(attacker.getUniqueId(), island)) {
+                    event.setCancelled(true);
+                    attacker.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln keine Tiere t\u00f6ten.");
+                }
+                return;
+            }
+            if (islandService.isParcelOwner(island, parcel, attacker.getUniqueId()) || islandService.hasBuildAccess(attacker.getUniqueId(), island)) {
+                return;
+            }
+            if (!islandService.isParcelMember(island, parcel, attacker.getUniqueId()) || !parcel.isMemberAnimalKill()) {
+                event.setCancelled(true);
+                attacker.sendMessage(ChatColor.RED + "Du darfst hier keine Tiere t\u00f6ten.");
+                return;
+            }
+            if (parcel.isMemberAnimalKeepTwo() && islandService.countAnimalsInParcelByType(parcel, animals.getType()) <= 2) {
+                event.setCancelled(true);
+                attacker.sendMessage(ChatColor.RED + "Es muessen mindestens 2 Tiere dieser Art im Plot bleiben.");
+                return;
+            }
+            return;
+        }
         if (!(event.getEntity() instanceof Player victim)) return;
         Player attacker = resolveDamagingPlayer(event);
         if (attacker == null) return;
@@ -1136,10 +1170,11 @@ public class ProtectionListener implements Listener {
         if (island == null) return;
 
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
-        boolean parcelUser = parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId());
+        boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
         if (isDoor(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isDoors())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isDoors();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1149,7 +1184,8 @@ public class ProtectionListener implements Listener {
         }
         if (isTrapdoor(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isTrapdoors())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isTrapdoors();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1159,7 +1195,8 @@ public class ProtectionListener implements Listener {
         }
         if (isFenceGate(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isFenceGates())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isFenceGates();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1169,7 +1206,8 @@ public class ProtectionListener implements Listener {
         }
         if (isButton(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isButtons())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isButtons();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1179,7 +1217,8 @@ public class ProtectionListener implements Listener {
         }
         if (isLever(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isLevers())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isLevers();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1189,7 +1228,8 @@ public class ProtectionListener implements Listener {
         }
         if (isPressurePlate(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isPressurePlates())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isPressurePlates();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1199,7 +1239,8 @@ public class ProtectionListener implements Listener {
         }
         if (isFarmUseBlock(block.getType())) {
             boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isFarmUse())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isFarmUse();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1209,7 +1250,8 @@ public class ProtectionListener implements Listener {
         }
         if (isRedstoneControl(block.getType())) {
             boolean allowed = islandService.hasRedstoneAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isRedstoneUse())
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isRedstoneUse();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1230,9 +1272,10 @@ public class ProtectionListener implements Listener {
         if (island == null) return;
         if (event.getInventory().getHolder() instanceof Container) {
             ParcelData parcel = islandService.getParcelAt(island, event.getInventory().getLocation());
-            boolean parcelUser = parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId());
+            boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
             boolean allowed = islandService.hasContainerAccess(player.getUniqueId(), island)
-                    || parcelUser
+                    || parcelOwner
+                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isContainers())
                     || islandService.getEffectiveVisitorSettings(island, event.getInventory().getLocation()).isContainers();
             if (!allowed) {
                 event.setCancelled(true);
@@ -1251,8 +1294,9 @@ public class ProtectionListener implements Listener {
         IslandData island = islandService.getIslandAt(event.getMount().getLocation());
         if (island == null) return;
         ParcelData parcel = islandService.getParcelAt(island, event.getMount().getLocation());
-        boolean parcelUser = parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId());
-        boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island) || parcelUser
+        boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
+        boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island) || parcelOwner
+                || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isRide())
                 || islandService.getEffectiveVisitorSettings(island, event.getMount().getLocation()).isRide();
         if (!allowed) {
             event.setCancelled(true);
@@ -1322,7 +1366,83 @@ public class ProtectionListener implements Listener {
     public void onBreed(EntityBreedEvent event) {
         if (!skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
         IslandData island = islandService.getIslandAt(event.getEntity().getLocation());
-        if (island == null || !islandService.isWithinAnimalLimit(island)) event.setCancelled(true);
+        if (island == null || !islandService.isWithinAnimalLimit(island)) {
+            event.setCancelled(true);
+            return;
+        }
+        if (!(event.getEntity() instanceof Animals)) return;
+        ParcelData parcel = islandService.getParcelAt(island, event.getEntity().getLocation());
+        if (parcel == null) {
+            if (event.getBreeder() instanceof Player player && !player.isOp() && !islandService.hasBuildAccess(player.getUniqueId(), island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln keine Tiere vermehren.");
+            }
+            return;
+        }
+        if (event.getBreeder() instanceof Player player
+                && !player.isOp()
+                && !islandService.isParcelOwner(island, parcel, player.getUniqueId())
+                && !islandService.hasBuildAccess(player.getUniqueId(), island)
+                && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalBreed())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Du darfst hier keine Tiere vermehren.");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onShear(PlayerInteractEntityEvent event) {
+        if (!SHEARABLE_TYPES.contains(event.getRightClicked().getType())
+                || !(event.getPlayer().getInventory().getItemInMainHand().getType() == Material.SHEARS
+                || event.getPlayer().getInventory().getItemInOffHand().getType() == Material.SHEARS)) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
+        IslandData island = islandService.getIslandAt(event.getRightClicked().getLocation());
+        if (island == null) return;
+        ParcelData parcel = islandService.getParcelAt(island, event.getRightClicked().getLocation());
+        if (parcel == null) {
+            if (!islandService.hasBuildAccess(player.getUniqueId(), island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln keine Tiere scheren.");
+            }
+            return;
+        }
+        if (!islandService.isParcelOwner(island, parcel, player.getUniqueId())
+                && !islandService.hasBuildAccess(player.getUniqueId(), island)
+                && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalShear())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Du darfst hier nicht scheren.");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onAnimalInteract(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof Animals animal)) return;
+        Player player = event.getPlayer();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(animal.getWorld())) return;
+        ItemStack item = player.getInventory().getItem(event.getHand());
+        if (item != null && item.getType() == Material.SHEARS) return;
+        IslandData island = islandService.getIslandAt(animal.getLocation());
+        if (island == null) return;
+        ParcelData parcel = islandService.getParcelAt(island, animal.getLocation());
+        if (parcel == null) {
+            if (!islandService.hasBuildAccess(player.getUniqueId(), island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln nicht mit Tieren interagieren.");
+            }
+            return;
+        }
+        if (islandService.isParcelOwner(island, parcel, player.getUniqueId()) || islandService.hasBuildAccess(player.getUniqueId(), island)) {
+            return;
+        }
+        boolean breedingItem = item != null && animal.isBreedItem(item);
+        boolean allowed = islandService.isParcelMember(island, parcel, player.getUniqueId())
+                && (breedingItem ? parcel.isMemberAnimalBreed() : parcel.isMemberAnimalShear());
+        if (!allowed) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Du darfst in diesem Plot nicht mit Tieren interagieren.");
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

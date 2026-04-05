@@ -1389,6 +1389,11 @@ public class IslandService {
             dst.setBounds(srcParcel.getMinX(), srcParcel.getMinY(), srcParcel.getMinZ(), srcParcel.getMaxX(), srcParcel.getMaxY(), srcParcel.getMaxZ());
             if (srcParcel.getSpawn() != null) dst.setSpawn(srcParcel.getSpawn().clone());
             copyAccessSettings(srcParcel.getVisitorSettings(), dst.getVisitorSettings());
+            copyAccessSettings(srcParcel.getMemberSettings(), dst.getMemberSettings());
+            dst.setMemberAnimalBreed(srcParcel.isMemberAnimalBreed());
+            dst.setMemberAnimalKill(srcParcel.isMemberAnimalKill());
+            dst.setMemberAnimalKeepTwo(srcParcel.isMemberAnimalKeepTwo());
+            dst.setMemberAnimalShear(srcParcel.isMemberAnimalShear());
             migrated.getParcels().put(dst.getChunkKey(), dst);
         }
 
@@ -1861,9 +1866,30 @@ public class IslandService {
         return island != null && parcel != null && (isIslandOwner(island, playerId) || parcel.getOwners().contains(playerId));
     }
 
+    public boolean isParcelMember(IslandData island, ParcelData parcel, UUID playerId) {
+        return island != null && parcel != null && playerId != null && !isParcelOwner(island, parcel, playerId) && parcel.getUsers().contains(playerId);
+    }
+
     public boolean isParcelUser(IslandData island, ParcelData parcel, UUID playerId) {
         expireParcelRentalIfNeeded(island, parcel);
         return isParcelOwner(island, parcel, playerId) || (parcel != null && parcel.getUsers().contains(playerId));
+    }
+
+    public boolean hasParcelMemberSetting(IslandData island, ParcelData parcel, UUID playerId, java.util.function.Predicate<AccessSettings> predicate) {
+        return isParcelMember(island, parcel, playerId) && parcel != null && predicate != null && predicate.test(parcel.getMemberSettings());
+    }
+
+    public int countAnimalsInParcelByType(ParcelData parcel, EntityType type) {
+        if (parcel == null || type == null || skyWorldService.getWorld() == null) return 0;
+        int count = 0;
+        for (Entity entity : skyWorldService.getWorld().getEntities()) {
+            if (!(entity instanceof Animals) || entity.getType() != type) continue;
+            Location location = entity.getLocation();
+            if (parcel.contains(location.getBlockX(), location.getBlockY(), location.getBlockZ())) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public boolean isParcelRentalActive(IslandData island, ParcelData parcel) {
@@ -1904,6 +1930,14 @@ public class IslandService {
         return true;
     }
 
+    public boolean isParcelSoldToExternalOwner(IslandData island, ParcelData parcel) {
+        return island != null
+                && parcel != null
+                && parcel.getLastSaleBuyer() != null
+                && parcel.getOwners().contains(parcel.getLastSaleBuyer())
+                && !parcel.getOwners().contains(island.getOwner());
+    }
+
     public boolean clearParcelRentState(IslandData island, ParcelData parcel, UUID actor) {
         if (!isParcelOwner(island, parcel, actor) || island == null || parcel == null) return false;
         UUID renter = parcel.getRenter();
@@ -1912,6 +1946,47 @@ public class IslandService {
         }
         parcel.setRenter(null);
         parcel.setRentUntil(0L);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean manageParcelRent(IslandData island, ParcelData parcel, UUID actor, boolean refund) {
+        if (!isIslandOwner(island, actor) || island == null || parcel == null || parcel.getRenter() == null) return false;
+        UUID renter = parcel.getRenter();
+        if (refund) {
+            refundParcelMarketPrice(parcel.getLastRentPaymentType(), renter, parcel.getLastRentPrice());
+        }
+        parcel.getUsers().remove(renter);
+        parcel.setRenter(null);
+        parcel.setRentUntil(0L);
+        parcel.setLastRentBuyer(null);
+        parcel.setLastRentPrice(0L);
+        parcel.setLastRentPaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean manageParcelSale(IslandData island, ParcelData parcel, UUID actor, boolean refund) {
+        if (!isIslandOwner(island, actor) || island == null || parcel == null || !isParcelSoldToExternalOwner(island, parcel)) return false;
+        UUID buyer = parcel.getLastSaleBuyer();
+        if (refund && buyer != null) {
+            refundParcelMarketPrice(parcel.getLastSalePaymentType(), buyer, parcel.getLastSalePrice());
+        }
+        parcel.getOwners().clear();
+        parcel.getUsers().clear();
+        parcel.getOwners().add(island.getOwner());
+        parcel.setRenter(null);
+        parcel.setRentUntil(0L);
+        parcel.setSaleOfferEnabled(false);
+        parcel.setRentOfferEnabled(false);
+        parcel.setLastSaleBuyer(null);
+        parcel.setLastSalePrice(0L);
+        parcel.setLastSalePaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
+        parcel.setLastRentBuyer(null);
+        parcel.setLastRentPrice(0L);
+        parcel.setLastRentPaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
@@ -1950,6 +2025,12 @@ public class IslandService {
         parcel.getOwners().add(buyerId);
         parcel.setRenter(null);
         parcel.setRentUntil(0L);
+        parcel.setLastSaleBuyer(buyerId);
+        parcel.setLastSalePrice(parcel.getSalePrice());
+        parcel.setLastSalePaymentType(parcel.getPaymentType());
+        parcel.setLastRentBuyer(null);
+        parcel.setLastRentPrice(0L);
+        parcel.setLastRentPaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
         parcel.setSaleOfferEnabled(false);
         parcel.setRentOfferEnabled(false);
         island.setLastActiveAt(System.currentTimeMillis());
@@ -1977,9 +2058,13 @@ public class IslandService {
                 ? parcel.getRentUntil()
                 : System.currentTimeMillis();
         long extension = rentDurationMillis(parcel);
+        boolean sameRenter = parcel.getLastRentBuyer() != null && renterId.equals(parcel.getLastRentBuyer());
         parcel.setRenter(renterId);
         parcel.setRentUntil(base + extension);
         parcel.getUsers().add(renterId);
+        parcel.setLastRentBuyer(renterId);
+        parcel.setLastRentPrice(sameRenter ? parcel.getLastRentPrice() + parcel.getRentPrice() : parcel.getRentPrice());
+        parcel.setLastRentPaymentType(parcel.getPaymentType());
         island.setLastActiveAt(System.currentTimeMillis());
         renterIsland.setLastActiveAt(System.currentTimeMillis());
         save();
@@ -1993,6 +2078,9 @@ public class IslandService {
         parcel.getUsers().remove(parcel.getRenter());
         parcel.setRenter(null);
         parcel.setRentUntil(0L);
+        parcel.setLastRentBuyer(null);
+        parcel.setLastRentPrice(0L);
+        parcel.setLastRentPaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
@@ -2027,6 +2115,19 @@ public class IslandService {
         switch (parcel.getPaymentType()) {
             case EXPERIENCE -> island.addStoredExperience(price);
             case VAULT -> plugin.depositVault(island.getOwner(), price);
+        }
+    }
+
+    private void refundParcelMarketPrice(ParcelData.MarketPaymentType paymentType, UUID playerId, long price) {
+        if (playerId == null || price <= 0L) return;
+        switch (paymentType == null ? ParcelData.MarketPaymentType.EXPERIENCE : paymentType) {
+            case EXPERIENCE -> {
+                IslandData island = getIsland(playerId).orElse(null);
+                if (island != null) {
+                    island.addStoredExperience(price);
+                }
+            }
+            case VAULT -> plugin.depositVault(playerId, price);
         }
     }
 
@@ -2299,7 +2400,9 @@ public class IslandService {
     public boolean canTeleportToParcel(IslandData island, ParcelData parcel, UUID playerId) {
         if (island == null || parcel == null) return false;
         if (island.getIslandBanned().contains(playerId) || parcel.getBanned().contains(playerId)) return false;
-        return isParcelUser(island, parcel, playerId) || parcel.getVisitorSettings().isTeleport();
+        return isParcelOwner(island, parcel, playerId)
+                || hasParcelMemberSetting(island, parcel, playerId, AccessSettings::isTeleport)
+                || parcel.getVisitorSettings().isTeleport();
     }
 
     public String getParcelPvpKey(IslandData island, ParcelData parcel) {
@@ -2406,6 +2509,13 @@ public class IslandService {
     public String formatParcelPrice(ParcelData parcel, long amount) {
         if (parcel == null) return amount + " XP";
         return switch (parcel.getPaymentType()) {
+            case EXPERIENCE -> amount + " XP";
+            case VAULT -> amount + " " + plugin.getVaultCurrencyName(amount);
+        };
+    }
+
+    public String formatParcelPriceForType(ParcelData.MarketPaymentType paymentType, long amount) {
+        return switch (paymentType == null ? ParcelData.MarketPaymentType.EXPERIENCE : paymentType) {
             case EXPERIENCE -> amount + " XP";
             case VAULT -> amount + " " + plugin.getVaultCurrencyName(amount);
         };
@@ -5037,6 +5147,17 @@ public class IslandService {
                 .put("rentDurationDays", parcel.getRentDurationDays())
                 .put("renter", parcel.getRenter() == null ? null : parcel.getRenter().toString())
                 .put("rentUntil", parcel.getRentUntil())
+                .put("lastSaleBuyer", parcel.getLastSaleBuyer() == null ? null : parcel.getLastSaleBuyer().toString())
+                .put("lastSalePrice", parcel.getLastSalePrice())
+                .put("lastSalePaymentType", parcel.getLastSalePaymentType().name())
+                .put("lastRentBuyer", parcel.getLastRentBuyer() == null ? null : parcel.getLastRentBuyer().toString())
+                .put("lastRentPrice", parcel.getLastRentPrice())
+                .put("lastRentPaymentType", parcel.getLastRentPaymentType().name())
+                .put("memberSettings", accessSettingsDocument(parcel.getMemberSettings()))
+                .put("memberAnimalBreed", parcel.isMemberAnimalBreed())
+                .put("memberAnimalKill", parcel.isMemberAnimalKill())
+                .put("memberAnimalKeepTwo", parcel.isMemberAnimalKeepTwo())
+                .put("memberAnimalShear", parcel.isMemberAnimalShear())
                 .put("minX", parcel.getMinX())
                 .put("minY", parcel.getMinY())
                 .put("minZ", parcel.getMinZ())
@@ -5090,6 +5211,32 @@ public class IslandService {
             parcel.setRenter(UUID.fromString(renter));
         }
         parcel.setRentUntil(longValue(document.get("rentUntil")));
+        applyAccessSettings(document.get("memberSettings", Document.class), parcel.getMemberSettings());
+        parcel.setMemberAnimalBreed(Boolean.TRUE.equals(document.get("memberAnimalBreed", Boolean.class)));
+        parcel.setMemberAnimalKill(Boolean.TRUE.equals(document.get("memberAnimalKill", Boolean.class)));
+        Boolean memberAnimalKeepTwo = document.get("memberAnimalKeepTwo", Boolean.class);
+        parcel.setMemberAnimalKeepTwo(memberAnimalKeepTwo == null || memberAnimalKeepTwo);
+        parcel.setMemberAnimalShear(Boolean.TRUE.equals(document.get("memberAnimalShear", Boolean.class)));
+        String lastSaleBuyer = document.get("lastSaleBuyer", String.class);
+        if (lastSaleBuyer != null && !lastSaleBuyer.isBlank()) {
+            parcel.setLastSaleBuyer(UUID.fromString(lastSaleBuyer));
+        }
+        parcel.setLastSalePrice(longValue(document.get("lastSalePrice")));
+        try {
+            parcel.setLastSalePaymentType(ParcelData.MarketPaymentType.valueOf(defaultString(document.get("lastSalePaymentType", String.class), ParcelData.MarketPaymentType.EXPERIENCE.name())));
+        } catch (IllegalArgumentException ignored) {
+            parcel.setLastSalePaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
+        }
+        String lastRentBuyer = document.get("lastRentBuyer", String.class);
+        if (lastRentBuyer != null && !lastRentBuyer.isBlank()) {
+            parcel.setLastRentBuyer(UUID.fromString(lastRentBuyer));
+        }
+        parcel.setLastRentPrice(longValue(document.get("lastRentPrice")));
+        try {
+            parcel.setLastRentPaymentType(ParcelData.MarketPaymentType.valueOf(defaultString(document.get("lastRentPaymentType", String.class), ParcelData.MarketPaymentType.EXPERIENCE.name())));
+        } catch (IllegalArgumentException ignored) {
+            parcel.setLastRentPaymentType(ParcelData.MarketPaymentType.EXPERIENCE);
+        }
         parcel.setBounds(
                 intValue(document.get("minX")),
                 intValue(document.get("minY")),

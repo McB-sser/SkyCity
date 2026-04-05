@@ -1700,6 +1700,7 @@ public class CoreService {
          return inv;
       } else {
          inv.setItem(10, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "GS-Spawn setzen", List.of(ChatColor.GRAY + "Setzt Spawn auf deine Position")));
+         inv.setItem(11, this.named(Material.BOOK, ChatColor.YELLOW + "Memberrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Plot-Member")));
          inv.setItem(12, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Fremde")));
          inv.setItem(14, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Plot-Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "Plot-Member vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
@@ -1747,6 +1748,8 @@ public class CoreService {
       ChatColor modeColor = saleMode ? ChatColor.GOLD : ChatColor.AQUA;
       boolean vaultAvailable = this.islandService.isParcelVaultAvailable();
       boolean vaultMode = parcel.getPaymentType() == ParcelData.MarketPaymentType.VAULT;
+      boolean sold = this.islandService.isParcelSoldToExternalOwner(island, parcel);
+      String buyerName = parcel.getLastSaleBuyer() == null ? "-" : Optional.ofNullable(Bukkit.getOfflinePlayer(parcel.getLastSaleBuyer()).getName()).orElse(parcel.getLastSaleBuyer().toString().substring(0, 8));
 
       inv.setItem(10, this.named(Material.COMPARATOR, modeColor + "Art: " + modeLabel,
          List.of(
@@ -1776,10 +1779,10 @@ public class CoreService {
       inv.setItem(24, this.named(vaultMode ? Material.EMERALD : Material.EXPERIENCE_BOTTLE, ChatColor.GREEN + "Zahlungsart",
          List.of(
             ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.parcelPaymentTypeLabel(parcel),
-            ChatColor.GRAY + "Gilt fuer Verkauf und Miete",
+            ChatColor.GRAY + "Gilt f\u00fcr Verkauf und Miete",
             vaultAvailable
                ? ChatColor.YELLOW + "Klick = XP/CraftTaler wechseln"
-               : ChatColor.RED + "Vault / CraftTaler nicht verfuegbar"
+               : ChatColor.RED + "Vault / CraftTaler nicht verf\u00fcgbar"
          )));
       inv.setItem(22, this.named((saleMode ? parcel.isSaleOfferEnabled() : parcel.isRentOfferEnabled()) ? Material.LIME_DYE : Material.GRAY_DYE, modeColor + modeLabel + " umschalten",
          List.of(
@@ -1808,13 +1811,35 @@ public class CoreService {
                ChatColor.GRAY + "Restzeit: " + ChatColor.WHITE + this.islandService.formatParcelRentRemaining(parcel),
                ChatColor.YELLOW + "Klick = Miete beenden"
             )));
+         inv.setItem(26, this.named(Material.EMERALD, ChatColor.GREEN + "Miete stornieren",
+            List.of(
+               ChatColor.GRAY + "Mieter: " + ChatColor.WHITE + renterName,
+               ChatColor.GRAY + "Erstattung: " + ChatColor.WHITE + this.islandService.formatParcelPriceForType(parcel.getLastRentPaymentType(), parcel.getLastRentPrice()),
+               ChatColor.YELLOW + "Klick = Miete beenden + Geld zur\u00fcck"
+            )));
       } else {
          inv.setItem(19, this.named(Material.PAPER, ChatColor.GOLD + "Verkaufshinweis",
             List.of(
                ChatColor.GRAY + "Hologramm zeigt Kaufpreis am Spawn",
                ChatColor.GRAY + "Kauf per /is plot buy",
-               ChatColor.GRAY + "Erloes folgt der Zahlungsart"
+               ChatColor.GRAY + "Erl\u00f6s folgt der Zahlungsart"
             )));
+         inv.setItem(25, this.named(Material.BARRIER, ChatColor.RED + "Plot enteignen",
+            List.of(
+               ChatColor.GRAY + "Aktueller Besitzer: " + ChatColor.WHITE + buyerName,
+               ChatColor.GRAY + "Geld wird nicht erstattet",
+               ChatColor.YELLOW + "Klick = Plot an Insel zur\u00fcckholen"
+            )));
+         inv.setItem(26, this.named(Material.EMERALD, ChatColor.GREEN + "Kauf stornieren",
+            List.of(
+               ChatColor.GRAY + "Aktueller Besitzer: " + ChatColor.WHITE + buyerName,
+               ChatColor.GRAY + "Erstattung: " + ChatColor.WHITE + this.islandService.formatParcelPriceForType(parcel.getLastSalePaymentType(), parcel.getLastSalePrice()),
+               ChatColor.YELLOW + "Klick = Plot zur\u00fcck + Geld zur\u00fcck"
+            )));
+         if (!sold) {
+            inv.setItem(25, this.named(Material.GRAY_DYE, ChatColor.DARK_GRAY + "Nicht verkauft", List.of(ChatColor.GRAY + "Enteignung erst nach Kauf m\u00f6glich")));
+            inv.setItem(26, this.named(Material.GRAY_DYE, ChatColor.DARK_GRAY + "Keine Stornierung", List.of(ChatColor.GRAY + "Storno erst nach Kauf m\u00f6glich")));
+         }
       }
 
       inv.setItem(31, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Plot-Men\u00fc")));
@@ -1830,6 +1855,21 @@ public class CoreService {
       }
 
       inv.setItem(35, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+      return inv;
+   }
+
+   public Inventory createParcelMemberSettingsMenu(IslandData island, int relX, int relZ) {
+      Inventory inv = Bukkit.createInventory(new CoreService.ParcelMemberSettingsInventoryHolder(island.getOwner(), relX, relZ), 45, "Memberrechte GS");
+      this.fillWithPanes(inv);
+      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      if (parcel != null) {
+         this.fillSettings(inv, parcel.getMemberSettings());
+         inv.setItem(28, this.toggleItem(Material.WHEAT, "Tiere vermehren", parcel.isMemberAnimalBreed()));
+         inv.setItem(29, this.toggleItem(Material.IRON_SWORD, "Tiere t\u00f6ten", parcel.isMemberAnimalKill()));
+         inv.setItem(30, this.toggleItem(Material.TOTEM_OF_UNDYING, "2 Tiere behalten", parcel.isMemberAnimalKeepTwo()));
+         inv.setItem(31, this.toggleItem(Material.SHEARS, "Scheren", parcel.isMemberAnimalShear()));
+      }
+      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       return inv;
    }
 
@@ -3706,6 +3746,12 @@ public class CoreService {
    }
 
    public static record ParcelVisitorSettingsInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record ParcelMemberSettingsInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
