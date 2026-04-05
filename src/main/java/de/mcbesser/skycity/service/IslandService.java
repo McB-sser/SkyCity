@@ -21,6 +21,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Biome;
+import org.bukkit.block.Beehive;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.block.data.Bisected;
@@ -3526,7 +3527,11 @@ public class IslandService {
         return Math.max(30L, level * 30L);
     }
 
-    public int getAnimalCount(IslandData island) { return (int) getEntitiesInIsland(island).stream().filter(e -> e instanceof Animals).count(); }
+    public int getAnimalCount(IslandData island) {
+        if (island == null) return 0;
+        int roamingAnimals = (int) getEntitiesInIsland(island).stream().filter(e -> e instanceof Animals).count();
+        return roamingAnimals + getStoredBeeCount(island);
+    }
     public int getGolemCount(IslandData island) { return (int) getEntitiesInIsland(island).stream().filter(e -> isTrackedGolem(e.getType())).count(); }
     public int getVillagerCount(IslandData island) { return (int) getEntitiesInIsland(island).stream().filter(e -> e instanceof Villager).count(); }
     public int getArmorStandCount(IslandData island) {
@@ -3551,6 +3556,29 @@ public class IslandService {
     public boolean isWithinArmorStandLimit(IslandData island) { return getArmorStandCount(island) < getCurrentLevelDef(island).getArmorStandLimit(); }
     public boolean isWithinMinecartLimit(IslandData island) { return getMinecartCount(island) < getCurrentLevelDef(island).getMinecartLimit(); }
     public boolean isWithinBoatLimit(IslandData island) { return getBoatCount(island) < getCurrentLevelDef(island).getBoatLimit(); }
+
+    private int getStoredBeeCount(IslandData island) {
+        World world = skyWorldService.getWorld();
+        if (island == null || world == null) return 0;
+        int count = 0;
+        for (int cx = 0; cx < ISLAND_CHUNKS; cx++) for (int cz = 0; cz < ISLAND_CHUNKS; cz++) {
+            if (!island.getUnlockedChunks().contains(chunkKey(cx, cz))) continue;
+            Chunk chunk = world.getChunkAt(plotMinChunkX(island.getGridX()) + cx, plotMinChunkZ(island.getGridZ()) + cz);
+            for (int y = world.getMinHeight(); y < Math.min(world.getMaxHeight(), 256); y++) {
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        Block block = chunk.getBlock(x, y, z);
+                        Material type = block.getType();
+                        if (type != Material.BEEHIVE && type != Material.BEE_NEST) continue;
+                        if (block.getState() instanceof Beehive beehive) {
+                            count += Math.max(0, beehive.getEntityCount());
+                        }
+                    }
+                }
+            }
+        }
+        return count;
+    }
 
     public boolean isTrackedGolem(EntityType type) {
         if (type == null) return false;
