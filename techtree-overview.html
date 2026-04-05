@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkyCity Techbaum Uebersicht</title>
+  <title>SkyCity Techbaum \u00dcbersicht</title>
   <style>
     :root {
       --bg: #f4efe5;
@@ -352,9 +352,9 @@
     <section class="hero">
       <h1>SkyCity Techbaum</h1>
       <p>
-        Vollstaendige Uebersicht der aktuellen Meilensteine und Upgrade-Zweige aus dem Plugin-Stand.
+        Vollst\u00e4ndige \u00dcbersicht der aktuellen Meilensteine und Upgrade-Zweige aus dem Plugin-Stand.
         Die Seite zeigt Voraussetzungen, Materialien, Insel-Level, Core-EXP, freigeschaltete Limits
-        nach Kauf sowie die frueheste Meilenstein-Stufe, ab der eine Ausbaustufe ueberhaupt erreichbar ist.
+        nach Kauf sowie die fr\u00fcheste Meilenstein-Stufe, ab der eine Ausbaustufe \u00fcberhaupt erreichbar ist.
       </p>
       <div class="meta">
         <div class="meta-card">
@@ -382,7 +382,7 @@
         <div class="tree-list" id="treeList"></div>
         <div class="legend">
           <strong>Lesart:</strong><br>
-          `Erreichbar ab` zeigt die frueheste Meilenstein-Stufe, bei der eine Ausbaustufe per Cap freigegeben wird.<br>
+          `Erreichbar ab` zeigt die fr\u00fcheste Meilenstein-Stufe, bei der eine Ausbaustufe per Cap freigegeben wird.<br>
           `Nicht erreichbar` bedeutet: mit den derzeit definierten Meilensteinen kommt man an diese Stufe nie heran.
         </div>
       </aside>
@@ -390,7 +390,7 @@
       <main class="content-panel">
         <div class="overview-head">
           <div>
-            <h2 id="panelTitle">Lade Uebersicht...</h2>
+            <h2 id="panelTitle">Lade \u00dcbersicht...</h2>
             <div class="subline" id="panelSubtitle"></div>
           </div>
         </div>
@@ -428,8 +428,8 @@
       CARROT: "Karotte",
       POTATO: "Kartoffel",
       HAY_BLOCK: "Heuballen",
-      PUMPKIN: "Kuerbis",
-      CARVED_PUMPKIN: "Geschnitzter Kuerbis",
+      PUMPKIN: "K\u00fcrbis",
+      CARVED_PUMPKIN: "Geschnitzter K\u00fcrbis",
       BREAD: "Brot",
       CHEST: "Truhe",
       BARREL: "Fass",
@@ -444,23 +444,23 @@
       KELP: "Kelp",
       DRIED_KELP_BLOCK: "Getrockneter Kelpblock",
       BAMBOO: "Bambus",
-      SCAFFOLDING: "Geruest"
+      SCAFFOLDING: "Ger\u00fcst"
     };
 
     const BRANCHES = [
       { key: "ANIMAL", name: "Tierlimit", baseLimit: 12, step: 4, maxTier: 20, note: "Sehr stark farmbasiert mit Weizen, Karotten, Kartoffeln und Heuballen." },
       { key: "CHUNKS", name: "Chunkpakete", baseLimit: 0, step: 0, maxTier: 264, note: "Bau- und Ausbaupfad mit Fokus auf Bruchstein, Stein und Holz." },
-      { key: "GOLEM", name: "Golemlimit", baseLimit: 2, step: 1, maxTier: 18, note: "Technikpfad mit Eisen, Redstone und geschnitzten Kuerbissen." },
+      { key: "GOLEM", name: "Golemlimit", baseLimit: 2, step: 1, maxTier: 18, note: "Technikpfad mit Eisen, Redstone und geschnitzten K\u00fcrbissen." },
       { key: "VILLAGER", name: "Villagerlimit", baseLimit: 2, step: 1, maxTier: 18, note: "Mischung aus Dorfversorgung und seltenen Smaragden." },
-      { key: "CONTAINER", name: "Behaelter", baseLimit: 100, step: 25, maxTier: 12, note: "Massiv holzlastig, damit Lagerausbau spaet relevant bleibt." },
+      { key: "CONTAINER", name: "Beh\u00e4lter", baseLimit: 100, step: 25, maxTier: 12, note: "Massiv holzlastig, damit Lagerausbau sp\u00e4t relevant bleibt." },
       { key: "HOPPER", name: "Trichter", baseLimit: 8, step: 4, maxTier: 24, note: "Technikpfad mit Eisen, Truhen und Redstone." },
       { key: "PISTON", name: "Kolben", baseLimit: 16, step: 4, maxTier: 24, note: "Steinlastig mit Metall, Redstone und Schleim." },
-      { key: "ARMOR_STAND", name: "R\u00fcstungsst\u00e4nder", baseLimit: 4, step: 2, maxTier: 14, note: "Dekoausbau mit Holzstoecken, Steinplatten und Leder." },
+      { key: "ARMOR_STAND", name: "R\u00fcstungsst\u00e4nder", baseLimit: 4, step: 2, maxTier: 14, note: "Dekoausbau mit Holzst\u00f6cken, Steinplatten und Leder." },
       { key: "MINECART", name: "Minecartlimit", baseLimit: 8, step: 4, maxTier: 9, note: "Technikpfad mit Eisen, Schienen und Redstone." },
-      { key: "BOAT", name: "Bootlimit", baseLimit: 6, step: 3, maxTier: 20, note: "Transportpfad mit Holz, Kisten und Faessern." },
-      { key: "OBSERVER", name: "Observer", baseLimit: 12, step: 6, maxTier: 20, note: "Spuerbar spaeter Technikpfad mit Quartz und Redstone." },
-      { key: "DISPENSER", name: "Dispenser", baseLimit: 8, step: 4, maxTier: 20, note: "Stein + Redstone + Faden, mit Boegen in hoeheren Stufen." },
-      { key: "CACTUS", name: "Kaktus", baseLimit: 32, step: 32, maxTier: 24, note: "Massenfarm mit sehr hohen Stueckzahlen." },
+      { key: "BOAT", name: "Bootlimit", baseLimit: 6, step: 3, maxTier: 20, note: "Transportpfad mit Holz, Kisten und F\u00e4ssern." },
+      { key: "OBSERVER", name: "Observer", baseLimit: 12, step: 6, maxTier: 20, note: "Sp\u00fcrbar sp\u00e4ter Technikpfad mit Quartz und Redstone." },
+      { key: "DISPENSER", name: "Dispenser", baseLimit: 8, step: 4, maxTier: 20, note: "Stein + Redstone + Faden, mit B\u00f6gen in h\u00f6heren Stufen." },
+      { key: "CACTUS", name: "Kaktus", baseLimit: 32, step: 32, maxTier: 24, note: "Massenfarm mit sehr hohen St\u00fcckzahlen." },
       { key: "KELP", name: "Kelp", baseLimit: 64, step: 48, maxTier: 24, note: "Extrem farmbar, daher sehr hohe Mengen." },
       { key: "BAMBOO", name: "Bambus", baseLimit: 64, step: 48, maxTier: 24, note: "Extrem farmbar, daher sehr hohe Mengen." }
     ];
@@ -712,8 +712,8 @@
           }
           return {
             title: "Meilensteine",
-            subtitle: "Eigenstaendiger Fortschrittspfad mit separaten Materialien und separater Belohnung.",
-            note: "Meilensteine sind vom Kategorien-Ausbau getrennt. Sie bestimmen die globale Progression und schalten die naechsten Ausbaustufen in den Zweigen frei.",
+            subtitle: "Eigenst\u00e4ndiger Fortschrittspfad mit separaten Materialien und separater Belohnung.",
+            note: "Meilensteine sind vom Kategorien-Ausbau getrennt. Sie bestimmen die globale Progression und schalten die n\u00e4chsten Ausbaustufen in den Zweigen frei.",
             stats: [
               ["Maximale Stufe", `${MAX_MILESTONE}/${MAX_MILESTONE}`],
               ["Belohnung", "1 bis 2 freie Chunks pro Meilenstein"],
@@ -768,11 +768,12 @@
             title: branch.name,
             subtitle: branch.note,
             note: branch.key === "CHUNKS"
-              ? "Dieser Zweig vergroessert nicht direkt ein Limit, sondern gibt freie Chunk-Unlocks als Paket aus."
-              : "Die Tabelle zeigt pro Stufe die Kosten fuer den naechsten Ausbau und das Limit nach erfolgreichem Kauf.",
+              ? "Dieser Zweig vergr\u00f6\u00dfert nicht direkt ein Limit, sondern gibt freie Chunk-Unlocks als Paket aus."
+              : "Die Tabelle zeigt pro Stufe die Kosten f\u00fcr den n\u00e4chsten Ausbau, das Limit nach erfolgreichem Kauf und die jeweilige Belohnung.",
             stats: [
               ["Basiswert", branch.key === "CHUNKS" ? "0 Pakete" : formatNumber(branch.baseLimit)],
               ["Schritt pro Stufe", branch.key === "CHUNKS" ? "Chunkpaket-Belohnung" : `+${formatNumber(branch.step)}`],
+              ["Belohnung", branch.key === "CHUNKS" ? "12 bis 16 freie Chunks pro Kauf" : `+${formatNumber(branch.step)} Limit pro Kauf`],
               ["Maximal definiert", `${branch.maxTier} Stufen`],
               ["Mit M11 erreichbar", `${maxReachable}/${branch.maxTier}`]
             ],

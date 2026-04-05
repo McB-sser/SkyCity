@@ -115,7 +115,7 @@ public class IslandService {
         CHUNKS("chunks", "Chunkpakete", Material.MAP, 0, 0, 264),
         GOLEM("golem", "Golemlimit", Material.CARVED_PUMPKIN, 2, 1, 18),
         VILLAGER("villager", "Villagerlimit", Material.EMERALD, 2, 1, 18),
-        CONTAINER("container", "Behaelter", Material.BARREL, 100, 25, 12),
+        CONTAINER("container", "Beh\u00e4lter", Material.BARREL, 100, 25, 12),
         HOPPER("hopper", "Trichter", Material.HOPPER, 8, 4, 24),
         PISTON("piston", "Kolben", Material.PISTON, 16, 4, 24),
         ARMOR_STAND("armor_stand", "R\u00fcstungsst\u00e4nder", Material.ARMOR_STAND, 4, 2, 14),
