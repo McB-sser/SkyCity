@@ -899,8 +899,10 @@ public class CoreService {
       lines.add(" ");
       lines.add(ChatColor.GOLD + "Belohnung");
       if (branch == IslandService.UpgradeBranch.CHUNKS) {
+         int freeChunksAfterBuy = island.getAvailableChunkUnlocks() + requirement.chunkUnlocksGranted();
+         int totalChunksAfterBuy = island.getUnlockedChunks().size() + island.getAvailableChunkUnlocks() + requirement.chunkUnlocksGranted();
          lines.add(ChatColor.AQUA + "+" + requirement.chunkUnlocksGranted() + " freie Chunks");
-         lines.add(ChatColor.GRAY + "Danach: " + ChatColor.WHITE + (island.getAvailableChunkUnlocks() + requirement.chunkUnlocksGranted()));
+         lines.add(ChatColor.GRAY + "Danach frei: " + ChatColor.WHITE + freeChunksAfterBuy + ChatColor.DARK_GRAY + " (gesamt " + totalChunksAfterBuy + "/" + this.islandService.getTotalIslandChunkCount() + ")");
          return;
       }
       int currentLimit = this.islandService.getCurrentUpgradeLimit(island, branch);
