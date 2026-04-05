@@ -48,7 +48,7 @@ Nach der Erstellung sind die wichtigsten Schritte:
 - mit `/is setspawn` den Inselspawn neu setzen
 - den Core platzieren bzw. verwenden
 - Chunks schrittweise freischalten
-- Rechte an Mitglieder, Owner oder Grundstuecks-Spieler vergeben
+- Rechte an Member, Owner oder Grundstuecks-Spieler vergeben
 - Warps und Titel setzen
 
 ## Zentrale Funktionen im Detail
@@ -103,7 +103,7 @@ Core-Funktionen:
 - kann verschiedene Anzeige-Modi durchschalten
 - zeigt Fortschritt und wichtige Inselinfos direkt am Core an
 
-Wenn ein Spieler den Core abbauen moechte, darf das nur ein Insel-Owner. Besucher oder einfache Mitglieder koennen den Core nicht entfernen.
+Wenn ein Spieler den Core abbauen moechte, darf das nur ein Master oder Owner. Besucher oder einfache Member koennen den Core nicht entfernen.
 
 ## 5. Insel-Level und Fortschritt
 
@@ -152,17 +152,9 @@ Das System verhindert unkontrollierte Ueberschneidungen und schuetzt benachbarte
 
 SkyCity trennt die Inselrechte sauber in mehrere Stufen.
 
-### Master / Co-Owner
+### Master
 
 Mit:
-
-```text
-/is ownerinvite <spieler>
-/is owneraccept
-/is ownerleave
-```
-
-oder den Alias-Befehlen:
 
 ```text
 /is masterinvite <spieler>
@@ -170,7 +162,7 @@ oder den Alias-Befehlen:
 /is masterleave
 ```
 
-koennen zusaetzliche Master eingeladen werden. Diese Rolle ist maechtiger als normale Mitglieder und eignet sich fuer enge Projektpartner.
+koennen zusaetzliche Master eingeladen werden. Diese Rolle ist maechtiger als normale Member und eignet sich fuer enge Projektpartner.
 
 ### Owner-Verwaltung
 
@@ -181,15 +173,13 @@ Mit:
 /is owner remove <spieler>
 ```
 
-koennen weitere Insel-Owner hinzugefuegt oder entfernt werden.
+koennen weitere Owner hinzugefuegt oder entfernt werden.
 
-### Mitgliederrechte / Trust-System
+### Member-Rechte
 
 Mit:
 
 ```text
-/is trust <spieler> [build|container|redstone|all]
-/is untrust <spieler> [build|container|redstone|all]
 /is member <spieler> [build|container|redstone|all]
 /is unmember <spieler> [build|container|redstone|all]
 ```
@@ -217,7 +207,7 @@ Das Plugin schuetzt Inseln standardmaessig sehr strikt. Ohne Rechte duerfen Spie
 - bestimmte Farm-/Nutzungsbloecke bedienen
 - Reittiere oder Fahrzeuge nutzen
 
-Gleichzeitig gibt es Besucher-Einstellungen fuer Inseln und Grundstuecke. Inselbesitzer koennen damit gezielt erlauben, was Besucher duerfen, zum Beispiel:
+Gleichzeitig gibt es Besucher-Einstellungen fuer Inseln und Grundstuecke. Master oder Owner koennen damit gezielt erlauben, was Besucher duerfen, zum Beispiel:
 
 - Tueren benutzen
 - Trapdoors benutzen
@@ -266,8 +256,8 @@ Wichtige Befehle:
 /is plot list
 /is plot owner add <spieler>
 /is plot owner remove <spieler>
-/is plot user add <spieler>
-/is plot user remove <spieler>
+/is plot member add <spieler>
+/is plot member remove <spieler>
 ```
 
 Typischer Ablauf:
@@ -275,7 +265,7 @@ Typischer Ablauf:
 1. Mit `/is plot wand` den Grundstuecks-Stab holen.
 2. Zwei Positionen mit dem Stab setzen.
 3. Mit `/is plot create` das Grundstueck erstellen.
-4. Danach Spieler als `owner` oder `user` fuer genau dieses Grundstueck eintragen.
+4. Danach Spieler als `owner` oder `member` fuer genau dieses Grundstueck eintragen.
 
 Damit koennen innerhalb derselben Insel unterschiedliche Zonen mit eigenen Rechten entstehen.
 
@@ -360,7 +350,7 @@ Viele Einstellungen werden nicht nur ueber Befehle, sondern ueber Menues im Core
 - Biome-Menue
 - Teleport-Menue
 - Besucherrechte
-- Owner-/Mitgliederverwaltung
+- Owner-/Member-Verwaltung
 - Parcel-Menues
 - Shop-/Zeitmodus-Menues
 
@@ -396,19 +386,14 @@ Einige Eingaben wie Inselname, Warpname oder Grundstuecksname laufen ueber den C
 /is chunkapprove <insel-owner-uuid> <relX> <relZ>
 ```
 
-### Master / Owner / Mitglieder
+### Master / Owner / Member
 
 ```text
-/is ownerinvite <spieler>
-/is owneraccept
-/is ownerleave
 /is masterinvite <spieler>
 /is masteraccept
 /is masterleave
 /is owner add <spieler>
 /is owner remove <spieler>
-/is trust <spieler> [build|container|redstone|all]
-/is untrust <spieler> [build|container|redstone|all]
 /is member <spieler> [build|container|redstone|all]
 /is unmember <spieler> [build|container|redstone|all]
 ```
@@ -433,8 +418,8 @@ Einige Eingaben wie Inselname, Warpname oder Grundstuecksname laufen ueber den C
 /is plot list
 /is plot owner add <spieler>
 /is plot owner remove <spieler>
-/is plot user add <spieler>
-/is plot user remove <spieler>
+/is plot member add <spieler>
+/is plot member remove <spieler>
 ```
 
 ## Typischer Spielerablauf
@@ -446,7 +431,7 @@ Ein normaler Spieler nutzt SkyCity meist so:
 3. Nach der Teleportation den Startbereich ausbauen.
 4. Mit `/is` oder dem Core das Menue oeffnen.
 5. Chunks freischalten und die Insel vergroessern.
-6. Mitglieder oder Mitbesitzer hinzufuegen.
+6. Member, Owner oder Master hinzufuegen.
 7. Grundstuecke fuer Shops, Farmen oder PvP-Bereiche anlegen.
 8. Inselwert und Upgrades ueber den Core verbessern.
 9. Titel, Warps, Besucherrechte und Biome anpassen.

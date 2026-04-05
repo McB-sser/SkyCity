@@ -15,11 +15,11 @@ public class IslandData {
     private int gridZ;
     private Location islandSpawn;
     private Location coreLocation;
-    private final Set<UUID> trusted = new HashSet<>();
-    private final Set<UUID> trustedContainers = new HashSet<>();
-    private final Set<UUID> trustedRedstone = new HashSet<>();
-    private final Set<UUID> coOwners = new HashSet<>();
-    private final Set<UUID> islandOwners = new HashSet<>();
+    private final Set<UUID> memberBuildAccess = new HashSet<>();
+    private final Set<UUID> memberContainerAccess = new HashSet<>();
+    private final Set<UUID> memberRedstoneAccess = new HashSet<>();
+    private final Set<UUID> masters = new HashSet<>();
+    private final Set<UUID> owners = new HashSet<>();
     private final Set<UUID> islandBanned = new HashSet<>();
     private final Set<String> unlockedChunks = new HashSet<>();
     private final Set<String> generatedChunks = new HashSet<>();
@@ -57,11 +57,11 @@ public class IslandData {
     public void setIslandSpawn(Location islandSpawn) { this.islandSpawn = islandSpawn; }
     public Location getCoreLocation() { return coreLocation; }
     public void setCoreLocation(Location coreLocation) { this.coreLocation = coreLocation; }
-    public Set<UUID> getTrusted() { return trusted; }
-    public Set<UUID> getTrustedContainers() { return trustedContainers; }
-    public Set<UUID> getTrustedRedstone() { return trustedRedstone; }
-    public Set<UUID> getCoOwners() { return coOwners; }
-    public Set<UUID> getIslandOwners() { return islandOwners; }
+    public Set<UUID> getMemberBuildAccess() { return memberBuildAccess; }
+    public Set<UUID> getMemberContainerAccess() { return memberContainerAccess; }
+    public Set<UUID> getMemberRedstoneAccess() { return memberRedstoneAccess; }
+    public Set<UUID> getMasters() { return masters; }
+    public Set<UUID> getOwners() { return owners; }
     public Set<UUID> getIslandBanned() { return islandBanned; }
     public Set<String> getUnlockedChunks() { return unlockedChunks; }
     public Set<String> getGeneratedChunks() { return generatedChunks; }

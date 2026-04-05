@@ -75,7 +75,7 @@ import java.util.stream.Collectors;
 
 public class IslandService {
     public enum TrustPermission { BUILD, CONTAINER, REDSTONE, ALL }
-    public enum ParcelRole { OWNER, USER, PVP }
+    public enum ParcelRole { OWNER, MEMBER, PVP }
     public enum IslandTimeMode {
         NORMAL,
         DAY,
@@ -347,7 +347,7 @@ public class IslandService {
     private final Map<UUID, List<Consumer<IslandData>>> islandCreationCallbacks = new HashMap<>();
     private final Map<UUID, List<Consumer<IslandData>>> islandReadyCallbacks = new HashMap<>();
     private final Set<UUID> pendingIslandCreations = new HashSet<>();
-    private final Map<UUID, UUID> pendingCoOwnerInvites = new HashMap<>();
+    private final Map<UUID, UUID> pendingMasterInvites = new HashMap<>();
     private final Map<UUID, Location> plotSelectionPos1 = new HashMap<>();
     private final Map<UUID, Location> plotSelectionPos2 = new HashMap<>();
     private final Map<String, PendingBorderUnlockRequest> pendingBorderUnlockRequests = new HashMap<>();
@@ -421,11 +421,16 @@ public class IslandService {
                 if (sec.isConfigurationSection("spawn")) island.setIslandSpawn(deserializeLocation(sec.getConfigurationSection("spawn")));
                 if (sec.isConfigurationSection("warp")) island.setWarpLocation(deserializeLocation(sec.getConfigurationSection("warp")));
                 if (sec.isConfigurationSection("core")) island.setCoreLocation(deserializeLocation(sec.getConfigurationSection("core")));
-                for (String s : sec.getStringList("trusted")) island.getTrusted().add(UUID.fromString(s));
-                for (String s : sec.getStringList("trustedContainers")) island.getTrustedContainers().add(UUID.fromString(s));
-                for (String s : sec.getStringList("trustedRedstone")) island.getTrustedRedstone().add(UUID.fromString(s));
-                for (String s : sec.getStringList("coOwners")) island.getCoOwners().add(UUID.fromString(s));
-                for (String s : sec.getStringList("islandOwners")) island.getIslandOwners().add(UUID.fromString(s));
+                for (String s : sec.getStringList("memberBuildAccess")) island.getMemberBuildAccess().add(UUID.fromString(s));
+                for (String s : sec.getStringList("trusted")) island.getMemberBuildAccess().add(UUID.fromString(s));
+                for (String s : sec.getStringList("memberContainerAccess")) island.getMemberContainerAccess().add(UUID.fromString(s));
+                for (String s : sec.getStringList("trustedContainers")) island.getMemberContainerAccess().add(UUID.fromString(s));
+                for (String s : sec.getStringList("memberRedstoneAccess")) island.getMemberRedstoneAccess().add(UUID.fromString(s));
+                for (String s : sec.getStringList("trustedRedstone")) island.getMemberRedstoneAccess().add(UUID.fromString(s));
+                for (String s : sec.getStringList("masters")) island.getMasters().add(UUID.fromString(s));
+                for (String s : sec.getStringList("coOwners")) island.getMasters().add(UUID.fromString(s));
+                for (String s : sec.getStringList("owners")) island.getOwners().add(UUID.fromString(s));
+                for (String s : sec.getStringList("islandOwners")) island.getOwners().add(UUID.fromString(s));
                 for (String s : sec.getStringList("islandBanned")) island.getIslandBanned().add(UUID.fromString(s));
                 island.getUnlockedChunks().addAll(sec.getStringList("unlockedChunks"));
                 island.getGeneratedChunks().addAll(sec.getStringList("generatedChunks"));
@@ -683,23 +688,23 @@ public class IslandService {
         if (!toDelete.isEmpty()) save();
     }
 
-    private void deleteIslandData(IslandData island, boolean createReplacementForCoOwners) {
+    private void deleteIslandData(IslandData island, boolean createReplacementForMasters) {
         if (island == null) return;
         islands.remove(island.getOwner());
-        pendingCoOwnerInvites.entrySet().removeIf(e -> e.getValue().equals(island.getOwner()) || e.getKey().equals(island.getOwner()));
+        pendingMasterInvites.entrySet().removeIf(e -> e.getValue().equals(island.getOwner()) || e.getKey().equals(island.getOwner()));
         pendingBorderUnlockRequests.entrySet().removeIf(entry ->
                 entry.getValue().requesterOwner.equals(island.getOwner())
                         || entry.getValue().requiredNeighborOwners.contains(island.getOwner()));
 
-        for (UUID coOwner : new ArrayList<>(island.getCoOwners())) {
-            pendingCoOwnerInvites.remove(coOwner);
-            Player online = Bukkit.getPlayer(coOwner);
+        for (UUID master : new ArrayList<>(island.getMasters())) {
+            pendingMasterInvites.remove(master);
+            Player online = Bukkit.getPlayer(master);
             if (online != null && online.isOnline()) {
                 online.teleport(getSpawnLocation());
                 online.sendMessage(ChatColor.YELLOW + "Die gemeinsame Insel wurde entfernt.");
             }
-            if (createReplacementForCoOwners) {
-                getOrCreateIsland(coOwner);
+            if (createReplacementForMasters) {
+                getOrCreateIsland(master);
             }
         }
 
@@ -1043,10 +1048,10 @@ public class IslandService {
     }
 
     public Optional<IslandData> getPrimaryIsland(UUID owner) { return Optional.ofNullable(islands.get(owner)); }
-    public Optional<IslandData> getIsland(UUID ownerOrCoOwner, boolean includeCoOwners) {
-        IslandData direct = islands.get(ownerOrCoOwner);
-        if (direct != null || !includeCoOwners) return Optional.ofNullable(direct);
-        return islands.values().stream().filter(i -> i.getCoOwners().contains(ownerOrCoOwner)).findFirst();
+    public Optional<IslandData> getIsland(UUID ownerOrMaster, boolean includeMasters) {
+        IslandData direct = islands.get(ownerOrMaster);
+        if (direct != null || !includeMasters) return Optional.ofNullable(direct);
+        return islands.values().stream().filter(i -> i.getMasters().contains(ownerOrMaster)).findFirst();
     }
     public Optional<IslandData> getIsland(UUID owner) { return getIsland(owner, true); }
     public List<IslandData> getAllIslands() { return new ArrayList<>(islands.values()); }
@@ -1071,8 +1076,8 @@ public class IslandService {
         List<String> names = new ArrayList<>();
         String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
         names.add(ownerName == null ? "?" : ownerName);
-        for (UUID co : island.getCoOwners()) {
-            String name = Bukkit.getOfflinePlayer(co).getName();
+        for (UUID master : island.getMasters()) {
+            String name = Bukkit.getOfflinePlayer(master).getName();
             if (name != null && !name.isBlank()) names.add(name);
         }
         String joined = String.join(", ", names);
@@ -1084,8 +1089,8 @@ public class IslandService {
         List<String> names = new ArrayList<>();
         String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
         names.add(ownerName == null ? "?" : ownerName);
-        for (UUID co : island.getCoOwners()) {
-            String name = Bukkit.getOfflinePlayer(co).getName();
+        for (UUID master : island.getMasters()) {
+            String name = Bukkit.getOfflinePlayer(master).getName();
             if (name != null && !name.isBlank()) names.add(name);
         }
         String joined = String.join(", ", names);
@@ -1139,10 +1144,10 @@ public class IslandService {
         return false;
     }
 
-    public String getIslandAdditionalOwnersDisplay(IslandData island) {
-        if (island == null || island.getIslandOwners().isEmpty()) return "-";
+    public String getIslandOwnerDisplay(IslandData island) {
+        if (island == null || island.getOwners().isEmpty()) return "-";
         List<String> names = new ArrayList<>();
-        for (UUID owner : island.getIslandOwners()) {
+        for (UUID owner : island.getOwners()) {
             String name = Bukkit.getOfflinePlayer(owner).getName();
             if (name != null && !name.isBlank()) names.add(name);
         }
@@ -1152,14 +1157,14 @@ public class IslandService {
     }
 
     public boolean isIslandMaster(IslandData island, UUID playerId) {
-        return island != null && playerId != null && (island.getOwner().equals(playerId) || island.getCoOwners().contains(playerId));
+        return island != null && playerId != null && (island.getOwner().equals(playerId) || island.getMasters().contains(playerId));
     }
 
     public boolean isIslandOwner(IslandData island, UUID playerId) {
-        return island != null && playerId != null && (isIslandMaster(island, playerId) || island.getIslandOwners().contains(playerId));
+        return island != null && playerId != null && (isIslandMaster(island, playerId) || island.getOwners().contains(playerId));
     }
 
-    public boolean isPrimaryOwner(IslandData island, UUID playerId) {
+    public boolean isPrimaryMaster(IslandData island, UUID playerId) {
         return island != null && playerId != null && island.getOwner().equals(playerId);
     }
 
@@ -1174,25 +1179,25 @@ public class IslandService {
         island.setPoints(Math.max(0L, island.getPoints() + amount));
     }
 
-    public void queueCoOwnerInvite(IslandData island, UUID inviter, UUID target) {
+    public void queueMasterInvite(IslandData island, UUID inviter, UUID target) {
         if (island == null || inviter == null || target == null) return;
         if (!isIslandMaster(island, inviter)) return;
         if (isIslandMaster(island, target)) return;
-        pendingCoOwnerInvites.put(target, island.getOwner());
+        pendingMasterInvites.put(target, island.getOwner());
     }
 
-    public IslandData getPendingCoOwnerInviteIsland(UUID target) {
-        UUID primaryOwner = pendingCoOwnerInvites.get(target);
+    public IslandData getPendingMasterInviteIsland(UUID target) {
+        UUID primaryOwner = pendingMasterInvites.get(target);
         if (primaryOwner == null) return null;
         return islands.get(primaryOwner);
     }
 
-    public void clearCoOwnerInvite(UUID target) {
-        if (target != null) pendingCoOwnerInvites.remove(target);
+    public void clearMasterInvite(UUID target) {
+        if (target != null) pendingMasterInvites.remove(target);
     }
 
-    public boolean acceptCoOwnerInvite(UUID target) {
-        UUID primaryOwner = pendingCoOwnerInvites.remove(target);
+    public boolean acceptMasterInvite(UUID target) {
+        UUID primaryOwner = pendingMasterInvites.remove(target);
         if (primaryOwner == null) return false;
         IslandData island = islands.get(primaryOwner);
         if (island == null) return false;
@@ -1201,9 +1206,9 @@ public class IslandService {
         // Master darf nur auf einer Insel sein. Owner/Member auf anderen Inseln bleiben erhalten.
         IslandData current = getIsland(target).orElse(null);
         if (current != null && current != island) {
-            removeOwnerFromIsland(current, target, false);
+            removeMasterFromIsland(current, target, false);
         }
-        island.getCoOwners().add(target);
+        island.getMasters().add(target);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         Player primary = Bukkit.getPlayer(primaryOwner);
@@ -1214,18 +1219,18 @@ public class IslandService {
         return true;
     }
 
-    public boolean leaveCoOwnership(UUID playerId) {
+    public boolean leaveMasterRole(UUID playerId) {
         IslandData island = getIsland(playerId).orElse(null);
         if (island == null) return false;
         if (!isIslandMaster(island, playerId)) return false;
-        removeOwnerFromIsland(island, playerId, false);
+        removeMasterFromIsland(island, playerId, false);
         getOrCreateIsland(playerId);
         return true;
     }
 
-    private IslandData removeOwnerFromIsland(IslandData island, UUID playerId, boolean createReplacementForCoOwnersIfDelete) {
+    private IslandData removeMasterFromIsland(IslandData island, UUID playerId, boolean createReplacementForMastersIfDelete) {
         if (island == null || playerId == null) return island;
-        if (island.getCoOwners().remove(playerId)) {
+        if (island.getMasters().remove(playerId)) {
             island.setLastActiveAt(System.currentTimeMillis());
             save();
             return island;
@@ -1233,15 +1238,15 @@ public class IslandService {
         if (!island.getOwner().equals(playerId)) {
             return island;
         }
-        if (!island.getCoOwners().isEmpty()) {
-            UUID newMaster = island.getCoOwners().iterator().next();
-            island.getCoOwners().remove(newMaster);
+        if (!island.getMasters().isEmpty()) {
+            UUID newMaster = island.getMasters().iterator().next();
+            island.getMasters().remove(newMaster);
             IslandData migrated = transferIslandMaster(island, newMaster);
             migrated.setLastActiveAt(System.currentTimeMillis());
             save();
             return migrated;
         }
-        deleteIslandData(island, createReplacementForCoOwnersIfDelete);
+        deleteIslandData(island, createReplacementForMastersIfDelete);
         save();
         return null;
     }
@@ -1266,10 +1271,10 @@ public class IslandService {
         if (island.getIslandSpawn() != null) migrated.setIslandSpawn(island.getIslandSpawn().clone());
         if (island.getWarpLocation() != null) migrated.setWarpLocation(island.getWarpLocation().clone());
         if (island.getCoreLocation() != null) migrated.setCoreLocation(island.getCoreLocation().clone());
-        migrated.getTrusted().addAll(island.getTrusted());
-        migrated.getTrustedContainers().addAll(island.getTrustedContainers());
-        migrated.getTrustedRedstone().addAll(island.getTrustedRedstone());
-        migrated.getIslandOwners().addAll(island.getIslandOwners());
+        migrated.getMemberBuildAccess().addAll(island.getMemberBuildAccess());
+        migrated.getMemberContainerAccess().addAll(island.getMemberContainerAccess());
+        migrated.getMemberRedstoneAccess().addAll(island.getMemberRedstoneAccess());
+        migrated.getOwners().addAll(island.getOwners());
         migrated.getIslandBanned().addAll(island.getIslandBanned());
         migrated.getUnlockedChunks().addAll(island.getUnlockedChunks());
         migrated.getGeneratedChunks().addAll(island.getGeneratedChunks());
@@ -1277,9 +1282,9 @@ public class IslandService {
         migrated.getProgress().putAll(island.getProgress());
         migrated.getUpgradeTiers().putAll(island.getUpgradeTiers());
         migrated.getCachedBlockCounts().putAll(island.getCachedBlockCounts());
-        migrated.getCoOwners().addAll(island.getCoOwners());
-        migrated.getCoOwners().add(island.getOwner());
-        migrated.getCoOwners().remove(newMaster);
+        migrated.getMasters().addAll(island.getMasters());
+        migrated.getMasters().add(island.getOwner());
+        migrated.getMasters().remove(newMaster);
         copyAccessSettings(island.getIslandVisitorSettings(), migrated.getIslandVisitorSettings());
         for (ParcelData srcParcel : island.getParcels().values()) {
             ParcelData dst = new ParcelData(srcParcel.getChunkKey());
@@ -1314,7 +1319,7 @@ public class IslandService {
             }
             pregenerationQueue.addAll(rebuilt);
         }
-        pendingCoOwnerInvites.replaceAll((target, ownerId) -> ownerId.equals(island.getOwner()) ? newMaster : ownerId);
+        pendingMasterInvites.replaceAll((target, ownerId) -> ownerId.equals(island.getOwner()) ? newMaster : ownerId);
         return migrated;
     }
 
@@ -1357,31 +1362,31 @@ public class IslandService {
     }
 
     public boolean hasBuildAccess(UUID playerId, IslandData island) {
-        return island != null && (isIslandOwner(island, playerId) || island.getTrusted().contains(playerId));
+        return island != null && (isIslandOwner(island, playerId) || island.getMemberBuildAccess().contains(playerId));
     }
 
     public boolean hasContainerAccess(UUID playerId, IslandData island) {
         return island != null && (isIslandOwner(island, playerId)
-                || island.getTrusted().contains(playerId) || island.getTrustedContainers().contains(playerId));
+                || island.getMemberBuildAccess().contains(playerId) || island.getMemberContainerAccess().contains(playerId));
     }
 
     public boolean hasRedstoneAccess(UUID playerId, IslandData island) {
         return island != null && (isIslandOwner(island, playerId)
-                || island.getTrusted().contains(playerId) || island.getTrustedRedstone().contains(playerId));
+                || island.getMemberBuildAccess().contains(playerId) || island.getMemberRedstoneAccess().contains(playerId));
     }
 
     public boolean hasAccess(UUID playerId, IslandData island) { return hasBuildAccess(playerId, island); }
 
-    public boolean grantTrust(IslandData island, UUID target, TrustPermission permission) {
+    public boolean grantMemberPermission(IslandData island, UUID target, TrustPermission permission) {
         boolean changed = false;
         switch (permission) {
-            case BUILD -> changed = island.getTrusted().add(target);
-            case CONTAINER -> changed = island.getTrustedContainers().add(target);
-            case REDSTONE -> changed = island.getTrustedRedstone().add(target);
+            case BUILD -> changed = island.getMemberBuildAccess().add(target);
+            case CONTAINER -> changed = island.getMemberContainerAccess().add(target);
+            case REDSTONE -> changed = island.getMemberRedstoneAccess().add(target);
             case ALL -> {
-                changed |= island.getTrusted().add(target);
-                changed |= island.getTrustedContainers().add(target);
-                changed |= island.getTrustedRedstone().add(target);
+                changed |= island.getMemberBuildAccess().add(target);
+                changed |= island.getMemberContainerAccess().add(target);
+                changed |= island.getMemberRedstoneAccess().add(target);
             }
         }
         if (changed) {
@@ -1391,16 +1396,16 @@ public class IslandService {
         return changed;
     }
 
-    public boolean revokeTrust(IslandData island, UUID target, TrustPermission permission) {
+    public boolean revokeMemberPermission(IslandData island, UUID target, TrustPermission permission) {
         boolean changed = false;
         switch (permission) {
-            case BUILD -> changed = island.getTrusted().remove(target);
-            case CONTAINER -> changed = island.getTrustedContainers().remove(target);
-            case REDSTONE -> changed = island.getTrustedRedstone().remove(target);
+            case BUILD -> changed = island.getMemberBuildAccess().remove(target);
+            case CONTAINER -> changed = island.getMemberContainerAccess().remove(target);
+            case REDSTONE -> changed = island.getMemberRedstoneAccess().remove(target);
             case ALL -> {
-                changed |= island.getTrusted().remove(target);
-                changed |= island.getTrustedContainers().remove(target);
-                changed |= island.getTrustedRedstone().remove(target);
+                changed |= island.getMemberBuildAccess().remove(target);
+                changed |= island.getMemberContainerAccess().remove(target);
+                changed |= island.getMemberRedstoneAccess().remove(target);
             }
         }
         if (changed) {
@@ -1427,11 +1432,11 @@ public class IslandService {
         return true;
     }
 
-    public boolean grantIslandOwnerRole(IslandData island, UUID actor, UUID target) {
+    public boolean grantOwnerRole(IslandData island, UUID actor, UUID target) {
         if (island == null || actor == null || target == null) return false;
         if (!isIslandOwner(island, actor)) return false; // Master oder Owner darf Owner hinzuf\u00fcgen
         if (isIslandMaster(island, target)) return false;
-        boolean changed = island.getIslandOwners().add(target);
+        boolean changed = island.getOwners().add(target);
         if (changed) {
             island.getIslandBanned().remove(target);
             island.setLastActiveAt(System.currentTimeMillis());
@@ -1440,10 +1445,10 @@ public class IslandService {
         return changed;
     }
 
-    public boolean revokeIslandOwnerRole(IslandData island, UUID actor, UUID target) {
+    public boolean revokeOwnerRole(IslandData island, UUID actor, UUID target) {
         if (island == null || actor == null || target == null) return false;
         if (!isIslandMaster(island, actor)) return false; // nur Master darf Owner austragen
-        boolean changed = island.getIslandOwners().remove(target);
+        boolean changed = island.getOwners().remove(target);
         if (changed) {
             island.setLastActiveAt(System.currentTimeMillis());
             save();
@@ -1610,7 +1615,7 @@ public class IslandService {
         Set<UUID> approvers = new HashSet<>();
         if (neighborIsland == null) return approvers;
         approvers.add(neighborIsland.getOwner());
-        approvers.addAll(neighborIsland.getCoOwners());
+        approvers.addAll(neighborIsland.getMasters());
         return approvers;
     }
 
@@ -1774,7 +1779,7 @@ public class IslandService {
         if (!isParcelOwner(island, parcel, actor)) return false;
         boolean changed = switch (role) {
             case OWNER -> parcel.getOwners().add(target);
-            case USER -> parcel.getUsers().add(target);
+            case MEMBER -> parcel.getUsers().add(target);
             case PVP -> parcel.getPvpWhitelist().add(target);
         };
         if (changed) {
@@ -1788,7 +1793,7 @@ public class IslandService {
         if (!isParcelOwner(island, parcel, actor)) return false;
         boolean changed = switch (role) {
             case OWNER -> parcel.getOwners().remove(target);
-            case USER -> parcel.getUsers().remove(target);
+            case MEMBER -> parcel.getUsers().remove(target);
             case PVP -> parcel.getPvpWhitelist().remove(target);
         };
         if (changed) {
@@ -4633,11 +4638,11 @@ public class IslandService {
                 .put("spawn", locationDocument(island.getIslandSpawn()))
                 .put("warp", locationDocument(island.getWarpLocation()))
                 .put("core", locationDocument(island.getCoreLocation()))
-                .put("trusted", stringify(island.getTrusted()))
-                .put("trustedContainers", stringify(island.getTrustedContainers()))
-                .put("trustedRedstone", stringify(island.getTrustedRedstone()))
-                .put("coOwners", stringify(island.getCoOwners()))
-                .put("islandOwners", stringify(island.getIslandOwners()))
+                .put("memberBuildAccess", stringify(island.getMemberBuildAccess()))
+                .put("memberContainerAccess", stringify(island.getMemberContainerAccess()))
+                .put("memberRedstoneAccess", stringify(island.getMemberRedstoneAccess()))
+                .put("masters", stringify(island.getMasters()))
+                .put("owners", stringify(island.getOwners()))
                 .put("islandBanned", stringify(island.getIslandBanned()))
                 .put("unlockedChunks", new ArrayList<>(island.getUnlockedChunks()))
                 .put("generatedChunks", new ArrayList<>(island.getGeneratedChunks()))
@@ -4677,11 +4682,16 @@ public class IslandService {
         island.setIslandSpawn(locationFromDocument(document.get("spawn", Document.class)));
         island.setWarpLocation(locationFromDocument(document.get("warp", Document.class)));
         island.setCoreLocation(locationFromDocument(document.get("core", Document.class)));
-        addUuidStrings((List<String>) document.get("trusted", List.class), island.getTrusted());
-        addUuidStrings((List<String>) document.get("trustedContainers", List.class), island.getTrustedContainers());
-        addUuidStrings((List<String>) document.get("trustedRedstone", List.class), island.getTrustedRedstone());
-        addUuidStrings((List<String>) document.get("coOwners", List.class), island.getCoOwners());
-        addUuidStrings((List<String>) document.get("islandOwners", List.class), island.getIslandOwners());
+        addUuidStrings((List<String>) document.get("memberBuildAccess", List.class), island.getMemberBuildAccess());
+        addUuidStrings((List<String>) document.get("trusted", List.class), island.getMemberBuildAccess());
+        addUuidStrings((List<String>) document.get("memberContainerAccess", List.class), island.getMemberContainerAccess());
+        addUuidStrings((List<String>) document.get("trustedContainers", List.class), island.getMemberContainerAccess());
+        addUuidStrings((List<String>) document.get("memberRedstoneAccess", List.class), island.getMemberRedstoneAccess());
+        addUuidStrings((List<String>) document.get("trustedRedstone", List.class), island.getMemberRedstoneAccess());
+        addUuidStrings((List<String>) document.get("masters", List.class), island.getMasters());
+        addUuidStrings((List<String>) document.get("coOwners", List.class), island.getMasters());
+        addUuidStrings((List<String>) document.get("owners", List.class), island.getOwners());
+        addUuidStrings((List<String>) document.get("islandOwners", List.class), island.getOwners());
         addUuidStrings((List<String>) document.get("islandBanned", List.class), island.getIslandBanned());
         addStrings((List<String>) document.get("unlockedChunks", List.class), island.getUnlockedChunks());
         addStrings((List<String>) document.get("generatedChunks", List.class), island.getGeneratedChunks());

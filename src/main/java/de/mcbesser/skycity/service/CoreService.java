@@ -1027,7 +1027,7 @@ public class CoreService {
       inv.setItem(20, this.named(Material.BLAZE_POWDER, ChatColor.AQUA + "Chunkgrenzen anzeigen", List.of(ChatColor.GRAY + "Partikel an Chunkr\u00e4ndern", ChatColor.GRAY + "Status je Chunkwechsel im Chat", ChatColor.YELLOW + "Klick = an/aus umschalten")));
 
       // Links unten: Berechtigungen
-      inv.setItem(36, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Mitglieder-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All", ChatColor.GRAY + "Rechte per GUI verwalten")));
+      inv.setItem(36, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Member-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All", ChatColor.GRAY + "Rechte per GUI verwalten")));
       inv.setItem(37, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten", ChatColor.GRAY + "f\u00fcr Besucher ohne Rechte")));
       inv.setItem(
          38,
@@ -1378,7 +1378,7 @@ public class CoreService {
          inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
          inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
          inv.setItem(19, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-Men\u00fc", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
-         inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Mitglieder-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All")));
+         inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Member-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All")));
          inv.setItem(21, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
          inv.setItem(22, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner add/remove")));
          inv.setItem(23, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten")));
@@ -1411,7 +1411,7 @@ public class CoreService {
       inv.setItem(12, this.named(Material.LECTERN, ChatColor.GOLD + "Blockwertigkeit", List.of(ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level")));
       inv.setItem(13, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
       inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
-      inv.setItem(19, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Mitglieder-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All")));
+      inv.setItem(19, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Member-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All")));
       inv.setItem(20, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
       inv.setItem(21, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner add/remove")));
       inv.setItem(22, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten")));
@@ -1577,7 +1577,7 @@ public class CoreService {
       inv.setItem(15, this.named(islandEnabled ? Material.LIME_DYE : Material.YELLOW_DYE, (islandEnabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Inselweite Nachtsicht aktivieren", List.of(
          ChatColor.GRAY + "Status: " + ChatColor.WHITE + (islandEnabled ? "bereits aktiv" : "aus"),
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + islandCost + " Erfahrung",
-         ChatColor.GRAY + "Nur Inselbesitzer",
+         ChatColor.GRAY + "Nur Master oder Owner",
          ChatColor.YELLOW + "Klick = fuer ganze Insel kaufen"
       )));
       inv.setItem(29, this.named(chunkEnabled ? Material.BARRIER : Material.GRAY_DYE, (chunkEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Chunk-Nachtsicht deaktivieren", List.of(
@@ -1587,7 +1587,7 @@ public class CoreService {
       )));
       inv.setItem(33, this.named(islandEnabled ? Material.BARRIER : Material.GRAY_DYE, (islandEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Inselweite Nachtsicht deaktivieren", List.of(
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0",
-         ChatColor.GRAY + "Nur Inselbesitzer",
+         ChatColor.GRAY + "Nur Master oder Owner",
          ChatColor.YELLOW + "Klick = inselweite Nachtsicht ausschalten"
       )));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zurueck", List.of(ChatColor.GRAY + "Zum Insel-Shop")));
@@ -1701,8 +1701,8 @@ public class CoreService {
       } else {
          inv.setItem(10, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "GS-Spawn setzen", List.of(ChatColor.GRAY + "Setzt Spawn auf deine Position")));
          inv.setItem(12, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Fremde")));
-         inv.setItem(14, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
-         inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "User vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(14, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Plot-Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "Plot-Member vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
@@ -1868,7 +1868,7 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(
          new CoreService.ParcelModerationInventoryHolder(island.getOwner(), relX, relZ, safeAction.name(), page),
          54,
-         "GS " + (parcel == null ? safeAction.name().toLowerCase(Locale.ROOT) : this.islandService.getParcelDisplayName(parcel) + " " + safeAction.name().toLowerCase(Locale.ROOT)) + " " + (page + 1)
+         "Plot " + (parcel == null ? safeAction.name().toLowerCase(Locale.ROOT) : this.islandService.getParcelDisplayName(parcel) + " " + safeAction.name().toLowerCase(Locale.ROOT)) + " " + (page + 1)
       );
       this.fillWithPanes(inv);
       if (parcel == null) {
@@ -2035,7 +2035,7 @@ public class CoreService {
       candidates.removeIf(px -> px.getName() == null || px.getName().isBlank() || px.getUniqueId().equals(island.getOwner()));
       candidates.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
       List<OfflinePlayer> filtered = candidates.stream().filter(px -> {
-         boolean ownerx = island.getIslandOwners().contains(px.getUniqueId());
+         boolean ownerx = island.getOwners().contains(px.getUniqueId());
          return switch (safeFilter) {
             case "online" -> px.isOnline();
             case "members" -> ownerx;
@@ -2053,7 +2053,7 @@ public class CoreService {
             break;
          }
          OfflinePlayer p = filtered.get(idx);
-         boolean owner = island.getIslandOwners().contains(p.getUniqueId());
+         boolean owner = island.getOwners().contains(p.getUniqueId());
          List<String> lore = new ArrayList<>();
          lore.add(ChatColor.GRAY + "Online: " + (p.isOnline() ? "ja" : "nein"));
          lore.add(ChatColor.GRAY + "Status: " + (owner ? "ist Owner" : "kein Owner"));
@@ -2080,7 +2080,7 @@ public class CoreService {
    public Inventory createIslandMasterMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandMasterMenuInventoryHolder(island.getOwner()), 27, "Master-Rechte");
       this.fillWithPanes(inv);
-      boolean hasInvite = this.islandService.getPendingCoOwnerInviteIsland(viewer.getUniqueId()) != null;
+      boolean hasInvite = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null;
       inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler w\u00e4hlen")));
       inv.setItem(13, this.named(Material.EMERALD, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung vorhanden" : "Keine offene Einladung"), ChatColor.YELLOW + "Klick = annehmen")));
       inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + "Als Master austreten", List.of(ChatColor.YELLOW + "Klick = austreten")));
@@ -2124,12 +2124,12 @@ public class CoreService {
 
    private boolean islandHasTrustPermission(IslandData island, UUID playerId, IslandService.TrustPermission permission) {
       return switch (permission) {
-         case ALL -> island.getTrusted().contains(playerId)
-         || island.getTrustedContainers().contains(playerId)
-         || island.getTrustedRedstone().contains(playerId);
-         case BUILD -> island.getTrusted().contains(playerId);
-         case CONTAINER -> island.getTrustedContainers().contains(playerId);
-         case REDSTONE -> island.getTrustedRedstone().contains(playerId);
+         case ALL -> island.getMemberBuildAccess().contains(playerId)
+         || island.getMemberContainerAccess().contains(playerId)
+         || island.getMemberRedstoneAccess().contains(playerId);
+         case BUILD -> island.getMemberBuildAccess().contains(playerId);
+         case CONTAINER -> island.getMemberContainerAccess().contains(playerId);
+         case REDSTONE -> island.getMemberRedstoneAccess().contains(playerId);
       };
    }
 
@@ -2140,7 +2140,7 @@ public class CoreService {
          new CoreService.ParcelMembersInventoryHolder(island.getOwner(), relX, relZ, role.name(), page, safeFilter),
          54,
          (parcel == null ? "GS " : "GS " + this.islandService.getParcelDisplayName(parcel) + " ")
-            + (role == IslandService.ParcelRole.OWNER ? "Owner " : role == IslandService.ParcelRole.USER ? "User " : "PvP ")
+            + (role == IslandService.ParcelRole.OWNER ? "Plot-Owner " : role == IslandService.ParcelRole.MEMBER ? "Plot-Member " : "PvP ")
             + (page + 1)
       );
       this.fillWithPanes(inv);
@@ -2155,7 +2155,7 @@ public class CoreService {
                px -> {
                   boolean memberx = role == IslandService.ParcelRole.OWNER
                      ? parcel.getOwners().contains(px.getUniqueId())
-                     : role == IslandService.ParcelRole.USER
+                     : role == IslandService.ParcelRole.MEMBER
                      ? parcel.getUsers().contains(px.getUniqueId())
                      : parcel.getPvpWhitelist().contains(px.getUniqueId());
 
@@ -2181,7 +2181,7 @@ public class CoreService {
             OfflinePlayer p = filtered.get(idx);
             boolean member = role == IslandService.ParcelRole.OWNER
                ? parcel.getOwners().contains(p.getUniqueId())
-               : role == IslandService.ParcelRole.USER
+               : role == IslandService.ParcelRole.MEMBER
                ? parcel.getUsers().contains(p.getUniqueId())
                : parcel.getPvpWhitelist().contains(p.getUniqueId());
             boolean self = p.getUniqueId().equals(viewer.getUniqueId());
@@ -2309,7 +2309,7 @@ public class CoreService {
             if (island == null) {
                player.sendMessage(ChatColor.RED + "Insel nicht gefunden.");
             } else if (!this.islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-               player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+               player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
             } else {
                String msg = message == null ? "" : message.trim();
                if (msg.equalsIgnoreCase("abbrechen") || msg.equalsIgnoreCase("cancel")) {
@@ -2346,7 +2346,7 @@ public class CoreService {
          return;
       }
       if (!this.islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-         player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+         player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
          return;
       }
       String msg = message == null ? "" : message.trim();
@@ -2391,7 +2391,7 @@ public class CoreService {
          return;
       }
       if (!this.islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-         player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+         player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
          return;
       }
       String msg = message == null ? "" : message.trim();
@@ -2449,7 +2449,7 @@ public class CoreService {
       if (island == null || parcel == null) {
          player.sendMessage(ChatColor.RED + "Grundst\u00fcck nicht gefunden.");
       } else if (!this.islandService.isParcelOwner(island, parcel, player.getUniqueId()) && !player.isOp()) {
-         player.sendMessage(ChatColor.RED + "Nur GS-Owner.");
+         player.sendMessage(ChatColor.RED + "Nur Plot-Owner.");
       } else {
          String msg = message == null ? "" : message.trim();
          if (msg.equalsIgnoreCase("abbrechen") || msg.equalsIgnoreCase("cancel")) {

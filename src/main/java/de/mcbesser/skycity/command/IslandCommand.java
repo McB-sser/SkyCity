@@ -55,7 +55,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         IslandData island = islandService.getIsland(player.getUniqueId()).orElse(null);
         if ("create".equals(sub)) {
             if (island != null) {
-                player.sendMessage(ChatColor.YELLOW + "Du hast bereits eine Insel oder bist Mitglied.");
+                player.sendMessage(ChatColor.YELLOW + "Du hast bereits eine Insel oder bist Member.");
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return true;
             }
@@ -73,12 +73,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             });
             return true;
         }
-        if (("owneraccept".equals(sub) || "masteraccept".equals(sub))) {
-            handleCoOwnerCommands(player, island, new String[]{"owneraccept"});
+        if ("masteraccept".equals(sub)) {
+            handleMasterCommands(player, island, new String[]{"masteraccept"});
             return true;
         }
         if (island == null) {
-            player.sendMessage(ChatColor.RED + "Du hast noch keine Insel und bist auf keiner Insel Mitglied.");
+            player.sendMessage(ChatColor.RED + "Du hast noch keine Insel und bist auf keiner Insel Member.");
             player.sendMessage(ChatColor.YELLOW + "Nutze /is create um eine Insel zu erstellen.");
             return true;
         }
@@ -153,10 +153,9 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 }
             }
             case "title" -> handleTitleCommand(player, island, args);
-            case "ownerinvite", "owneraccept", "ownerleave", "masterinvite", "masteraccept", "masterleave" -> handleCoOwnerCommands(player, island, args);
+            case "masterinvite", "masteraccept", "masterleave" -> handleMasterCommands(player, island, args);
             case "owner" -> handleIslandOwnerRoleCommand(player, island, args);
-            case "trust", "untrust", "member", "unmember" -> handleTrustCommand(player, island, args,
-                    args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("member"));
+            case "member", "unmember" -> handleTrustCommand(player, island, args, args[0].equalsIgnoreCase("member"));
             case "kick", "ban", "unban" -> handleIslandKickBan(player, island, args);
             case "pkick", "pban", "punban" -> handleParcelKickBan(player, island, args);
             case "plot" -> handlePlotRole(player, island, args);
@@ -167,7 +166,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
 
     private void handleTitleCommand(Player player, IslandData island, String[] args) {
         if (!islandService.isIslandOwner(island, player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+            player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
             return;
         }
         if (args.length < 2) {
@@ -224,13 +223,10 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private void handleCoOwnerCommands(Player player, IslandData island, String[] args) {
-        String sub = args[0].toLowerCase(Locale.ROOT)
-                .replace("masterinvite", "ownerinvite")
-                .replace("masteraccept", "owneraccept")
-                .replace("masterleave", "ownerleave");
+    private void handleMasterCommands(Player player, IslandData island, String[] args) {
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "ownerinvite" -> {
+            case "masterinvite" -> {
                 if (island == null) {
                     player.sendMessage(ChatColor.RED + "Du hast keine eigene Insel.");
                     player.sendMessage(ChatColor.YELLOW + "Nutze /is create.");
@@ -241,32 +237,32 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 if (args.length < 2) {
-                    player.sendMessage(ChatColor.RED + "Nutze /is ownerinvite <spieler>");
+                    player.sendMessage(ChatColor.RED + "Nutze /is masterinvite <spieler>");
                     return;
                 }
                 OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
                 if (target.getUniqueId().equals(player.getUniqueId())) {
-                    player.sendMessage(ChatColor.RED + "Du bist bereits Owner.");
+                    player.sendMessage(ChatColor.RED + "Du bist bereits Master.");
                     return;
                 }
-                islandService.queueCoOwnerInvite(island, player.getUniqueId(), target.getUniqueId());
+                islandService.queueMasterInvite(island, player.getUniqueId(), target.getUniqueId());
                 player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + (target.getName() == null ? "?" : target.getName()) + ".");
                 Player online = Bukkit.getPlayer(target.getUniqueId());
                 if (online != null) {
                     online.sendMessage(ChatColor.GOLD + player.getName() + " m\u00f6chte dich als Master auf seine Insel einladen.");
-                    online.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept (oder /is owneraccept) zum Best\u00e4tigen.");
+                    online.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept zum Best\u00e4tigen.");
                     online.sendMessage(ChatColor.RED + "WICHTIG: Als Master kannst du nur 1 Insel haben.");
                     online.sendMessage(ChatColor.RED + "Wenn du aktuell Master einer anderen Insel bist, verl\u00e4sst du diese beim Annehmen.");
                     online.sendMessage(ChatColor.RED + "Falls dort danach kein Master mehr \u00fcbrig bleibt, wird diese Insel gel\u00f6scht.");
                 }
             }
-            case "owneraccept" -> {
-                IslandData inviteIsland = islandService.getPendingCoOwnerInviteIsland(player.getUniqueId());
+            case "masteraccept" -> {
+                IslandData inviteIsland = islandService.getPendingMasterInviteIsland(player.getUniqueId());
                 if (inviteIsland == null) {
                     player.sendMessage(ChatColor.RED + "Keine offene Master-Einladung.");
                     return;
                 }
-                boolean ok = islandService.acceptCoOwnerInvite(player.getUniqueId());
+                boolean ok = islandService.acceptMasterInvite(player.getUniqueId());
                 if (!ok) {
                     player.sendMessage(ChatColor.RED + "Einladung konnte nicht angenommen werden.");
                     return;
@@ -274,8 +270,8 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.GREEN + "Du bist der Insel als Master beigetreten.");
                 if (inviteIsland.getIslandSpawn() != null) player.teleport(inviteIsland.getIslandSpawn());
             }
-            case "ownerleave" -> {
-                if (islandService.leaveCoOwnership(player.getUniqueId())) {
+            case "masterleave" -> {
+                if (islandService.leaveMasterRole(player.getUniqueId())) {
                     player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
                     player.teleport(islandService.getSpawnLocation());
                     player.sendMessage(ChatColor.YELLOW + "Nutze /is create um eine eigene Insel zu erstellen.");
@@ -309,7 +305,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.YELLOW + "Spieler ist bereits Master.");
                     return;
                 }
-                boolean changed = islandService.grantIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId());
+                boolean changed = islandService.grantOwnerRole(island, player.getUniqueId(), target.getUniqueId());
                 player.sendMessage(changed ? ChatColor.GREEN + "Owner hinzugef\u00fcgt." : ChatColor.YELLOW + "Keine \u00c4nderung.");
             }
             case "remove" -> {
@@ -317,7 +313,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.RED + "Nur Master k\u00f6nnen Owner entfernen.");
                     return;
                 }
-                boolean changed = islandService.revokeIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId());
+                boolean changed = islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId());
                 player.sendMessage(changed ? ChatColor.YELLOW + "Owner entfernt." : ChatColor.RED + "Owner konnte nicht entfernt werden.");
             }
             default -> player.sendMessage(ChatColor.RED + "Nutze /is owner <add|remove> <spieler>");
@@ -330,12 +326,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (!islandService.isIslandOwner(island, player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+            player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
             return;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
         if (islandService.isIslandOwner(island, target.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Insel-Owner/Co-Owner k\u00f6nnen nicht gebannt oder gekickt werden.");
+            player.sendMessage(ChatColor.RED + "Master und Owner k\u00f6nnen nicht gebannt oder gekickt werden.");
             return;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
@@ -367,7 +363,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         int relZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
         var parcel = islandService.getParcel(island, relX, relZ);
         if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Du bist hier kein GS-Owner.");
+            player.sendMessage(ChatColor.RED + "Du bist hier kein Plot-Owner.");
             return;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
@@ -393,7 +389,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
 
     private void handlePlotRole(Player player, IslandData island, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Nutze /is plot <wand|create|delete|list|owner|user> ...");
+            player.sendMessage(ChatColor.RED + "Nutze /is plot <wand|create|delete|list|owner|member> ...");
             return;
         }
         String sub = args[1].toLowerCase(Locale.ROOT);
@@ -404,7 +400,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         if ("create".equals(sub)) {
             if (!islandService.isIslandOwner(island, player.getUniqueId())) {
-                player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                 return;
             }
             Location pos1 = islandService.getPlotSelectionPos1(player.getUniqueId());
@@ -446,21 +442,21 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length < 4) {
-            player.sendMessage(ChatColor.RED + "Nutze /is plot <owner|user> <add|remove> <spieler>");
+            player.sendMessage(ChatColor.RED + "Nutze /is plot <owner|member> <add|remove> <spieler>");
             return;
         }
         var parcel = islandService.getParcelAt(island, player.getLocation());
         if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Du bist hier kein GS-Owner.");
+            player.sendMessage(ChatColor.RED + "Du bist hier kein Plot-Owner.");
             return;
         }
         IslandService.ParcelRole role = switch (sub) {
             case "owner" -> IslandService.ParcelRole.OWNER;
-            case "user" -> IslandService.ParcelRole.USER;
+            case "member" -> IslandService.ParcelRole.MEMBER;
             default -> null;
         };
         if (role == null) {
-            player.sendMessage(ChatColor.RED + "Rolle muss owner oder user sein.");
+            player.sendMessage(ChatColor.RED + "Rolle muss owner oder member sein.");
             return;
         }
         Boolean add = switch (args[2].toLowerCase(Locale.ROOT)) {
@@ -476,12 +472,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         boolean changed = add
                 ? islandService.grantParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role)
                 : islandService.revokeParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role);
-        player.sendMessage(changed ? ChatColor.GREEN + "GS-Recht aktualisiert." : ChatColor.YELLOW + "Keine \u00c4nderung.");
+        player.sendMessage(changed ? ChatColor.GREEN + "Plot-Recht aktualisiert." : ChatColor.YELLOW + "Keine \u00c4nderung.");
     }
 
     private void handleTrustCommand(Player player, IslandData island, String[] args, boolean grant) {
         if (!islandService.isIslandOwner(island, player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+            player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
             return;
         }
         if (args.length < 2) {
@@ -490,11 +486,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
         if (target.getUniqueId().equals(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Du bist Besitzer.");
+            player.sendMessage(ChatColor.RED + "Du bist bereits Master oder Owner.");
             return;
         }
         if (islandService.isIslandOwner(island, target.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Dieser Spieler ist bereits Owner/Co-Owner.");
+            player.sendMessage(ChatColor.RED + "Dieser Spieler ist bereits Master oder Owner.");
             return;
         }
         IslandService.TrustPermission permission = IslandService.TrustPermission.ALL;
@@ -507,14 +503,14 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
         }
         boolean changed = grant
-                ? islandService.grantTrust(island, target.getUniqueId(), permission)
-                : islandService.revokeTrust(island, target.getUniqueId(), permission);
+                ? islandService.grantMemberPermission(island, target.getUniqueId(), permission)
+                : islandService.revokeMemberPermission(island, target.getUniqueId(), permission);
         if (!changed) {
             player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
             return;
         }
         player.sendMessage((grant ? ChatColor.GREEN : ChatColor.YELLOW)
-                + (grant ? "Mitgliedsrecht vergeben: " : "Mitgliedsrecht entfernt: ")
+                + (grant ? "Member-Recht vergeben: " : "Member-Recht entfernt: ")
                 + permission.name().toLowerCase(Locale.ROOT) + " f\u00fcr " + target.getName());
     }
 
@@ -530,27 +526,27 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             return List.of();
         }
-        if (args.length == 1) return List.of("create", "home", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "ownerinvite", "owneraccept", "ownerleave", "masterinvite", "masteraccept", "masterleave", "owner", "member", "unmember", "trust", "untrust", "kick", "ban", "unban", "pkick", "pban", "punban", "plot");
+        if (args.length == 1) return List.of("create", "home", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masterinvite", "masteraccept", "masterleave", "owner", "member", "unmember", "kick", "ban", "unban", "pkick", "pban", "punban", "plot");
         if (args.length == 2 && "title".equalsIgnoreCase(args[0])) return List.of("clear");
-        if (args.length == 2 && "ownerinvite".equalsIgnoreCase(args[0])) {
+        if (args.length == 2 && "masterinvite".equalsIgnoreCase(args[0])) {
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
-        if (args.length == 2 && ("trust".equalsIgnoreCase(args[0]) || "untrust".equalsIgnoreCase(args[0]) || "member".equalsIgnoreCase(args[0]) || "unmember".equalsIgnoreCase(args[0]))) {
+        if (args.length == 2 && ("member".equalsIgnoreCase(args[0]) || "unmember".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
-        if (args.length == 2 && "plot".equalsIgnoreCase(args[0])) return List.of("wand", "create", "delete", "list", "owner", "user");
+        if (args.length == 2 && "plot".equalsIgnoreCase(args[0])) return List.of("wand", "create", "delete", "list", "owner", "member");
         if (args.length == 2 && "owner".equalsIgnoreCase(args[0])) return List.of("add", "remove");
-        if (args.length == 3 && "plot".equalsIgnoreCase(args[0]) && ("owner".equalsIgnoreCase(args[1]) || "user".equalsIgnoreCase(args[1]))) return List.of("add", "remove");
+        if (args.length == 3 && "plot".equalsIgnoreCase(args[0]) && ("owner".equalsIgnoreCase(args[1]) || "member".equalsIgnoreCase(args[1]))) return List.of("add", "remove");
         if (args.length == 2 && List.of("kick","ban","unban","pkick","pban","punban").contains(args[0].toLowerCase(Locale.ROOT))) {
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
-        if (args.length == 4 && "plot".equalsIgnoreCase(args[0]) && ("owner".equalsIgnoreCase(args[1]) || "user".equalsIgnoreCase(args[1])) ) {
+        if (args.length == 4 && "plot".equalsIgnoreCase(args[0]) && ("owner".equalsIgnoreCase(args[1]) || "member".equalsIgnoreCase(args[1])) ) {
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
@@ -560,7 +556,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
-        if (args.length == 3 && ("trust".equalsIgnoreCase(args[0]) || "untrust".equalsIgnoreCase(args[0]) || "member".equalsIgnoreCase(args[0]) || "unmember".equalsIgnoreCase(args[0]))) {
+        if (args.length == 3 && ("member".equalsIgnoreCase(args[0]) || "unmember".equalsIgnoreCase(args[0]))) {
             return List.of("all", "build", "container", "redstone");
         }
         return List.of();

@@ -728,7 +728,7 @@ public class PlayerListener implements Listener {
     }
 
     private void sendIslandCreateHint(Player player) {
-        player.sendMessage(ChatColor.YELLOW + "Du hast noch keine Insel und bist auf keiner Insel Mitglied.");
+        player.sendMessage(ChatColor.YELLOW + "Du hast noch keine Insel und bist auf keiner Insel Member.");
         player.sendMessage(ChatColor.GRAY + "Nutze /is create oder klicke hier:");
         TextComponent clickable = new TextComponent(ChatColor.GOLD + "" + ChatColor.BOLD + "[Insel erstellen]");
         clickable.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/is create"));

@@ -272,7 +272,7 @@ public class ProtectionListener implements Listener {
         if (coreService.isCoreBlock(block)) {
             if (!islandService.isIslandOwner(island, player.getUniqueId())) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Nur der Insel-Owner kann den Core abbauen.");
+                player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen den Core abbauen.");
                 return;
             }
             event.setDropItems(false);

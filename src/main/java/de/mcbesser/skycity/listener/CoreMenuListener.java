@@ -220,7 +220,7 @@ public class CoreMenuListener implements Listener {
             }
             case 14 -> {
                 if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                    player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                     player.openInventory(coreService.createIslandSettingsMenu(island));
                     return;
                 }
@@ -228,7 +228,7 @@ public class CoreMenuListener implements Listener {
             }
             case 15 -> {
                 if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                    player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                     player.openInventory(coreService.createIslandSettingsMenu(island));
                     return;
                 }
@@ -353,7 +353,7 @@ public class CoreMenuListener implements Listener {
                     ChatColor.GOLD + "PvP-Rangliste resetten",
                     java.util.List.of(
                             ChatColor.GRAY + "Kills auf diesem GS zur\u00fccksetzen",
-                            ChatColor.YELLOW + "Nur f\u00fcr GS-Owner"
+                            ChatColor.YELLOW + "Nur f\u00fcr Plot-Owner"
                     )));
             inventory.setItem(38, namedItem(
                     Material.IRON_SWORD,
@@ -517,7 +517,7 @@ public class CoreMenuListener implements Listener {
             if (index < coreService.getBiomeOptions().size()) {
                 Biome biome = coreService.getBiomeOptions().get(index);
                 if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                    player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                     return;
                 }
                 if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) {
@@ -581,7 +581,7 @@ public class CoreMenuListener implements Listener {
         }
         if (raw == 12) {
             if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                 return;
             }
             player.openInventory(coreService.createTimeModeShopMenu(island, "shop"));
@@ -613,7 +613,7 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
         if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-            player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+            player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
             return;
         }
         int raw = event.getRawSlot();
@@ -666,7 +666,7 @@ public class CoreMenuListener implements Listener {
         }
         if (raw == 15) {
             if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                 return;
             }
             long cost = islandService.getNightVisionCost(true);
@@ -689,7 +689,7 @@ public class CoreMenuListener implements Listener {
         }
         if (raw == 33) {
             if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Nur Inselbesitzer.");
+                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                 return;
             }
             if (!islandService.disableIslandNightVision(island)) {
@@ -768,7 +768,7 @@ public class CoreMenuListener implements Listener {
             case 16 -> {
                 var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
-                    player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.USER, 0));
+                    player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.MEMBER, 0));
                     return;
                 }
             }
@@ -968,8 +968,8 @@ public class CoreMenuListener implements Listener {
         if (target == null || target.getUniqueId() == null || islandService.isIslandOwner(island, target.getUniqueId())) return;
 
         boolean changed = event.isRightClick()
-                ? islandService.revokeTrust(island, target.getUniqueId(), permission)
-                : islandService.grantTrust(island, target.getUniqueId(), permission);
+                ? islandService.revokeMemberPermission(island, target.getUniqueId(), permission)
+                : islandService.grantMemberPermission(island, target.getUniqueId(), permission);
         if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
         islandService.save();
         player.openInventory(coreService.createIslandTrustMenu(player, island, permission, holder.page(), holder.filter()));
@@ -1003,8 +1003,8 @@ public class CoreMenuListener implements Listener {
         if (target == null || target.getUniqueId() == null) return;
 
         boolean changed = event.isRightClick()
-                ? islandService.revokeIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId())
-                : islandService.grantIslandOwnerRole(island, player.getUniqueId(), target.getUniqueId());
+                ? islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId())
+                : islandService.grantOwnerRole(island, player.getUniqueId(), target.getUniqueId());
         if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
         player.openInventory(coreService.createIslandOwnersMenu(player, island, holder.page(), holder.filter()));
     }
@@ -1016,8 +1016,8 @@ public class CoreMenuListener implements Listener {
         switch (event.getRawSlot()) {
             case 11 -> player.openInventory(coreService.createIslandMasterInviteMenu(player, island, 0));
             case 13 -> {
-                IslandData inviteIsland = islandService.getPendingCoOwnerInviteIsland(player.getUniqueId());
-                boolean ok = islandService.acceptCoOwnerInvite(player.getUniqueId());
+                IslandData inviteIsland = islandService.getPendingMasterInviteIsland(player.getUniqueId());
+                boolean ok = islandService.acceptMasterInvite(player.getUniqueId());
                 if (ok) {
                     player.sendMessage(ChatColor.GREEN + "Du bist der Insel als Master beigetreten.");
                     if (inviteIsland != null && inviteIsland.getIslandSpawn() != null) player.teleport(inviteIsland.getIslandSpawn());
@@ -1027,7 +1027,7 @@ public class CoreMenuListener implements Listener {
                 player.openInventory(coreService.createIslandMasterMenu(player, island));
             }
             case 15 -> {
-                if (islandService.leaveCoOwnership(player.getUniqueId())) {
+                if (islandService.leaveMasterRole(player.getUniqueId())) {
                     player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
                     player.teleport(islandService.getSpawnLocation());
                 } else {
@@ -1072,7 +1072,7 @@ public class CoreMenuListener implements Listener {
             }
         }
         if (targetId == null) return;
-        islandService.queueCoOwnerInvite(island, player.getUniqueId(), targetId);
+        islandService.queueMasterInvite(island, player.getUniqueId(), targetId);
         var target = player.getServer().getPlayer(targetId);
         String targetName = target != null ? target.getName() : String.valueOf(targetId);
         player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + targetName + ".");
