@@ -433,6 +433,7 @@
       BREAD: "Brot",
       CHEST: "Truhe",
       BARREL: "Fass",
+      RAIL: "Schiene",
       SLIME_BALL: "Schleimball",
       SMOOTH_STONE_SLAB: "Glatte Steinplatte",
       LEATHER: "Leder",
@@ -455,6 +456,8 @@
       { key: "HOPPER", name: "Trichter", baseLimit: 8, step: 4, maxTier: 24, note: "Technikpfad mit Eisen, Truhen und Redstone." },
       { key: "PISTON", name: "Kolben", baseLimit: 16, step: 4, maxTier: 24, note: "Steinlastig mit Metall, Redstone und Schleim." },
       { key: "ARMOR_STAND", name: "Ruestungsstaender", baseLimit: 4, step: 2, maxTier: 14, note: "Dekoausbau mit Holzstoecken, Steinplatten und Leder." },
+      { key: "MINECART", name: "Minecartlimit", baseLimit: 8, step: 4, maxTier: 9, note: "Technikpfad mit Eisen, Schienen und Redstone." },
+      { key: "BOAT", name: "Bootlimit", baseLimit: 6, step: 3, maxTier: 20, note: "Transportpfad mit Holz, Kisten und Faessern." },
       { key: "OBSERVER", name: "Observer", baseLimit: 12, step: 6, maxTier: 20, note: "Spuerbar spaeter Technikpfad mit Quartz und Redstone." },
       { key: "DISPENSER", name: "Dispenser", baseLimit: 8, step: 4, maxTier: 20, note: "Stein + Redstone + Faden, mit Boegen in hoeheren Stufen." },
       { key: "CACTUS", name: "Kaktus", baseLimit: 32, step: 32, maxTier: 24, note: "Massenfarm mit sehr hohen Stueckzahlen." },
@@ -506,6 +509,8 @@
         case "CONTAINER": return Math.max(0, milestone);
         case "HOPPER":
         case "PISTON":
+        case "MINECART":
+        case "BOAT":
         case "OBSERVER":
         case "DISPENSER": return Math.max(0, (milestone * 2) - 1);
         case "ARMOR_STAND": return Math.max(0, milestone + Math.floor(milestone / 2));
@@ -625,6 +630,21 @@
           materials.STICK = scaledMaterial(tier, 2624, 1.38);
           materials.SMOOTH_STONE_SLAB = scaledMaterial(tier, 320, 1.28);
           if (tier >= 3) materials.LEATHER = scaledMaterial(tier - 2, 72, 1.24);
+          break;
+        case "MINECART":
+          islandLevel = scaledLong(tier, 108, 1.20);
+          experience = scaledLong(tier, 420, 1.26);
+          materials.IRON_INGOT = scaledMaterial(tier, 4096, 1.30);
+          materials.RAIL = scaledMaterial(tier, 2048, 1.28);
+          materials.REDSTONE = scaledMaterial(tier, 2048, 1.27);
+          if (tier >= 4) materials.CHEST = scaledMaterial(tier - 3, 24, 1.22);
+          break;
+        case "BOAT":
+          islandLevel = scaledLong(tier, 82, 1.18);
+          experience = scaledLong(tier, 300, 1.22);
+          materials.OAK_LOG = scaledMaterial(tier, 4096, 1.40);
+          materials.CHEST = scaledMaterial(tier, 16, 1.22);
+          if (tier >= 3) materials.BARREL = scaledMaterial(tier - 2, 16, 1.20);
           break;
         case "OBSERVER":
           islandLevel = scaledLong(tier, 140, 1.22);

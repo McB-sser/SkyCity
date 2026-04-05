@@ -118,6 +118,8 @@ public class IslandService {
         HOPPER("hopper", "Trichter", Material.HOPPER, 8, 4, 24),
         PISTON("piston", "Kolben", Material.PISTON, 16, 4, 24),
         ARMOR_STAND("armor_stand", "Ruestungsstaender", Material.ARMOR_STAND, 4, 2, 14),
+        MINECART("minecart", "Minecartlimit", Material.MINECART, 8, 4, 9),
+        BOAT("boat", "Bootlimit", Material.OAK_BOAT, 6, 3, 20),
         OBSERVER("observer", "Observer", Material.OBSERVER, 12, 6, 20),
         DISPENSER("dispenser", "Dispenser", Material.DISPENSER, 8, 4, 20),
         CACTUS("cactus", "Kaktus", Material.CACTUS, 32, 32, 24),
@@ -3187,6 +3189,8 @@ public class IslandService {
                 getCurrentUpgradeLimit(island, UpgradeBranch.HOPPER),
                 getCurrentUpgradeLimit(island, UpgradeBranch.PISTON),
                 getCurrentUpgradeLimit(island, UpgradeBranch.ARMOR_STAND),
+                getCurrentUpgradeLimit(island, UpgradeBranch.MINECART),
+                getCurrentUpgradeLimit(island, UpgradeBranch.BOAT),
                 getCurrentUpgradeLimit(island, UpgradeBranch.OBSERVER),
                 getCurrentUpgradeLimit(island, UpgradeBranch.DISPENSER),
                 getCurrentUpgradeLimit(island, UpgradeBranch.CACTUS),
@@ -3229,7 +3233,7 @@ public class IslandService {
             case CHUNKS -> milestone * 24;
             case GOLEM, VILLAGER -> Math.max(0, milestone - 1);
             case CONTAINER -> Math.max(0, milestone);
-            case HOPPER, PISTON, OBSERVER, DISPENSER -> Math.max(0, (milestone * 2) - 1);
+            case HOPPER, PISTON, MINECART, BOAT, OBSERVER, DISPENSER -> Math.max(0, (milestone * 2) - 1);
             case ARMOR_STAND -> Math.max(0, milestone + milestone / 2);
             case CACTUS, KELP, BAMBOO -> Math.max(0, milestone * 2);
         };
@@ -3289,6 +3293,8 @@ public class IslandService {
             case HOPPER -> scaledLong(nextTier, 110L, 1.20D);
             case PISTON -> scaledLong(nextTier, 108L, 1.20D);
             case ARMOR_STAND -> scaledLong(nextTier, 75L, 1.17D);
+            case MINECART -> scaledLong(nextTier, 108L, 1.20D);
+            case BOAT -> scaledLong(nextTier, 82L, 1.18D);
             case OBSERVER -> scaledLong(nextTier, 140L, 1.22D);
             case DISPENSER -> scaledLong(nextTier, 108L, 1.20D);
             case CACTUS, KELP, BAMBOO -> scaledLong(nextTier, 90L, 1.18D);
@@ -3299,7 +3305,8 @@ public class IslandService {
             case GOLEM -> scaledLong(nextTier, 480L, 1.28D);
             case VILLAGER -> scaledLong(nextTier, 380L, 1.25D);
             case CONTAINER -> scaledLong(nextTier, 340L, 1.23D);
-            case HOPPER, PISTON, DISPENSER -> scaledLong(nextTier, 420L, 1.26D);
+            case HOPPER, PISTON, MINECART, DISPENSER -> scaledLong(nextTier, 420L, 1.26D);
+            case BOAT -> scaledLong(nextTier, 300L, 1.22D);
             case ARMOR_STAND -> scaledLong(nextTier, 260L, 1.22D);
             case OBSERVER -> scaledLong(nextTier, 560L, 1.29D);
             case CACTUS, KELP, BAMBOO -> scaledLong(nextTier, 280L, 1.23D);
@@ -3352,6 +3359,17 @@ public class IslandService {
                 materials.put(Material.STICK, scaledMaterial(nextTier, 2624, 1.38D));
                 materials.put(Material.SMOOTH_STONE_SLAB, scaledMaterial(nextTier, 320, 1.28D));
                 if (nextTier >= 3) materials.put(Material.LEATHER, scaledMaterial(nextTier - 2, 72, 1.24D));
+            }
+            case MINECART -> {
+                materials.put(Material.IRON_INGOT, scaledMaterial(nextTier, 4096, 1.30D));
+                materials.put(Material.RAIL, scaledMaterial(nextTier, 2048, 1.28D));
+                materials.put(Material.REDSTONE, scaledMaterial(nextTier, 2048, 1.27D));
+                if (nextTier >= 4) materials.put(Material.CHEST, scaledMaterial(nextTier - 3, 24, 1.22D));
+            }
+            case BOAT -> {
+                materials.put(Material.OAK_LOG, scaledMaterial(nextTier, 4096, 1.40D));
+                materials.put(Material.CHEST, scaledMaterial(nextTier, 16, 1.22D));
+                if (nextTier >= 3) materials.put(Material.BARREL, scaledMaterial(nextTier - 2, 16, 1.20D));
             }
             case OBSERVER -> {
                 materials.put(Material.COBBLESTONE, scaledMaterial(nextTier, 1408, 1.28D));
@@ -3517,10 +3535,22 @@ public class IslandService {
                 .filter(e -> e.getScoreboardTags().stream().noneMatch(tag -> tag.startsWith("skycity_")))
                 .count();
     }
+    public int getMinecartCount(IslandData island) {
+        return (int) getEntitiesInIsland(island).stream()
+                .filter(e -> e instanceof org.bukkit.entity.Minecart)
+                .count();
+    }
+    public int getBoatCount(IslandData island) {
+        return (int) getEntitiesInIsland(island).stream()
+                .filter(e -> e instanceof org.bukkit.entity.Boat)
+                .count();
+    }
     public boolean isWithinAnimalLimit(IslandData island) { return getAnimalCount(island) < getCurrentLevelDef(island).getAnimalLimit(); }
     public boolean isWithinGolemLimit(IslandData island) { return getGolemCount(island) < getCurrentLevelDef(island).getGolemLimit(); }
     public boolean isWithinVillagerLimit(IslandData island) { return getVillagerCount(island) < getCurrentLevelDef(island).getVillagerLimit(); }
     public boolean isWithinArmorStandLimit(IslandData island) { return getArmorStandCount(island) < getCurrentLevelDef(island).getArmorStandLimit(); }
+    public boolean isWithinMinecartLimit(IslandData island) { return getMinecartCount(island) < getCurrentLevelDef(island).getMinecartLimit(); }
+    public boolean isWithinBoatLimit(IslandData island) { return getBoatCount(island) < getCurrentLevelDef(island).getBoatLimit(); }
 
     public boolean isTrackedGolem(EntityType type) {
         if (type == null) return false;

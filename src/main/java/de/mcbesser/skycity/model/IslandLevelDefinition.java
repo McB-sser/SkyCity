@@ -15,6 +15,8 @@ public class IslandLevelDefinition {
     private final int hopperLimit;
     private final int pistonLimit;
     private final int armorStandLimit;
+    private final int minecartLimit;
+    private final int boatLimit;
     private final int observerLimit;
     private final int dispenserLimit;
     private final int cactusLimit;
@@ -22,8 +24,8 @@ public class IslandLevelDefinition {
     private final int bambooLimit;
 
     public IslandLevelDefinition(int level, Map<Material, Integer> requirements, int chunkUnlocksGranted,
-                                 int animalLimit, int golemLimit, int villagerLimit, int hopperLimit, int pistonLimit, int armorStandLimit, int observerLimit,
-                                 int dispenserLimit, int cactusLimit, int kelpLimit, int bambooLimit) {
+                                 int animalLimit, int golemLimit, int villagerLimit, int hopperLimit, int pistonLimit, int armorStandLimit,
+                                 int minecartLimit, int boatLimit, int observerLimit, int dispenserLimit, int cactusLimit, int kelpLimit, int bambooLimit) {
         this.level = level;
         this.requirements = requirements;
         this.chunkUnlocksGranted = chunkUnlocksGranted;
@@ -33,6 +35,8 @@ public class IslandLevelDefinition {
         this.hopperLimit = hopperLimit;
         this.pistonLimit = pistonLimit;
         this.armorStandLimit = armorStandLimit;
+        this.minecartLimit = minecartLimit;
+        this.boatLimit = boatLimit;
         this.observerLimit = observerLimit;
         this.dispenserLimit = dispenserLimit;
         this.cactusLimit = cactusLimit;
@@ -49,6 +53,8 @@ public class IslandLevelDefinition {
     public int getHopperLimit() { return hopperLimit; }
     public int getPistonLimit() { return pistonLimit; }
     public int getArmorStandLimit() { return armorStandLimit; }
+    public int getMinecartLimit() { return minecartLimit; }
+    public int getBoatLimit() { return boatLimit; }
     public int getObserverLimit() { return observerLimit; }
     public int getDispenserLimit() { return dispenserLimit; }
     public int getCactusLimit() { return cactusLimit; }
@@ -57,7 +63,7 @@ public class IslandLevelDefinition {
 
     public static Map<Integer, IslandLevelDefinition> defaults() {
         Map<Integer, IslandLevelDefinition> defs = new LinkedHashMap<>();
-        defs.put(1, new IslandLevelDefinition(1, Map.of(), 0, 12, 2, 2, 8, 16, 4, 12, 8, 32, 64, 64));
+        defs.put(1, new IslandLevelDefinition(1, Map.of(), 0, 12, 2, 2, 8, 16, 4, 8, 6, 12, 8, 32, 64, 64));
         for (int level = 2; level <= 12; level++) {
             int step = level - 1;
             defs.put(level, new IslandLevelDefinition(
@@ -70,6 +76,8 @@ public class IslandLevelDefinition {
                     8,
                     16,
                     4,
+                    8,
+                    6,
                     12,
                     8,
                     32,

@@ -756,6 +756,8 @@ public class CoreService {
       lore.add(ChatColor.GREEN + "Trichter: " + ChatColor.WHITE + this.islandService.getCachedHopperCount(island) + "/" + current.getHopperLimit());
       lore.add(ChatColor.GREEN + "Kolben: " + ChatColor.WHITE + this.islandService.getCachedPistonCount(island) + "/" + current.getPistonLimit());
       lore.add(ChatColor.GREEN + "Ruestungsstaender: " + ChatColor.WHITE + this.islandService.getArmorStandCount(island) + "/" + current.getArmorStandLimit());
+      lore.add(ChatColor.GREEN + "Minecarts: " + ChatColor.WHITE + this.islandService.getMinecartCount(island) + "/" + current.getMinecartLimit());
+      lore.add(ChatColor.GREEN + "Boote: " + ChatColor.WHITE + this.islandService.getBoatCount(island) + "/" + current.getBoatLimit());
       lore.add(ChatColor.GREEN + "Observer: " + ChatColor.WHITE + this.islandService.getCachedObserverCount(island) + "/" + current.getObserverLimit());
       lore.add(ChatColor.GREEN + "Dispenser: " + ChatColor.WHITE + this.islandService.getCachedDispenserCount(island) + "/" + current.getDispenserLimit());
       lore.add(ChatColor.GREEN + "Kaktus: " + ChatColor.WHITE + this.islandService.getCachedCactusCount(island) + "/" + current.getCactusLimit());
@@ -3108,6 +3110,16 @@ public class CoreService {
    public void showArmorStandLimitHint(Player player, IslandData island) {
       if (player == null || island == null) return;
       this.showLimitHint(player, "Ruestungsstaender", this.islandService.getArmorStandCount(island), this.islandService.getCurrentLevelDef(island).getArmorStandLimit());
+   }
+
+   public void showMinecartLimitHint(Player player, IslandData island) {
+      if (player == null || island == null) return;
+      this.showLimitHint(player, "Minecarts", this.islandService.getMinecartCount(island), this.islandService.getCurrentLevelDef(island).getMinecartLimit());
+   }
+
+   public void showBoatLimitHint(Player player, IslandData island) {
+      if (player == null || island == null) return;
+      this.showLimitHint(player, "Boote", this.islandService.getBoatCount(island), this.islandService.getCurrentLevelDef(island).getBoatLimit());
    }
 
    private void showLimitHint(Player player, String label, int used, int limit) {

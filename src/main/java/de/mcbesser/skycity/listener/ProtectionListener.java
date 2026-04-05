@@ -50,6 +50,7 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.vehicle.VehicleCreateEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -996,8 +997,9 @@ public class ProtectionListener implements Listener {
         Block block = event.getClickedBlock();
         Player player = event.getPlayer();
         if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
+        ItemStack item = event.getItem();
 
-        if (event.getItem() != null && event.getItem().getType() == Material.ARMOR_STAND) {
+        if (item != null && item.getType() == Material.ARMOR_STAND) {
             if (player.isOp()) return;
             Location placeLocation = block.getRelative(event.getBlockFace()).getLocation();
             if (islandService.isInSpawnPlot(placeLocation)) {
@@ -1044,6 +1046,61 @@ public class ProtectionListener implements Listener {
             event.setUseItemInHand(Result.DENY);
             islandService.markIslandActivity(player.getUniqueId());
             coreService.showArmorStandLimitHint(player, island);
+            return;
+        }
+
+        if (item != null && (isMinecartItem(item.getType()) || isBoatItem(item.getType()))) {
+            if (player.isOp()) return;
+            Location placeLocation = isMinecartItem(item.getType())
+                    ? block.getLocation()
+                    : block.getRelative(event.getBlockFace()).getLocation();
+            if (islandService.isInSpawnPlot(placeLocation)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Spawn ist geschuetzt.");
+                return;
+            }
+            IslandData island = islandService.getIslandAt(placeLocation);
+            if (island == null) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Nur auf Inseln bauen.");
+                return;
+            }
+            ParcelData parcel = islandService.getParcelAt(island, placeLocation);
+            if (parcel != null && parcel.isPvpEnabled()) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "In einer aktiven PvP-Zone ist Bauen deaktiviert.");
+                return;
+            }
+            boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island)
+                    || (parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId()));
+            if (!hasBuild) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Keine Baurechte.");
+                return;
+            }
+            if (!islandService.isChunkUnlocked(island, placeLocation)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Chunk gesperrt.");
+                return;
+            }
+            if (isMinecartItem(item.getType()) && !islandService.isWithinMinecartLimit(island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Minecartlimit erreicht: " + islandService.getCurrentLevelDef(island).getMinecartLimit());
+                return;
+            }
+            if (isBoatItem(item.getType()) && !islandService.isWithinBoatLimit(island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Bootlimit erreicht: " + islandService.getCurrentLevelDef(island).getBoatLimit());
+                return;
+            }
+            islandService.markIslandActivity(player.getUniqueId());
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (isMinecartItem(item.getType())) {
+                    coreService.showMinecartLimitHint(player, island);
+                } else {
+                    coreService.showBoatLimitHint(player, island);
+                }
+            });
             return;
         }
 
@@ -1203,6 +1260,28 @@ public class ProtectionListener implements Listener {
             return;
         }
         islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onVehicleCreate(VehicleCreateEvent event) {
+        Vehicle vehicle = event.getVehicle();
+        if (!skyWorldService.isSkyCityWorld(vehicle.getWorld())) return;
+        if (islandService.isInSpawnPlot(vehicle.getLocation())) {
+            event.setCancelled(true);
+            return;
+        }
+        IslandData island = islandService.getIslandAt(vehicle.getLocation());
+        if (island == null) {
+            event.setCancelled(true);
+            return;
+        }
+        if (vehicle instanceof org.bukkit.entity.Minecart && !islandService.isWithinMinecartLimit(island)) {
+            event.setCancelled(true);
+            return;
+        }
+        if (vehicle instanceof org.bukkit.entity.Boat && !islandService.isWithinBoatLimit(island)) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1382,6 +1461,36 @@ public class ProtectionListener implements Listener {
             item.setAmount(item.getAmount() - 1);
         }
         return true;
+    }
+
+    private boolean isMinecartItem(Material type) {
+        return type == Material.MINECART
+                || type == Material.CHEST_MINECART
+                || type == Material.FURNACE_MINECART
+                || type == Material.HOPPER_MINECART
+                || type == Material.TNT_MINECART
+                || type == Material.COMMAND_BLOCK_MINECART;
+    }
+
+    private boolean isBoatItem(Material type) {
+        return type == Material.OAK_BOAT
+                || type == Material.OAK_CHEST_BOAT
+                || type == Material.SPRUCE_BOAT
+                || type == Material.SPRUCE_CHEST_BOAT
+                || type == Material.BIRCH_BOAT
+                || type == Material.BIRCH_CHEST_BOAT
+                || type == Material.JUNGLE_BOAT
+                || type == Material.JUNGLE_CHEST_BOAT
+                || type == Material.ACACIA_BOAT
+                || type == Material.ACACIA_CHEST_BOAT
+                || type == Material.DARK_OAK_BOAT
+                || type == Material.DARK_OAK_CHEST_BOAT
+                || type == Material.MANGROVE_BOAT
+                || type == Material.MANGROVE_CHEST_BOAT
+                || type == Material.CHERRY_BOAT
+                || type == Material.CHERRY_CHEST_BOAT
+                || type == Material.BAMBOO_RAFT
+                || type == Material.BAMBOO_CHEST_RAFT;
     }
 }
 

@@ -22,7 +22,7 @@ import org.bukkit.scoreboard.Team;
 
 public final class CoreSidebar {
     private static final String OBJECTIVE_NAME = "skycity_core";
-    private static final int TOTAL_LINES = 13;
+    private static final int TOTAL_LINES = 14;
 
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
@@ -173,6 +173,11 @@ public final class CoreSidebar {
             "golem",
             "Golem", islandService.getGolemCount(island), current.getGolemLimit(),
             "Stand", islandService.getArmorStandCount(island), current.getArmorStandLimit()
+        ));
+        lines.add(limitLine(
+            "vehicles",
+            "Cart", islandService.getMinecartCount(island), current.getMinecartLimit(),
+            "Boot", islandService.getBoatCount(island), current.getBoatLimit()
         ));
         lines.add(limitLine(
             "store",
