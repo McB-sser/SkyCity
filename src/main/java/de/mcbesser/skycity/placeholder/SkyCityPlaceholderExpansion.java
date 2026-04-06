@@ -64,6 +64,8 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
         return switch (key) {
             case "island_title" -> island == null ? "Keine Insel" : islandService.getIslandTitleDisplay(island);
             case "island_viewer_role" -> island == null ? "&7-" : roleLabel(island, player.getUniqueId());
+            case "pvp_team_square" -> parcelPvpTeamSquare(player, island, parcel);
+            case "pvp_team_square_suffix" -> parcelPvpTeamSquareSuffix(player, island, parcel);
             case "island_master_header" -> roleHeader("Master", getMasterIds(island).size());
             case "island_owner_header" -> roleHeader("Owner", getOwnerIds(island).size());
             case "island_member_header" -> roleHeader("Member", getMemberIds(island).size());
@@ -117,7 +119,7 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     private ParcelData resolveContextParcel(Player player, IslandData island) {
         if (player == null || island == null) return null;
         ParcelData atLocation = islandService.getParcelAt(island, player.getLocation());
-        if (atLocation != null && atLocation.isPvpEnabled()) return atLocation;
+        if (atLocation != null && (atLocation.isPvpEnabled() || atLocation.isGamesEnabled())) return atLocation;
         return null;
     }
 
@@ -184,13 +186,15 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private String parcelPvpHeader(ParcelData parcel) {
-        return parcel == null ? "&8PvP-Zone" : "&c&lPvP-Zone";
+        if (parcel == null) return "&8Zone";
+        return parcel.isGamesEnabled() && !parcel.isPvpEnabled() ? "&b&lGames-Zone" : "&c&lPvP-Zone";
     }
 
     private String parcelPvpPlayerHeader(Player viewer, IslandData island, ParcelData parcel) {
         List<UUID> players = getParcelPvpPlayers(island, parcel);
         if (viewer == null || island == null || parcel == null || players.isEmpty()) return "&8Mitspieler";
-        return "&cMitspieler &7(" + players.size() + ")";
+        String color = parcel.isGamesEnabled() && !parcel.isPvpEnabled() ? "&b" : "&c";
+        return color + "Mitspieler &7(" + players.size() + ")";
     }
 
     private String parcelPvpTeamLabel(Player viewer, IslandData island, ParcelData parcel) {
@@ -198,6 +202,20 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
         Material wool = playerPvpTeamWool(viewer, island, parcel);
         if (wool == null) return "&7Kein Team";
         return woolColorCode(wool) + woolLabel(wool);
+    }
+
+    private String parcelPvpTeamSquare(Player viewer, IslandData island, ParcelData parcel) {
+        if (viewer == null || island == null || parcel == null) return "";
+        Material wool = playerPvpTeamWool(viewer, island, parcel);
+        if (wool == null) return "";
+        return woolColorCode(wool) + "\u25a0";
+    }
+
+    private String parcelPvpTeamSquareSuffix(Player viewer, IslandData island, ParcelData parcel) {
+        if (viewer == null || island == null || parcel == null) return "";
+        Material wool = playerPvpTeamWool(viewer, island, parcel);
+        if (wool == null) return "";
+        return woolColorCode(wool) + "\u25a0";
     }
 
     private String formatParcelPvpEntry(IslandData island, ParcelData parcel, int oneBasedIndex) {
@@ -215,13 +233,13 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private List<UUID> getParcelPvpPlayers(IslandData island, ParcelData parcel) {
-        if (island == null || parcel == null || !parcel.isPvpEnabled()) return List.of();
+        if (island == null || parcel == null || (!parcel.isPvpEnabled() && !parcel.isGamesEnabled())) return List.of();
         List<UUID> ids = new ArrayList<>();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (online == null || !online.isOnline()) continue;
             if (islandService.getIslandAt(online.getLocation()) != island) continue;
             if (islandService.getParcelAt(island, online.getLocation()) != parcel) continue;
-            if (!islandService.hasParcelPvpConsent(online.getUniqueId(), island, parcel)) continue;
+            if (parcel.isPvpEnabled() && !parcel.isGamesEnabled() && !islandService.hasParcelPvpConsent(online.getUniqueId(), island, parcel)) continue;
             ids.add(online.getUniqueId());
         }
         ids.sort(

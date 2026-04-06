@@ -81,6 +81,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Integer> parcelPvpExitCountdownTasks = new HashMap<>();
     private final Map<UUID, String> parcelPvpExitCountdownKeys = new HashMap<>();
     private final Map<UUID, String> parcelPvpStates = new HashMap<>();
+    private final Map<UUID, String> parcelGamesStates = new HashMap<>();
     private final Map<UUID, String> parcelPveStates = new HashMap<>();
     private final Map<UUID, CombatTag> parcelPvpCombatTags = new HashMap<>();
     private final Map<UUID, String> islandPresenceState = new HashMap<>();
@@ -151,6 +152,7 @@ public class PlayerListener implements Listener {
         stopParcelBanCountdown(event.getPlayer().getUniqueId());
         stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
         clearParcelPvpState(event.getPlayer().getUniqueId());
+        clearParcelGamesState(event.getPlayer().getUniqueId());
         parcelPvpCombatTags.remove(event.getPlayer().getUniqueId());
         islandPresenceState.remove(event.getPlayer().getUniqueId());
         clearSkyCityNightVision(event.getPlayer());
@@ -218,6 +220,7 @@ public class PlayerListener implements Listener {
             stopParcelBanCountdown(event.getPlayer().getUniqueId());
             stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
             clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelGamesState(event.getPlayer().getUniqueId());
             clearParcelPveState(event.getPlayer().getUniqueId());
             islandPresenceState.remove(event.getPlayer().getUniqueId());
             removeIslandBossBar(event.getPlayer());
@@ -253,6 +256,7 @@ public class PlayerListener implements Listener {
             stopParcelBanCountdown(event.getPlayer().getUniqueId());
             stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
             clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelGamesState(event.getPlayer().getUniqueId());
             clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
@@ -267,11 +271,12 @@ public class PlayerListener implements Listener {
         if (changedBlock) {
             handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
             handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
-            updateParcelPvpState(event.getPlayer(), event.getTo());
-            updateParcelPvpCompass(event.getPlayer(), event.getTo());
-            updateParcelPvpTeam(event.getPlayer(), event.getTo());
-            updateParcelPveState(event.getPlayer(), event.getTo());
         }
+        updateParcelPvpState(event.getPlayer(), event.getTo());
+        updateParcelGamesState(event.getPlayer(), event.getTo());
+        updateParcelPvpCompass(event.getPlayer(), event.getTo());
+        updateParcelPvpTeam(event.getPlayer(), event.getTo());
+        updateParcelPveState(event.getPlayer(), event.getTo());
 
         if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
         updateIslandPresenceMessage(event.getPlayer(), event.getTo(), false);
@@ -292,11 +297,13 @@ public class PlayerListener implements Listener {
     public void onTeleport(PlayerTeleportEvent event) {
         if (event.getTo() == null || !skyWorldService.isSkyCityWorld(event.getTo().getWorld())) {
             clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelGamesState(event.getPlayer().getUniqueId());
             clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
         tryHandleLavaRescue(event.getPlayer(), event.getTo());
         updateParcelPvpState(event.getPlayer(), event.getTo());
+        updateParcelGamesState(event.getPlayer(), event.getTo());
         updateParcelPvpCompass(event.getPlayer(), event.getTo());
         updateParcelPvpTeam(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
@@ -399,7 +406,9 @@ public class PlayerListener implements Listener {
         UUID playerId = player.getUniqueId();
         IslandData island = islandService.getIslandAt(location);
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, location);
-        if (parcel == null || !parcel.isPvpEnabled() || !islandService.hasParcelPvpConsent(playerId, island, parcel)) {
+        boolean zoneActive = parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled());
+        boolean zoneAllowed = parcel != null && (parcel.isGamesEnabled() || islandService.hasParcelPvpConsent(playerId, island, parcel));
+        if (!zoneActive || !zoneAllowed) {
             parcelPvpTeamWool.remove(playerId);
             parcelPvpTeamRespawns.remove(playerId);
             player.removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
@@ -1393,6 +1402,39 @@ public class PlayerListener implements Listener {
         }
     }
 
+    private void updateParcelGamesState(Player player, Location to) {
+        UUID playerId = player.getUniqueId();
+        IslandData island = islandService.getIslandAt(to);
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
+        String nextKey = parcel != null && parcel.isGamesEnabled() ? islandService.getParcelPvpKey(island, parcel) : null;
+        String previousKey = parcelGamesStates.get(playerId);
+        if (previousKey != null && !previousKey.equals(nextKey)) {
+            parcelGamesStates.remove(playerId);
+            clearPvpScoreboard(player);
+            player.sendMessage(ChatColor.GREEN + "Du verl\u00e4sst die Games-Zone.");
+        }
+        if (nextKey == null) {
+            return;
+        }
+        if (nextKey.equals(previousKey)) {
+            showParcelGamesScoreboard(player, island, parcel);
+            return;
+        }
+        parcelGamesStates.put(playerId, nextKey);
+        showParcelGamesScoreboard(player, island, parcel);
+        String parcelName = islandService.getParcelDisplayName(parcel);
+        player.sendMessage(ChatColor.AQUA + "Du betrittst Games auf dem Grundst\u00fcck " + parcelName + ".");
+        player.sendMessage(ChatColor.YELLOW + "Die Zone verh\u00e4lt sich wie PvP, aber ohne Spielerschaden.");
+    }
+
+    private void clearParcelGamesState(UUID playerId) {
+        String previousKey = parcelGamesStates.remove(playerId);
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null && previousKey != null) {
+            clearPvpScoreboard(player);
+        }
+    }
+
     private void updateParcelPvpCompass(Player player, Location to) {
         if (player == null || to == null || to.getWorld() == null) return;
         UUID playerId = player.getUniqueId();
@@ -1509,6 +1551,20 @@ public class PlayerListener implements Listener {
         player.setScoreboard(scoreboard);
     }
 
+    private void showParcelGamesScoreboard(Player player, IslandData island, ParcelData parcel) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager() == null ? null : Bukkit.getScoreboardManager().getNewScoreboard();
+        if (scoreboard == null) return;
+        Objective objective = scoreboard.registerNewObjective("parcelgames", "dummy", ChatColor.AQUA + "Games " + islandService.getParcelDisplayName(parcel));
+        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+        int score = 15;
+        objective.getScore(ChatColor.WHITE + "GS: " + ChatColor.YELLOW + islandService.getParcelDisplayName(parcel)).setScore(score--);
+        Material teamWool = parcelPvpTeamWool.get(player.getUniqueId());
+        objective.getScore(ChatColor.WHITE + "Team: " + formatPvpTeamLabel(teamWool)).setScore(score--);
+        objective.getScore(ChatColor.WHITE + "Modus: " + ChatColor.AQUA + "Games").setScore(score--);
+        objective.getScore(ChatColor.GRAY + "Kein Spielerschaden").setScore(score--);
+        player.setScoreboard(scoreboard);
+    }
+
     private String formatPvpTeamLabel(Material wool) {
         if (!isWool(wool)) return ChatColor.GRAY + "-";
         return switch (wool) {
@@ -1537,8 +1593,9 @@ public class PlayerListener implements Listener {
         Scoreboard scoreboard = player.getScoreboard();
         if (scoreboard == null) return;
         Objective parcelPvp = scoreboard.getObjective("parcelpvp");
+        Objective parcelGames = scoreboard.getObjective("parcelgames");
         Objective parcelPve = scoreboard.getObjective("parcelpve");
-        if (parcelPvp == null && parcelPve == null) return;
+        if (parcelPvp == null && parcelGames == null && parcelPve == null) return;
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 

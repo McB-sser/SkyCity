@@ -30,6 +30,7 @@ public class ParcelData {
     private final AccessSettings visitorSettings = new AccessSettings();
     private final AccessSettings memberSettings = new AccessSettings();
     private boolean pvpEnabled;
+    private boolean gamesEnabled;
     private boolean pvpCompassEnabled = true;
     private boolean pveEnabled;
     private boolean memberAnimalBreed;
@@ -76,6 +77,8 @@ public class ParcelData {
     public AccessSettings getMemberSettings() { return memberSettings; }
     public boolean isPvpEnabled() { return pvpEnabled; }
     public void setPvpEnabled(boolean pvpEnabled) { this.pvpEnabled = pvpEnabled; }
+    public boolean isGamesEnabled() { return gamesEnabled; }
+    public void setGamesEnabled(boolean gamesEnabled) { this.gamesEnabled = gamesEnabled; }
     public boolean isPvpCompassEnabled() { return pvpCompassEnabled; }
     public void setPvpCompassEnabled(boolean pvpCompassEnabled) { this.pvpCompassEnabled = pvpCompassEnabled; }
     public boolean isPveEnabled() { return pveEnabled; }

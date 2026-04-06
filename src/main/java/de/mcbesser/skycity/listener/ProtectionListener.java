@@ -152,12 +152,12 @@ public class ProtectionListener implements Listener {
         }
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
         boolean bypassParcelRights = false;
-        if (parcel != null && parcel.isPvpEnabled()) {
+        if (parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled())) {
             boolean bypassAllowed = (block.getType() == Material.LADDER && parcel.getVisitorSettings().isLadderPlace())
                     || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesPlace());
             if (!bypassAllowed) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "In einer aktiven PvP-Zone ist Bauen deaktiviert.");
+                player.sendMessage(ChatColor.RED + "In einer aktiven PvP-/Games-Zone ist Bauen deaktiviert.");
                 return;
             }
             bypassParcelRights = true;
@@ -262,12 +262,12 @@ public class ProtectionListener implements Listener {
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
         boolean bypassParcelRights = false;
         boolean pveParticipant = parcel != null && parcel.isPveEnabled() && islandService.isPlayerInParcelPve(player.getUniqueId(), island, parcel);
-        if (parcel != null && parcel.isPvpEnabled()) {
+        if (parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled())) {
             boolean bypassAllowed = (block.getType() == Material.LADDER && parcel.getVisitorSettings().isLadderBreak())
                     || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesBreak());
             if (!bypassAllowed) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "In einer aktiven PvP-Zone ist Abbauen deaktiviert.");
+                player.sendMessage(ChatColor.RED + "In einer aktiven PvP-/Games-Zone ist Abbauen deaktiviert.");
                 return;
             }
             bypassParcelRights = true;

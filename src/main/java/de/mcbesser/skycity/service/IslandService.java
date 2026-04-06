@@ -482,6 +482,7 @@ public class IslandService {
                         }
                         if (psec.isConfigurationSection("spawn")) parcel.setSpawn(deserializeLocation(psec.getConfigurationSection("spawn")));
                         parcel.setPvpEnabled(psec.getBoolean("pvpEnabled", false));
+                        parcel.setGamesEnabled(psec.getBoolean("gamesEnabled", false));
                         parcel.setPvpCompassEnabled(psec.getBoolean("pvpCompassEnabled", true));
                         parcel.setPveEnabled(psec.getBoolean("pveEnabled", false));
                         ConfigurationSection pvpKills = psec.getConfigurationSection("pvpKills");
@@ -1378,6 +1379,7 @@ public class IslandService {
             dst.getPvpWhitelist().addAll(srcParcel.getPvpWhitelist());
             dst.getPvpKills().putAll(srcParcel.getPvpKills());
             dst.setPvpEnabled(srcParcel.isPvpEnabled());
+            dst.setGamesEnabled(srcParcel.isGamesEnabled());
             dst.setPveEnabled(srcParcel.isPveEnabled());
             dst.setSaleOfferEnabled(srcParcel.isSaleOfferEnabled());
             dst.setSalePrice(srcParcel.getSalePrice());
@@ -3415,6 +3417,15 @@ public class IslandService {
         return true;
     }
 
+    public boolean setParcelGames(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        if (parcel.isGamesEnabled() == enabled) return false;
+        parcel.setGamesEnabled(enabled);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
     public boolean setParcelPvpCompassEnabled(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
         if (!isParcelOwner(island, parcel, actor)) return false;
         if (parcel.isPvpCompassEnabled() == enabled) return false;
@@ -5178,6 +5189,7 @@ public class IslandService {
                 .put("pvpWhitelist", stringify(parcel.getPvpWhitelist()))
                 .put("spawn", locationDocument(parcel.getSpawn()))
                 .put("pvpEnabled", parcel.isPvpEnabled())
+                .put("gamesEnabled", parcel.isGamesEnabled())
                 .put("pvpCompassEnabled", parcel.isPvpCompassEnabled())
                 .put("pveEnabled", parcel.isPveEnabled())
                 .put("saleOfferEnabled", parcel.isSaleOfferEnabled())
@@ -5226,6 +5238,7 @@ public class IslandService {
         addUuidStrings((List<String>) document.get("pvpWhitelist", List.class), parcel.getPvpWhitelist());
         parcel.setSpawn(locationFromDocument(document.get("spawn", Document.class)));
         parcel.setPvpEnabled(Boolean.TRUE.equals(document.get("pvpEnabled", Boolean.class)));
+        parcel.setGamesEnabled(Boolean.TRUE.equals(document.get("gamesEnabled", Boolean.class)));
         parcel.setPvpCompassEnabled(!Boolean.FALSE.equals(document.get("pvpCompassEnabled", Boolean.class)));
         parcel.setPveEnabled(Boolean.TRUE.equals(document.get("pveEnabled", Boolean.class)));
         parcel.setSaleOfferEnabled(Boolean.TRUE.equals(document.get("saleOfferEnabled", Boolean.class)));
