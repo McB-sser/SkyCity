@@ -40,6 +40,7 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.util.Vector;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -64,6 +65,9 @@ public class PlayerListener implements Listener {
     private static final long PVP_KILL_TIMEOUT_MS = 15_000L;
     private static final long LAVA_RESCUE_PROTECTION_MS = 2_000L;
     private static final String CHECKPOINT_HOLO_PREFIX = "skycity_checkpoint_holo_";
+    private static final String JUMP_PAD_HOLO_PREFIX = "skycity_jump_pad_holo_";
+    private static final long JUMP_PAD_COOLDOWN_MS = 1_000L;
+    private static final long JUMP_PAD_FALL_PROTECTION_MS = 10_000L;
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
     private final SkyWorldService skyWorldService;
@@ -88,11 +92,12 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Long> linkedCheckpointTeleportUntil = new HashMap<>();
     private final Map<UUID, Long> checkpointParticleTickWindow = new HashMap<>();
     private final Map<UUID, String> lastActivatedCheckpointKey = new HashMap<>();
+    private final Map<UUID, Long> jumpPadCooldownUntil = new HashMap<>();
+    private final Map<UUID, Long> jumpPadFallProtectionUntil = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
     private record CheckpointMarker(Material woolType, Material plateType, Location plateLocation) { }
-
     public PlayerListener(SkyCityPlugin plugin, IslandService islandService, SkyWorldService skyWorldService, CoreService coreService) {
         this.plugin = plugin;
         this.islandService = islandService;
@@ -152,6 +157,8 @@ public class PlayerListener implements Listener {
         linkedCheckpointTeleportUntil.remove(event.getPlayer().getUniqueId());
         checkpointParticleTickWindow.remove(event.getPlayer().getUniqueId());
         lastActivatedCheckpointKey.remove(event.getPlayer().getUniqueId());
+        jumpPadCooldownUntil.remove(event.getPlayer().getUniqueId());
+        jumpPadFallProtectionUntil.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -239,7 +246,8 @@ public class PlayerListener implements Listener {
         boolean changedBlock = event.getFrom().getBlockX() != event.getTo().getBlockX()
                 || event.getFrom().getBlockY() != event.getTo().getBlockY()
                 || event.getFrom().getBlockZ() != event.getTo().getBlockZ();
-        if (changedBlock && tryHandleLinkedCheckpointTeleport(event.getPlayer(), event.getTo())) return;
+        if (changedBlock && tryHandleJumpPad(event.getPlayer(), event.getFrom(), event.getTo())) return;
+        if (changedBlock && tryHandleLinkedCheckpointTeleport(event.getPlayer(), event.getFrom(), event.getTo())) return;
         if (changedBlock) {
             handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
             handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
@@ -281,7 +289,13 @@ public class PlayerListener implements Listener {
         EntityDamageEvent.DamageCause cause = event.getCause();
         if (cause != EntityDamageEvent.DamageCause.LAVA
                 && cause != EntityDamageEvent.DamageCause.FIRE
-                && cause != EntityDamageEvent.DamageCause.FIRE_TICK) {
+                && cause != EntityDamageEvent.DamageCause.FIRE_TICK
+                && cause != EntityDamageEvent.DamageCause.FALL) {
+            return;
+        }
+        if (cause == EntityDamageEvent.DamageCause.FALL && isJumpPadFallProtected(player.getUniqueId())) {
+            event.setCancelled(true);
+            jumpPadFallProtectionUntil.remove(player.getUniqueId());
             return;
         }
         if (!isLavaRescueProtected(player.getUniqueId()) && !isTouchingLava(player.getLocation())) return;
@@ -517,14 +531,16 @@ public class PlayerListener implements Listener {
                 .put(marker.woolType(), marker.plateLocation());
     }
 
-    private boolean tryHandleLinkedCheckpointTeleport(Player player, Location location) {
-        if (player == null || location == null || location.getWorld() == null) return false;
+    private boolean tryHandleLinkedCheckpointTeleport(Player player, Location from, Location to) {
+        if (player == null || from == null || to == null || from.getWorld() == null) return false;
         if (isLinkedCheckpointTeleportProtected(player.getUniqueId())) return false;
-        CheckpointMarker marker = findCheckpointMarker(location);
+        if (to.getY() <= from.getY() + 0.12D) return false;
+        if (player.getVelocity().getY() <= 0.08D) return false;
+        CheckpointMarker marker = findCheckpointMarker(from);
         if (marker == null) return false;
-        IslandData island = islandService.getIslandAt(location);
+        IslandData island = islandService.getIslandAt(from);
         if (island == null) return false;
-        ParcelData regionParcel = islandService.getParcelAt(island, location);
+        ParcelData regionParcel = islandService.getParcelAt(island, from);
         java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
         if (matches.size() != 2) return false;
         Location current = marker.plateLocation();
@@ -541,6 +557,24 @@ public class PlayerListener implements Listener {
         linkedCheckpointTeleportUntil.put(player.getUniqueId(), System.currentTimeMillis() + 1_500L);
         player.teleport(target);
         playCheckpointTeleportSound(player, target);
+        return true;
+    }
+
+    private boolean tryHandleJumpPad(Player player, Location from, Location to) {
+        if (player == null || from == null || to == null || from.getWorld() == null) return false;
+        if (isJumpPadCoolingDown(player.getUniqueId())) return false;
+        if (to.getY() <= from.getY() + 0.12D) return false;
+        if (player.getVelocity().getY() <= 0.08D) return false;
+        Block plateBlock = findPressurePlateAt(from);
+        if (plateBlock == null || !isJumpPadPlate(plateBlock)) return false;
+        Vector direction = player.getLocation().getDirection().normalize().multiply(1.35D);
+        direction.setY(Math.max(0.78D, 0.68D + Math.max(0.0D, direction.getY())));
+        player.setVelocity(direction);
+        player.setFallDistance(0.0F);
+        jumpPadCooldownUntil.put(player.getUniqueId(), System.currentTimeMillis() + JUMP_PAD_COOLDOWN_MS);
+        jumpPadFallProtectionUntil.put(player.getUniqueId(), System.currentTimeMillis() + JUMP_PAD_FALL_PROTECTION_MS);
+        spawnJumpPadParticles(plateBlock.getLocation().add(0.5, 0.2, 0.5));
+        playJumpPadSound(player, plateBlock.getLocation().add(0.5, 0.2, 0.5));
         return true;
     }
 
@@ -561,6 +595,14 @@ public class PlayerListener implements Listener {
         if (!isWool(woolBlock.getType())) return null;
         Location plateLocation = plateBlock.getLocation().add(0.5, 0.0, 0.5);
         return new CheckpointMarker(woolBlock.getType(), plateBlock.getType(), plateLocation);
+    }
+
+    private Block findPressurePlateAt(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        Block feet = location.getBlock();
+        if (isPressurePlate(feet.getType())) return feet;
+        Block below = feet.getRelative(0, -1, 0);
+        return isPressurePlate(below.getType()) ? below : null;
     }
 
     private java.util.List<Location> findMatchingCheckpointPlates(IslandData island, ParcelData regionParcel, Material woolType, Material plateType) {
@@ -738,6 +780,40 @@ public class PlayerListener implements Listener {
         return material == Material.LAVA || material == Material.LAVA_CAULDRON;
     }
 
+    private boolean isJumpPadPlate(Block plateBlock) {
+        if (plateBlock == null || !isPressurePlate(plateBlock.getType())) return false;
+        return plateBlock.getRelative(0, -1, 0).getType() == Material.SLIME_BLOCK
+                || plateBlock.getRelative(0, -2, 0).getType() == Material.SLIME_BLOCK;
+    }
+
+    private void spawnJumpPadParticles(Location location) {
+        if (location == null || location.getWorld() == null) return;
+        location.getWorld().spawnParticle(Particle.CLOUD, location, 16, 0.22, 0.10, 0.22, 0.03);
+        location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0.0, 0.12, 0.0), 6, 0.10, 0.08, 0.10, 0.01);
+    }
+
+    private void playJumpPadSound(Player player, Location location) {
+        Sound sound = resolveWindChargeSound();
+        if (sound != null) {
+            player.playSound(player.getLocation(), sound, 1.15F, 1.0F);
+            if (location != null && location.getWorld() != null) {
+                location.getWorld().playSound(location, sound, 1.15F, 1.0F);
+            }
+        }
+    }
+
+    private Sound resolveWindChargeSound() {
+        try {
+            return Sound.valueOf("ENTITY_WIND_CHARGE_WIND_BURST");
+        } catch (IllegalArgumentException ignored) {
+        }
+        try {
+            return Sound.valueOf("ENTITY_WIND_CHARGE_THROW");
+        } catch (IllegalArgumentException ignored) {
+        }
+        return Sound.ENTITY_ENDERMAN_TELEPORT;
+    }
+
     private boolean hasLavaDirectlyAbove(Block block) {
         return block != null && isLavaMaterial(block.getRelative(0, 1, 0).getType());
     }
@@ -770,6 +846,26 @@ public class PlayerListener implements Listener {
         return true;
     }
 
+    private boolean isJumpPadCoolingDown(UUID playerId) {
+        Long until = jumpPadCooldownUntil.get(playerId);
+        if (until == null) return false;
+        if (until < System.currentTimeMillis()) {
+            jumpPadCooldownUntil.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isJumpPadFallProtected(UUID playerId) {
+        Long until = jumpPadFallProtectionUntil.get(playerId);
+        if (until == null) return false;
+        if (until < System.currentTimeMillis()) {
+            jumpPadFallProtectionUntil.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+
     private void clearLavaEffects(Player player) {
         player.setFireTicks(0);
         player.setVisualFire(false);
@@ -787,7 +883,7 @@ public class PlayerListener implements Listener {
         location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0.0, 0.9, 0.0), 8, 0.15, 0.3, 0.15, 0.0);
     }
 
-    private java.util.Set<String> spawnNearbyLinkedCheckpointParticles(Player player, IslandData island) {
+    private java.util.Set<String> spawnNearbyLinkedCheckpointParticles(Player player, IslandData island, java.util.Set<String> activeJumpPadTags) {
         java.util.Set<String> activeTags = new java.util.HashSet<>();
         if (player == null || island == null || player.getWorld() == null) return activeTags;
         long now = System.currentTimeMillis();
@@ -808,6 +904,11 @@ public class PlayerListener implements Listener {
                     for (int localZ = 0; localZ < 16; localZ++) {
                         for (int y = minY; y <= maxY; y++) {
                             Block block = chunk.getBlock(localX, y, localZ);
+                            if (isJumpPadPlate(block)) {
+                                String jumpPadTag = jumpPadHoloTag(block.getLocation());
+                                activeJumpPadTags.add(jumpPadTag);
+                                ensureJumpPadHolo(block.getLocation().add(0.5, 0.0, 0.5), jumpPadTag);
+                            }
                             CheckpointMarker marker = checkpointMarkerFromPlate(block);
                             if (marker == null) continue;
                             ParcelData regionParcel = islandService.getParcelAt(island, block.getLocation());
@@ -902,6 +1003,54 @@ public class PlayerListener implements Listener {
 
     private String checkpointHoloTag(Location location) {
         return CHECKPOINT_HOLO_PREFIX
+                + location.getBlockX() + "_"
+                + location.getBlockY() + "_"
+                + location.getBlockZ();
+    }
+
+    private void ensureJumpPadHolo(Location location, String tag) {
+        if (location == null || location.getWorld() == null || tag == null) return;
+        Location displayLocation = location.clone().add(0.0, 0.225, 0.0);
+        for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
+            if (entity instanceof ArmorStand stand && stand.getScoreboardTags().contains(tag)) {
+                stand.remove();
+                continue;
+            }
+            if (entity instanceof ItemDisplay display && display.getScoreboardTags().contains(tag)) {
+                if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                    display.teleport(displayLocation);
+                }
+                display.setBillboard(Display.Billboard.CENTER);
+                display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+                display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
+                display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
+                return;
+            }
+        }
+        ItemDisplay display = (ItemDisplay) location.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
+        display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
+        display.setBillboard(Display.Billboard.CENTER);
+        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
+        display.addScoreboardTag(tag);
+    }
+
+    private void removeStaleJumpPadDisplays(java.util.Set<String> activeTags) {
+        if (skyWorldService.getWorld() == null) return;
+        for (Entity entity : skyWorldService.getWorld().getEntities()) {
+            if (!(entity instanceof ItemDisplay) && !(entity instanceof ArmorStand)) continue;
+            for (String tag : entity.getScoreboardTags()) {
+                if (!tag.startsWith(JUMP_PAD_HOLO_PREFIX)) continue;
+                if (!activeTags.contains(tag)) {
+                    entity.remove();
+                }
+                break;
+            }
+        }
+    }
+
+    private String jumpPadHoloTag(Location location) {
+        return JUMP_PAD_HOLO_PREFIX
                 + location.getBlockX() + "_"
                 + location.getBlockY() + "_"
                 + location.getBlockZ();
@@ -1297,6 +1446,7 @@ public class PlayerListener implements Listener {
         double serverTps = getServerTps();
         Map<UUID, Integer> islandLoadCache = new HashMap<>();
         java.util.Set<String> activeCheckpointDisplays = new java.util.HashSet<>();
+        java.util.Set<String> activeJumpPadDisplays = new java.util.HashSet<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.isOnline()) continue;
             if (!skyWorldService.isSkyCityWorld(player.getWorld())) {
@@ -1334,7 +1484,7 @@ public class PlayerListener implements Listener {
             String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
             String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Last " + islandLoad + "%";
             showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment);
-            activeCheckpointDisplays.addAll(spawnNearbyLinkedCheckpointParticles(player, island));
+            activeCheckpointDisplays.addAll(spawnNearbyLinkedCheckpointParticles(player, island, activeJumpPadDisplays));
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
             int displayChunkX = islandService.displayChunkX(relChunkX);
@@ -1354,6 +1504,7 @@ public class PlayerListener implements Listener {
             showChunkEffectBossBar(player, effectTitle, BarColor.GREEN, progress);
         }
         removeStaleCheckpointDisplays(activeCheckpointDisplays);
+        removeStaleJumpPadDisplays(activeJumpPadDisplays);
     }
 
     private double getServerTps() {
