@@ -18,7 +18,11 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -56,6 +60,7 @@ import java.util.UUID;
 public class PlayerListener implements Listener {
     private static final long PVP_KILL_TIMEOUT_MS = 15_000L;
     private static final long LAVA_RESCUE_PROTECTION_MS = 2_000L;
+    private static final String CHECKPOINT_HOLO_PREFIX = "skycity_checkpoint_holo_";
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
     private final SkyWorldService skyWorldService;
@@ -79,6 +84,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Location> lastCheckpointLocations = new HashMap<>();
     private final Map<UUID, Long> linkedCheckpointTeleportUntil = new HashMap<>();
     private final Map<UUID, Long> checkpointParticleTickWindow = new HashMap<>();
+    private final Map<UUID, String> lastActivatedCheckpointKey = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -142,6 +148,7 @@ public class PlayerListener implements Listener {
         lavaRescueProtectionUntil.remove(event.getPlayer().getUniqueId());
         linkedCheckpointTeleportUntil.remove(event.getPlayer().getUniqueId());
         checkpointParticleTickWindow.remove(event.getPlayer().getUniqueId());
+        lastActivatedCheckpointKey.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -434,14 +441,12 @@ public class PlayerListener implements Listener {
             CheckpointMarker marker = findCheckpointMarker(location);
             if (marker != null) {
                 if (marker.woolType() == Material.WHITE_WOOL) {
-                    Location lastCheckpoint = lastCheckpointLocations.get(player.getUniqueId());
+                    Location lastCheckpoint = getValidLastCheckpoint(player.getUniqueId());
                     if (isSafeFromLava(lastCheckpoint)) {
                         return orientCheckpointLocation(player, lastCheckpoint);
                     }
                 }
-                Location checkpoint = checkpointLocations
-                        .getOrDefault(player.getUniqueId(), Map.of())
-                        .get(checkpointKey(marker.woolType(), marker.plateType()));
+                Location checkpoint = getValidCheckpointLocation(player.getUniqueId(), marker.woolType(), marker.plateType());
                 if (isSafeFromLava(checkpoint)) {
                     return orientCheckpointLocation(player, checkpoint);
                 }
@@ -451,14 +456,12 @@ public class PlayerListener implements Listener {
                 IslandData island = islandService.getIslandAt(location);
                 ParcelData regionParcel = island == null ? null : islandService.getParcelAt(island, location);
                 if (woolOnly == Material.WHITE_WOOL) {
-                    Location lastCheckpoint = lastCheckpointLocations.get(player.getUniqueId());
+                    Location lastCheckpoint = getValidLastCheckpoint(player.getUniqueId());
                     if (isSafeFromLava(lastCheckpoint)) {
                         return orientCheckpointLocation(player, lastCheckpoint);
                     }
                 }
-                Location woolCheckpoint = checkpointLocationsByWool
-                        .getOrDefault(player.getUniqueId(), Map.of())
-                        .get(woolOnly);
+                Location woolCheckpoint = getValidCheckpointLocationByWool(player.getUniqueId(), woolOnly);
                 if (isSafeFromLava(woolCheckpoint)) {
                     return orientCheckpointLocation(player, woolCheckpoint);
                 }
@@ -486,6 +489,11 @@ public class PlayerListener implements Listener {
         if (player == null || location == null || location.getWorld() == null) return;
         CheckpointMarker marker = findCheckpointMarker(location);
         if (marker == null) return;
+        String checkpointKey = marker.plateLocation().getBlockX() + ":" + marker.plateLocation().getBlockY() + ":" + marker.plateLocation().getBlockZ();
+        if (!checkpointKey.equals(lastActivatedCheckpointKey.get(player.getUniqueId()))) {
+            lastActivatedCheckpointKey.put(player.getUniqueId(), checkpointKey);
+            playCheckpointActivateSound(player);
+        }
         lastCheckpointLocations.put(player.getUniqueId(), marker.plateLocation());
         checkpointLocations
                 .computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>())
@@ -644,6 +652,40 @@ public class PlayerListener implements Listener {
         return isWool(block.getType()) ? block.getType() : null;
     }
 
+    private Location getValidLastCheckpoint(UUID playerId) {
+        Location location = lastCheckpointLocations.get(playerId);
+        if (isCurrentCheckpointLocation(location, null, null)) return location;
+        lastCheckpointLocations.remove(playerId);
+        return null;
+    }
+
+    private Location getValidCheckpointLocation(UUID playerId, Material woolType, Material plateType) {
+        Map<String, Location> locations = checkpointLocations.get(playerId);
+        if (locations == null) return null;
+        String key = checkpointKey(woolType, plateType);
+        Location location = locations.get(key);
+        if (isCurrentCheckpointLocation(location, woolType, plateType)) return location;
+        locations.remove(key);
+        return null;
+    }
+
+    private Location getValidCheckpointLocationByWool(UUID playerId, Material woolType) {
+        Map<Material, Location> locations = checkpointLocationsByWool.get(playerId);
+        if (locations == null) return null;
+        Location location = locations.get(woolType);
+        if (isCurrentCheckpointLocation(location, woolType, null)) return location;
+        locations.remove(woolType);
+        return null;
+    }
+
+    private boolean isCurrentCheckpointLocation(Location location, Material expectedWool, Material expectedPlate) {
+        if (location == null || location.getWorld() == null) return false;
+        CheckpointMarker marker = checkpointMarkerFromPlate(location.getBlock());
+        if (marker == null) return false;
+        if (expectedWool != null && marker.woolType() != expectedWool) return false;
+        return expectedPlate == null || marker.plateType() == expectedPlate;
+    }
+
     private Location orientCheckpointLocation(Player player, Location location) {
         if (location == null) return null;
         Location oriented = location.clone();
@@ -726,11 +768,12 @@ public class PlayerListener implements Listener {
         location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0.0, 0.9, 0.0), 8, 0.15, 0.3, 0.15, 0.0);
     }
 
-    private void spawnNearbyLinkedCheckpointParticles(Player player, IslandData island) {
-        if (player == null || island == null || player.getWorld() == null) return;
+    private java.util.Set<String> spawnNearbyLinkedCheckpointParticles(Player player, IslandData island) {
+        java.util.Set<String> activeTags = new java.util.HashSet<>();
+        if (player == null || island == null || player.getWorld() == null) return activeTags;
         long now = System.currentTimeMillis();
         Long lastTick = checkpointParticleTickWindow.get(player.getUniqueId());
-        if (lastTick != null && now - lastTick < 600L) return;
+        if (lastTick != null && now - lastTick < 600L) return activeTags;
         checkpointParticleTickWindow.put(player.getUniqueId(), now);
         java.util.Set<String> shown = new java.util.HashSet<>();
         org.bukkit.Chunk center = player.getLocation().getChunk();
@@ -752,19 +795,29 @@ public class PlayerListener implements Listener {
                             String key = (regionParcel == null ? "island" : regionParcel.getChunkKey()) + "|" + checkpointKey(marker.woolType(), marker.plateType());
                             if (!shown.add(key)) continue;
                             java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
-                            java.util.List<Location> woolTargets = findMatchingCheckpointPlatesByWool(island, regionParcel, marker.woolType());
-                            if (woolTargets.size() == 1) {
-                                spawnWoolTargetParticles(player, woolTargets.get(0));
+                            if (matches.size() == 1) {
+                                spawnWoolTargetParticles(player, matches.get(0));
+                                continue;
                             }
-                            if (matches.size() != 2) continue;
-                            for (Location match : matches) {
-                                spawnCheckpointGlow(player, match);
+                            if (matches.size() == 2) {
+                                for (Location match : matches) {
+                                    spawnCheckpointGlow(player, match);
+                                }
+                                continue;
+                            }
+                            if (matches.size() >= 3) {
+                                for (Location match : matches) {
+                                    String tag = checkpointHoloTag(match);
+                                    activeTags.add(tag);
+                                    ensureCheckpointHolo(match, tag);
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        return activeTags;
     }
 
     private void spawnCheckpointGlow(Player player, Location location) {
@@ -784,6 +837,57 @@ public class PlayerListener implements Listener {
         if (target != null && target.getWorld() != null) {
             target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         }
+    }
+
+    private void playCheckpointActivateSound(Player player) {
+        if (player == null) return;
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8F, 1.25F);
+    }
+
+    private void ensureCheckpointHolo(Location location, String tag) {
+        if (location == null || location.getWorld() == null || tag == null) return;
+        Location displayLocation = location.clone().add(0.0, 0.4, 0.0);
+        for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
+            if (entity instanceof ArmorStand stand && stand.getScoreboardTags().contains(tag)) {
+                stand.remove();
+                continue;
+            }
+            if (entity instanceof ItemDisplay display && display.getScoreboardTags().contains(tag)) {
+                if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                    display.teleport(displayLocation);
+                }
+                display.setBillboard(Display.Billboard.CENTER);
+                display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+                display.setItemStack(new ItemStack(Material.ENDER_EYE));
+                return;
+            }
+        }
+        ItemDisplay display = (ItemDisplay) location.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
+        display.setItemStack(new ItemStack(Material.ENDER_EYE));
+        display.setBillboard(Display.Billboard.CENTER);
+        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+        display.addScoreboardTag(tag);
+    }
+
+    private void removeStaleCheckpointDisplays(java.util.Set<String> activeTags) {
+        if (skyWorldService.getWorld() == null) return;
+        for (Entity entity : skyWorldService.getWorld().getEntities()) {
+            if (!(entity instanceof ItemDisplay) && !(entity instanceof ArmorStand)) continue;
+            for (String tag : entity.getScoreboardTags()) {
+                if (!tag.startsWith(CHECKPOINT_HOLO_PREFIX)) continue;
+                if (!activeTags.contains(tag)) {
+                    entity.remove();
+                }
+                break;
+            }
+        }
+    }
+
+    private String checkpointHoloTag(Location location) {
+        return CHECKPOINT_HOLO_PREFIX
+                + location.getBlockX() + "_"
+                + location.getBlockY() + "_"
+                + location.getBlockZ();
     }
 
     private boolean sameBlock(Location first, Location second) {
@@ -1175,6 +1279,7 @@ public class PlayerListener implements Listener {
     private void tickIslandActionbar() {
         double serverTps = getServerTps();
         Map<UUID, Integer> islandLoadCache = new HashMap<>();
+        java.util.Set<String> activeCheckpointDisplays = new java.util.HashSet<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.isOnline()) continue;
             if (!skyWorldService.isSkyCityWorld(player.getWorld())) {
@@ -1212,7 +1317,7 @@ public class PlayerListener implements Listener {
             String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
             String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Last " + islandLoad + "%";
             showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment);
-            spawnNearbyLinkedCheckpointParticles(player, island);
+            activeCheckpointDisplays.addAll(spawnNearbyLinkedCheckpointParticles(player, island));
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
             int displayChunkX = islandService.displayChunkX(relChunkX);
@@ -1231,6 +1336,7 @@ public class PlayerListener implements Listener {
             double progress = fullDurationMs > 0L ? Math.max(0.0, Math.min(1.0, (double) remainingMs / (double) fullDurationMs)) : 1.0;
             showChunkEffectBossBar(player, effectTitle, BarColor.GREEN, progress);
         }
+        removeStaleCheckpointDisplays(activeCheckpointDisplays);
     }
 
     private double getServerTps() {
