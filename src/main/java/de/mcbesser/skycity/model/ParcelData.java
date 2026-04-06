@@ -9,6 +9,12 @@ import java.util.Set;
 import java.util.UUID;
 
 public class ParcelData {
+    public enum CombatMode {
+        NONE,
+        PVP,
+        GAMES
+    }
+
     public enum MarketPaymentType {
         EXPERIENCE,
         VAULT
@@ -31,6 +37,7 @@ public class ParcelData {
     private final AccessSettings memberSettings = new AccessSettings();
     private boolean pvpEnabled;
     private boolean gamesEnabled;
+    private String combatMode = CombatMode.NONE.name();
     private boolean pvpCompassEnabled = true;
     private boolean pveEnabled;
     private boolean memberAnimalBreed;
@@ -75,10 +82,47 @@ public class ParcelData {
     public Map<UUID, Integer> getPvpKills() { return pvpKills; }
     public AccessSettings getVisitorSettings() { return visitorSettings; }
     public AccessSettings getMemberSettings() { return memberSettings; }
-    public boolean isPvpEnabled() { return pvpEnabled; }
-    public void setPvpEnabled(boolean pvpEnabled) { this.pvpEnabled = pvpEnabled; }
-    public boolean isGamesEnabled() { return gamesEnabled; }
-    public void setGamesEnabled(boolean gamesEnabled) { this.gamesEnabled = gamesEnabled; }
+    public CombatMode getCombatMode() {
+        if (combatMode != null) {
+            try {
+                return CombatMode.valueOf(combatMode);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (gamesEnabled) return CombatMode.GAMES;
+        if (pvpEnabled) return CombatMode.PVP;
+        return CombatMode.NONE;
+    }
+    public void setCombatMode(CombatMode combatMode) {
+        CombatMode mode = combatMode == null ? CombatMode.NONE : combatMode;
+        this.combatMode = mode.name();
+        this.pvpEnabled = mode == CombatMode.PVP;
+        this.gamesEnabled = mode == CombatMode.GAMES;
+    }
+    public boolean isPvpEnabled() { return getCombatMode() == CombatMode.PVP; }
+    public void setPvpEnabled(boolean pvpEnabled) {
+        if (pvpEnabled) {
+            setCombatMode(CombatMode.PVP);
+            return;
+        }
+        if (getCombatMode() == CombatMode.PVP) {
+            setCombatMode(CombatMode.NONE);
+            return;
+        }
+        this.pvpEnabled = false;
+    }
+    public boolean isGamesEnabled() { return getCombatMode() == CombatMode.GAMES; }
+    public void setGamesEnabled(boolean gamesEnabled) {
+        if (gamesEnabled) {
+            setCombatMode(CombatMode.GAMES);
+            return;
+        }
+        if (getCombatMode() == CombatMode.GAMES) {
+            setCombatMode(CombatMode.NONE);
+            return;
+        }
+        this.gamesEnabled = false;
+    }
     public boolean isPvpCompassEnabled() { return pvpCompassEnabled; }
     public void setPvpCompassEnabled(boolean pvpCompassEnabled) { this.pvpCompassEnabled = pvpCompassEnabled; }
     public boolean isPveEnabled() { return pveEnabled; }

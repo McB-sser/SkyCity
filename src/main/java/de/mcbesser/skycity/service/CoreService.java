@@ -1690,9 +1690,9 @@ public class CoreService {
    public Inventory createParcelMenu(Player player, IslandData island, int relX, int relZ) {
       int displayX = this.islandService.displayChunkX(relX);
       int displayZ = this.islandService.displayChunkZ(relZ);
-      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      ParcelData parcel = this.resolveParcelForMenu(player, island, relX, relZ);
       String title = parcel == null ? ("Grundst\u00fcck " + displayX + ":" + displayZ) : ("Grundst\u00fcck " + this.islandService.getParcelDisplayName(parcel));
-      Inventory inv = Bukkit.createInventory(new CoreService.ParcelInventoryHolder(island.getOwner(), relX, relZ), 54, title);
+      Inventory inv = Bukkit.createInventory(new CoreService.ParcelInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 54, title);
       this.fillWithPanes(inv);
       boolean unlocked = this.islandService.isChunkUnlocked(island, relX, relZ);
       if (!unlocked) {
@@ -1740,6 +1740,24 @@ public class CoreService {
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       }
+   }
+
+   private ParcelData resolveParcelForMenu(Player player, IslandData island, int relX, int relZ) {
+      if (island == null) return null;
+      ParcelData exact = player == null ? null : this.islandService.getParcelAt(island, player.getLocation());
+      if (exact != null && this.parcelCoversChunk(island, exact, relX, relZ)) {
+         return exact;
+      }
+      return this.islandService.getParcel(island, relX, relZ);
+   }
+
+   private boolean parcelCoversChunk(IslandData island, ParcelData parcel, int relX, int relZ) {
+      if (island == null || parcel == null) return false;
+      int minChunkX = this.islandService.relativeChunkX(island, parcel.getMinX() >> 4);
+      int maxChunkX = this.islandService.relativeChunkX(island, parcel.getMaxX() >> 4);
+      int minChunkZ = this.islandService.relativeChunkZ(island, parcel.getMinZ() >> 4);
+      int maxChunkZ = this.islandService.relativeChunkZ(island, parcel.getMaxZ() >> 4);
+      return relX >= minChunkX && relX <= maxChunkX && relZ >= minChunkZ && relZ <= maxChunkZ;
    }
 
    public Inventory createParcelMarketMenu(IslandData island, int relX, int relZ, boolean rentMode) {
@@ -3739,7 +3757,7 @@ public class CoreService {
       }
    }
 
-   public static record ParcelInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ) implements InventoryHolder {
+   public static record ParcelInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, String parcelKey) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

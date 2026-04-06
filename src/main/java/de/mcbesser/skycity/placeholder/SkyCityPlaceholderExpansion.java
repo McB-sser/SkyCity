@@ -5,10 +5,10 @@ import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.IslandService;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.MetadataValue;
@@ -73,7 +73,7 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
             case "island_owner_more" -> formatMore(getOwnerIds(island), 4);
             case "island_member_more" -> formatMore(getMemberIds(island), 6);
             case "pvp_zone_header" -> parcelPvpHeader(parcel);
-            case "pvp_zone_name" -> parcel == null ? "&8-" : "&c" + islandService.getParcelDisplayName(parcel);
+            case "pvp_zone_name" -> parcel == null ? "&8-" : parcelCombatColor(parcel) + islandService.getParcelDisplayName(parcel);
             case "pvp_zone_team" -> parcelPvpTeamLabel(player, island, parcel);
             case "pvp_zone_player_header" -> parcelPvpPlayerHeader(player, island, parcel);
             case "pvp_zone_more" -> formatMore(getParcelPvpPlayers(island, parcel), 8);
@@ -119,7 +119,7 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     private ParcelData resolveContextParcel(Player player, IslandData island) {
         if (player == null || island == null) return null;
         ParcelData atLocation = islandService.getParcelAt(island, player.getLocation());
-        if (atLocation != null && (atLocation.isPvpEnabled() || atLocation.isGamesEnabled())) return atLocation;
+        if (isCombatParcel(atLocation)) return atLocation;
         return null;
     }
 
@@ -187,14 +187,13 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
 
     private String parcelPvpHeader(ParcelData parcel) {
         if (parcel == null) return "&8Zone";
-        return parcel.isGamesEnabled() && !parcel.isPvpEnabled() ? "&b&lGames-Zone" : "&c&lPvP-Zone";
+        return getCombatMode(parcel) == ParcelData.CombatMode.GAMES ? "&b&lGames-Zone" : "&c&lPvP-Zone";
     }
 
     private String parcelPvpPlayerHeader(Player viewer, IslandData island, ParcelData parcel) {
         List<UUID> players = getParcelPvpPlayers(island, parcel);
         if (viewer == null || island == null || parcel == null || players.isEmpty()) return "&8Mitspieler";
-        String color = parcel.isGamesEnabled() && !parcel.isPvpEnabled() ? "&b" : "&c";
-        return color + "Mitspieler &7(" + players.size() + ")";
+        return parcelCombatColor(parcel) + "Mitspieler &7(" + players.size() + ")";
     }
 
     private String parcelPvpTeamLabel(Player viewer, IslandData island, ParcelData parcel) {
@@ -227,19 +226,22 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
         Player player = Bukkit.getPlayer(id);
         String name = playerName(id);
         Material teamWool = player == null ? null : playerPvpTeamWool(player, island, parcel);
-        String square = teamWool == null ? "&7■ " : woolColorCode(teamWool) + "■ ";
+        String square = teamWool == null ? "&7\u25a0 " : woolColorCode(teamWool) + "\u25a0 ";
         String teamLabel = teamWool == null ? "&7-" : woolColorCode(teamWool) + woolLabel(teamWool);
         return (isOnline(id) ? "&aOn " : "&7Off ") + square + "&f" + name + " &8| " + teamLabel;
     }
 
     private List<UUID> getParcelPvpPlayers(IslandData island, ParcelData parcel) {
-        if (island == null || parcel == null || (!parcel.isPvpEnabled() && !parcel.isGamesEnabled())) return List.of();
+        if (island == null || !isCombatParcel(parcel)) return List.of();
         List<UUID> ids = new ArrayList<>();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (online == null || !online.isOnline()) continue;
             if (islandService.getIslandAt(online.getLocation()) != island) continue;
             if (islandService.getParcelAt(island, online.getLocation()) != parcel) continue;
-            if (parcel.isPvpEnabled() && !parcel.isGamesEnabled() && !islandService.hasParcelPvpConsent(online.getUniqueId(), island, parcel)) continue;
+            if (getCombatMode(parcel) == ParcelData.CombatMode.PVP
+                    && !islandService.hasParcelPvpConsent(online.getUniqueId(), island, parcel)) {
+                continue;
+            }
             ids.add(online.getUniqueId());
         }
         ids.sort(
@@ -253,7 +255,7 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private Material playerPvpTeamWool(Player player, IslandData island, ParcelData parcel) {
-        if (player == null || island == null || parcel == null) return null;
+        if (player == null || island == null || !isCombatParcel(parcel)) return null;
         Location location = player.getLocation();
         if (islandService.getIslandAt(location) != island) return null;
         if (islandService.getParcelAt(island, location) != parcel) return null;
@@ -276,6 +278,18 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
 
     private boolean isWool(Material material) {
         return material != null && material.name().endsWith("_WOOL");
+    }
+
+    private boolean isCombatParcel(ParcelData parcel) {
+        return getCombatMode(parcel) != ParcelData.CombatMode.NONE;
+    }
+
+    private ParcelData.CombatMode getCombatMode(ParcelData parcel) {
+        return parcel == null ? ParcelData.CombatMode.NONE : parcel.getCombatMode();
+    }
+
+    private String parcelCombatColor(ParcelData parcel) {
+        return getCombatMode(parcel) == ParcelData.CombatMode.GAMES ? "&b" : "&c";
     }
 
     private String woolLabel(Material wool) {

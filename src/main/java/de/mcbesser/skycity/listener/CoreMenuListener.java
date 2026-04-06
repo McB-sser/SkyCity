@@ -750,12 +750,12 @@ public class CoreMenuListener implements Listener {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
-        var targetParcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+        var targetParcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
         boolean hasParcelAccess = targetParcel != null && islandService.isParcelUser(island, targetParcel, player.getUniqueId());
         if (!islandService.hasBuildAccess(player.getUniqueId(), island) && !hasParcelAccess) return;
         switch (event.getRawSlot()) {
             case 22 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel == null) {
                     player.getInventory().addItem(islandService.createPlotWand());
                     player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
@@ -766,7 +766,7 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 10 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     parcel.setSpawn(player.getLocation().clone());
                     islandService.save();
@@ -774,63 +774,63 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 11 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelMemberSettingsMenu(island, holder.relChunkX(), holder.relChunkZ()));
                     return;
                 }
             }
             case 12 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelVisitorSettingsMenu(island, holder.relChunkX(), holder.relChunkZ()));
                     return;
                 }
             }
             case 14 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.OWNER, 0));
                     return;
                 }
             }
             case 16 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.MEMBER, 0));
                     return;
                 }
             }
             case 20 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), openParcelMarketInRentMode(parcel)));
                     return;
                 }
             }
             case 28 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelModerationMenu(player, island, holder.relChunkX(), holder.relChunkZ(), CoreService.ParcelModerationAction.KICK, 0));
                     return;
                 }
             }
             case 30 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelModerationMenu(player, island, holder.relChunkX(), holder.relChunkZ(), CoreService.ParcelModerationAction.BAN, 0));
                     return;
                 }
             }
             case 32 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelModerationMenu(player, island, holder.relChunkX(), holder.relChunkZ(), CoreService.ParcelModerationAction.UNBAN, 0));
                     return;
                 }
             }
             case 33 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     boolean enabled = !parcel.isGamesEnabled();
                     if (islandService.setParcelGames(island, parcel, player.getUniqueId(), enabled)) {
@@ -839,7 +839,7 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 34 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     boolean enabled = !parcel.isPvpEnabled();
                     if (islandService.setParcelPvp(island, parcel, player.getUniqueId(), enabled)) {
@@ -849,7 +849,7 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 35 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     boolean enabled = !parcel.isPveEnabled();
                     if (enabled) {
@@ -865,7 +865,7 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 36 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     if (islandService.resetParcelPvpStats(island, parcel, player.getUniqueId())) {
                         player.sendMessage(ChatColor.YELLOW + "GS-PvP-Rangliste wurde zur\u00fcckgesetzt.");
@@ -876,14 +876,14 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 38 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.PVP, 0));
                     return;
                 }
             }
             case 39 -> {
-                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     boolean enabled = !parcel.isPvpCompassEnabled();
                     if (islandService.setParcelPvpCompassEnabled(island, parcel, player.getUniqueId(), enabled)) {
@@ -899,6 +899,11 @@ public class CoreMenuListener implements Listener {
             }
         }
         openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+    }
+
+    private ParcelData resolveHolderParcel(IslandData island, String parcelKey, int relChunkX, int relChunkZ) {
+        ParcelData parcel = islandService.getParcelByKey(island, parcelKey);
+        return parcel != null ? parcel : islandService.getParcel(island, relChunkX, relChunkZ);
     }
 
     private void handleParcelMarketMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelMarketInventoryHolder holder) {

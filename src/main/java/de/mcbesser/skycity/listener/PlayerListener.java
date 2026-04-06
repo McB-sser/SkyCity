@@ -82,6 +82,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, String> parcelPvpExitCountdownKeys = new HashMap<>();
     private final Map<UUID, String> parcelPvpStates = new HashMap<>();
     private final Map<UUID, String> parcelGamesStates = new HashMap<>();
+    private final Map<UUID, ParcelData.CombatMode> parcelCombatModes = new HashMap<>();
     private final Map<UUID, String> parcelPveStates = new HashMap<>();
     private final Map<UUID, CombatTag> parcelPvpCombatTags = new HashMap<>();
     private final Map<UUID, String> islandPresenceState = new HashMap<>();
@@ -273,10 +274,9 @@ public class PlayerListener implements Listener {
             handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
         }
         updateParcelPvpState(event.getPlayer(), event.getTo());
-        updateParcelGamesState(event.getPlayer(), event.getTo());
-        updateParcelPvpCompass(event.getPlayer(), event.getTo());
-        updateParcelPvpTeam(event.getPlayer(), event.getTo());
-        updateParcelPveState(event.getPlayer(), event.getTo());
+            updateParcelPvpCompass(event.getPlayer(), event.getTo());
+            updateParcelPvpTeam(event.getPlayer(), event.getTo());
+            updateParcelPveState(event.getPlayer(), event.getTo());
 
         if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
         updateIslandPresenceMessage(event.getPlayer(), event.getTo(), false);
@@ -303,7 +303,6 @@ public class PlayerListener implements Listener {
         }
         tryHandleLavaRescue(event.getPlayer(), event.getTo());
         updateParcelPvpState(event.getPlayer(), event.getTo());
-        updateParcelGamesState(event.getPlayer(), event.getTo());
         updateParcelPvpCompass(event.getPlayer(), event.getTo());
         updateParcelPvpTeam(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
@@ -406,8 +405,9 @@ public class PlayerListener implements Listener {
         UUID playerId = player.getUniqueId();
         IslandData island = islandService.getIslandAt(location);
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, location);
-        boolean zoneActive = parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled());
-        boolean zoneAllowed = parcel != null && (parcel.isGamesEnabled() || islandService.hasParcelPvpConsent(playerId, island, parcel));
+        boolean zoneActive = isParcelCombatZone(parcel);
+        boolean zoneAllowed = zoneActive && canEnterParcelCombatZone(island, parcel, playerId)
+                && (getParcelCombatMode(parcel) == ParcelData.CombatMode.GAMES || islandService.hasParcelPvpConsent(playerId, island, parcel));
         if (!zoneActive || !zoneAllowed) {
             parcelPvpTeamWool.remove(playerId);
             parcelPvpTeamRespawns.remove(playerId);
@@ -420,7 +420,7 @@ public class PlayerListener implements Listener {
         parcelPvpTeamRespawns.put(playerId, centeredSpawn(locationForTouchedWool(location, wool)));
         player.setMetadata(PVP_TEAM_WOOL_METADATA, new FixedMetadataValue(plugin, wool.name()));
         if (previousWool != wool) {
-            showParcelPvpScoreboard(player, island, parcel);
+            showParcelCombatScoreboard(player, island, parcel);
         }
     }
 
@@ -1294,7 +1294,7 @@ public class PlayerListener implements Listener {
         UUID playerId = player.getUniqueId();
         IslandData island = islandService.getIslandAt(to);
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
-        if (parcel == null || !parcel.isPvpEnabled() || islandService.canEnterParcelPvp(island, parcel, playerId)) {
+        if (parcel == null || !isParcelCombatZone(parcel) || canEnterParcelCombatZone(island, parcel, playerId)) {
             stopParcelPvpExitCountdown(playerId);
             return;
         }
@@ -1324,10 +1324,10 @@ public class PlayerListener implements Listener {
                 ParcelData nowParcel = nowIsland == null ? null : islandService.getParcelAt(nowIsland, now);
                 boolean stillBlocked = nowIsland != null
                         && nowParcel != null
-                        && nowParcel.isPvpEnabled()
+                        && isParcelCombatZone(nowParcel)
                         && parcelKey != null
                         && parcelKey.equals(islandService.getParcelPvpKey(nowIsland, nowParcel))
-                        && !islandService.canEnterParcelPvp(nowIsland, nowParcel, playerId);
+                        && !canEnterParcelCombatZone(nowIsland, nowParcel, playerId);
 
                 if (!stillBlocked) {
                     live.sendMessage(ChatColor.GREEN + "Du hast die gesperrte PvP-Zone verlassen.");
@@ -1363,34 +1363,56 @@ public class PlayerListener implements Listener {
         UUID playerId = player.getUniqueId();
         IslandData island = islandService.getIslandAt(to);
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
-        String nextKey = parcel != null && parcel.isPvpEnabled() ? islandService.getParcelPvpKey(island, parcel) : null;
+        ParcelData.CombatMode nextMode = getParcelCombatMode(parcel);
+        String nextKey = nextMode != ParcelData.CombatMode.NONE ? islandService.getParcelPvpKey(island, parcel) : null;
         String previousKey = parcelPvpStates.get(playerId);
-        if (parcel != null && parcel.isPvpEnabled() && !islandService.canEnterParcelPvp(island, parcel, playerId)) {
+        ParcelData.CombatMode previousMode = parcelCombatModes.getOrDefault(playerId, ParcelData.CombatMode.NONE);
+        if (nextMode != ParcelData.CombatMode.NONE && !canEnterParcelCombatZone(island, parcel, playerId)) {
             islandService.clearParcelPvpConsent(playerId);
             clearPvpScoreboard(player);
             return;
         }
-        if (previousKey != null && !previousKey.equals(nextKey)) {
-            parcelPvpStates.remove(playerId);
+        boolean sameZone = nextKey != null && nextKey.equals(previousKey) && nextMode == previousMode;
+        if (previousKey != null && !sameZone) {
+            syncActiveParcelZone(playerId, null, ParcelData.CombatMode.NONE);
             islandService.clearParcelPvpConsent(playerId);
             clearPvpScoreboard(player);
-            player.sendMessage(ChatColor.GREEN + "Du verl\u00e4sst die PvP-Zone.");
-            broadcastParcelPvpMessage(ChatColor.GRAY + player.getName() + " hat die PvP-Zone verlassen.");
+            player.sendMessage(ChatColor.GREEN + "Du verl\u00e4sst die " + combatZoneName(previousMode) + ".");
+            if (previousMode == ParcelData.CombatMode.PVP) {
+                broadcastParcelPvpMessage(ChatColor.GRAY + player.getName() + " hat die PvP-Zone verlassen.");
+            }
         }
-        if (nextKey == null || nextKey.equals(previousKey)) {
+        if (nextKey == null) {
             return;
         }
-        parcelPvpStates.put(playerId, nextKey);
-        islandService.grantParcelPvpConsent(playerId, island, parcel);
-        showParcelPvpScoreboard(player, island, parcel);
+        if (sameZone) {
+            syncActiveParcelZone(playerId, nextKey, nextMode);
+            if (parcel != null) {
+                if (nextMode == ParcelData.CombatMode.GAMES) {
+                    islandService.clearParcelPvpConsent(playerId);
+                }
+                showParcelCombatScoreboard(player, island, parcel);
+            }
+            return;
+        }
+        syncActiveParcelZone(playerId, nextKey, nextMode);
         String parcelName = islandService.getParcelDisplayName(parcel);
+        if (nextMode == ParcelData.CombatMode.GAMES) {
+            islandService.clearParcelPvpConsent(playerId);
+            showParcelCombatScoreboard(player, island, parcel);
+            player.sendMessage(ChatColor.AQUA + "Du betrittst Games auf dem Grundst\u00fcck " + parcelName + ".");
+            player.sendMessage(ChatColor.YELLOW + "Die Zone verh\u00e4lt sich wie PvP, aber ohne Spielerschaden.");
+            return;
+        }
+        islandService.grantParcelPvpConsent(playerId, island, parcel);
+        showParcelCombatScoreboard(player, island, parcel);
         player.sendMessage(ChatColor.RED + "Du trittst PvP auf dem Grundst\u00fcck " + parcelName + " bei.");
         player.sendMessage(ChatColor.YELLOW + "Du kannst jetzt k\u00e4mpfen und angegriffen werden, solange du in der Zone bist.");
         broadcastParcelPvpMessage(ChatColor.GOLD + player.getName() + ChatColor.GRAY + " ist der PvP-Zone " + parcelName + " beigetreten.");
     }
 
     private void clearParcelPvpState(UUID playerId) {
-        parcelPvpStates.remove(playerId);
+        syncActiveParcelZone(playerId, null, ParcelData.CombatMode.NONE);
         islandService.clearParcelPvpConsent(playerId);
         parcelPvpCombatTags.remove(playerId);
         stopParcelPvpExitCountdown(playerId);
@@ -1400,31 +1422,6 @@ public class PlayerListener implements Listener {
             restoreCompassTarget(player);
             clearPvpScoreboard(player);
         }
-    }
-
-    private void updateParcelGamesState(Player player, Location to) {
-        UUID playerId = player.getUniqueId();
-        IslandData island = islandService.getIslandAt(to);
-        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
-        String nextKey = parcel != null && parcel.isGamesEnabled() ? islandService.getParcelPvpKey(island, parcel) : null;
-        String previousKey = parcelGamesStates.get(playerId);
-        if (previousKey != null && !previousKey.equals(nextKey)) {
-            parcelGamesStates.remove(playerId);
-            clearPvpScoreboard(player);
-            player.sendMessage(ChatColor.GREEN + "Du verl\u00e4sst die Games-Zone.");
-        }
-        if (nextKey == null) {
-            return;
-        }
-        if (nextKey.equals(previousKey)) {
-            showParcelGamesScoreboard(player, island, parcel);
-            return;
-        }
-        parcelGamesStates.put(playerId, nextKey);
-        showParcelGamesScoreboard(player, island, parcel);
-        String parcelName = islandService.getParcelDisplayName(parcel);
-        player.sendMessage(ChatColor.AQUA + "Du betrittst Games auf dem Grundst\u00fcck " + parcelName + ".");
-        player.sendMessage(ChatColor.YELLOW + "Die Zone verh\u00e4lt sich wie PvP, aber ohne Spielerschaden.");
     }
 
     private void clearParcelGamesState(UUID playerId) {
@@ -1440,10 +1437,11 @@ public class PlayerListener implements Listener {
         UUID playerId = player.getUniqueId();
         IslandData island = islandService.getIslandAt(to);
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
+        ParcelData.CombatMode mode = getParcelCombatMode(parcel);
         boolean suppress = parcel != null
-                && parcel.isPvpEnabled()
+                && mode != ParcelData.CombatMode.NONE
                 && !parcel.isPvpCompassEnabled()
-                && islandService.hasParcelPvpConsent(playerId, island, parcel);
+                && (mode == ParcelData.CombatMode.GAMES || islandService.hasParcelPvpConsent(playerId, island, parcel));
         if (suppress) {
             player.setCompassTarget(player.getLocation());
             parcelPvpCompassSuppressed.put(playerId, true);
@@ -1457,6 +1455,16 @@ public class PlayerListener implements Listener {
     private void restoreCompassTarget(Player player) {
         if (player == null || player.getWorld() == null) return;
         player.setCompassTarget(player.getWorld().getSpawnLocation());
+    }
+
+    private boolean isParcelCombatZone(ParcelData parcel) {
+        return getParcelCombatMode(parcel) != ParcelData.CombatMode.NONE;
+    }
+
+    private boolean canEnterParcelCombatZone(IslandData island, ParcelData parcel, UUID playerId) {
+        if (parcel == null) return false;
+        if (getParcelCombatMode(parcel) == ParcelData.CombatMode.GAMES) return true;
+        return islandService.canEnterParcelPvp(island, parcel, playerId);
     }
 
     private void updateParcelPveState(Player player, Location to) {
@@ -1549,6 +1557,38 @@ public class PlayerListener implements Listener {
             }
         }
         player.setScoreboard(scoreboard);
+    }
+
+    private void showParcelCombatScoreboard(Player player, IslandData island, ParcelData parcel) {
+        if (getParcelCombatMode(parcel) == ParcelData.CombatMode.GAMES) {
+            showParcelGamesScoreboard(player, island, parcel);
+            return;
+        }
+        showParcelPvpScoreboard(player, island, parcel);
+    }
+
+    private ParcelData.CombatMode getParcelCombatMode(ParcelData parcel) {
+        return parcel == null ? ParcelData.CombatMode.NONE : parcel.getCombatMode();
+    }
+
+    private String combatZoneName(ParcelData.CombatMode mode) {
+        return mode == ParcelData.CombatMode.GAMES ? "Games-Zone" : "PvP-Zone";
+    }
+
+    private void syncActiveParcelZone(UUID playerId, String zoneKey, ParcelData.CombatMode mode) {
+        if (playerId == null || zoneKey == null || mode == null || mode == ParcelData.CombatMode.NONE) {
+            parcelPvpStates.remove(playerId);
+            parcelGamesStates.remove(playerId);
+            parcelCombatModes.remove(playerId);
+            return;
+        }
+        parcelPvpStates.put(playerId, zoneKey);
+        parcelCombatModes.put(playerId, mode);
+        if (mode == ParcelData.CombatMode.GAMES) {
+            parcelGamesStates.put(playerId, zoneKey);
+            return;
+        }
+        parcelGamesStates.remove(playerId);
     }
 
     private void showParcelGamesScoreboard(Player player, IslandData island, ParcelData parcel) {
@@ -1689,6 +1729,10 @@ public class PlayerListener implements Listener {
                 removeChunkEffectBossBar(player);
                 continue;
             }
+            updateParcelPvpState(player, player.getLocation());
+            updateParcelPvpCompass(player, player.getLocation());
+            updateParcelPvpTeam(player, player.getLocation());
+            updateParcelPveState(player, player.getLocation());
             if (islandService.isInSpawnPlot(player.getLocation())) {
                 applyIslandTimeMode(player, null);
                 applyIslandNightVision(player, null);

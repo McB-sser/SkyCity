@@ -481,8 +481,12 @@ public class IslandService {
                             }
                         }
                         if (psec.isConfigurationSection("spawn")) parcel.setSpawn(deserializeLocation(psec.getConfigurationSection("spawn")));
-                        parcel.setPvpEnabled(psec.getBoolean("pvpEnabled", false));
-                        parcel.setGamesEnabled(psec.getBoolean("gamesEnabled", false));
+                        applyParcelCombatMode(
+                                parcel,
+                                psec.getString("combatMode", null),
+                                psec.getBoolean("pvpEnabled", false),
+                                psec.getBoolean("gamesEnabled", false)
+                        );
                         parcel.setPvpCompassEnabled(psec.getBoolean("pvpCompassEnabled", true));
                         parcel.setPveEnabled(psec.getBoolean("pveEnabled", false));
                         ConfigurationSection pvpKills = psec.getConfigurationSection("pvpKills");
@@ -1754,6 +1758,11 @@ public class IslandService {
         return null;
     }
 
+    public ParcelData getParcelByKey(IslandData island, String parcelKey) {
+        if (island == null || parcelKey == null || parcelKey.isBlank()) return null;
+        return island.getParcels().get(parcelKey);
+    }
+
     public ParcelData getParcelAt(IslandData island, Location location) {
         if (island == null || location == null) return null;
         int x = location.getBlockX();
@@ -2195,7 +2204,7 @@ public class IslandService {
     public boolean setParcelPvp(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
         if (!isParcelOwner(island, parcel, actor)) return false;
         if (parcel.isPvpEnabled() == enabled) return false;
-        parcel.setPvpEnabled(enabled);
+        parcel.setCombatMode(enabled ? ParcelData.CombatMode.PVP : ParcelData.CombatMode.NONE);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
@@ -3420,7 +3429,7 @@ public class IslandService {
     public boolean setParcelGames(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
         if (!isParcelOwner(island, parcel, actor)) return false;
         if (parcel.isGamesEnabled() == enabled) return false;
-        parcel.setGamesEnabled(enabled);
+        parcel.setCombatMode(enabled ? ParcelData.CombatMode.GAMES : ParcelData.CombatMode.NONE);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
@@ -5188,6 +5197,7 @@ public class IslandService {
                 .put("banned", stringify(parcel.getBanned()))
                 .put("pvpWhitelist", stringify(parcel.getPvpWhitelist()))
                 .put("spawn", locationDocument(parcel.getSpawn()))
+                .put("combatMode", parcel.getCombatMode().name())
                 .put("pvpEnabled", parcel.isPvpEnabled())
                 .put("gamesEnabled", parcel.isGamesEnabled())
                 .put("pvpCompassEnabled", parcel.isPvpCompassEnabled())
@@ -5237,8 +5247,12 @@ public class IslandService {
         addUuidStrings((List<String>) document.get("banned", List.class), parcel.getBanned());
         addUuidStrings((List<String>) document.get("pvpWhitelist", List.class), parcel.getPvpWhitelist());
         parcel.setSpawn(locationFromDocument(document.get("spawn", Document.class)));
-        parcel.setPvpEnabled(Boolean.TRUE.equals(document.get("pvpEnabled", Boolean.class)));
-        parcel.setGamesEnabled(Boolean.TRUE.equals(document.get("gamesEnabled", Boolean.class)));
+        applyParcelCombatMode(
+                parcel,
+                document.get("combatMode", String.class),
+                Boolean.TRUE.equals(document.get("pvpEnabled", Boolean.class)),
+                Boolean.TRUE.equals(document.get("gamesEnabled", Boolean.class))
+        );
         parcel.setPvpCompassEnabled(!Boolean.FALSE.equals(document.get("pvpCompassEnabled", Boolean.class)));
         parcel.setPveEnabled(Boolean.TRUE.equals(document.get("pveEnabled", Boolean.class)));
         parcel.setSaleOfferEnabled(Boolean.TRUE.equals(document.get("saleOfferEnabled", Boolean.class)));
@@ -5310,6 +5324,26 @@ public class IslandService {
             }
         }
         return parcel;
+    }
+
+    private void applyParcelCombatMode(ParcelData parcel, String rawCombatMode, boolean pvpEnabled, boolean gamesEnabled) {
+        if (parcel == null) return;
+        if (rawCombatMode != null) {
+            try {
+                parcel.setCombatMode(ParcelData.CombatMode.valueOf(rawCombatMode));
+                return;
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (gamesEnabled) {
+            parcel.setCombatMode(ParcelData.CombatMode.GAMES);
+            return;
+        }
+        if (pvpEnabled) {
+            parcel.setCombatMode(ParcelData.CombatMode.PVP);
+            return;
+        }
+        parcel.setCombatMode(ParcelData.CombatMode.NONE);
     }
 
     private Document accessSettingsDocument(AccessSettings settings) {

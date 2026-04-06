@@ -125,7 +125,7 @@ layout:
     default:
       slot-count: 80
       fixed-slots:
-        - '41|&c&lPvP-Zone'
+        - '41|%skycity_pvp_zone_header%'
         - '42|%skycity_pvp_zone_name%'
         - '43|&7Dein Team: %skycity_pvp_zone_team%'
         - '44|%skycity_pvp_zone_player_header%'
