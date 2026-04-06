@@ -14,6 +14,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -21,7 +22,9 @@ import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
@@ -50,6 +53,7 @@ import java.util.UUID;
 
 public class PlayerListener implements Listener {
     private static final long PVP_KILL_TIMEOUT_MS = 15_000L;
+    private static final long LAVA_RESCUE_PROTECTION_MS = 2_000L;
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
     private final SkyWorldService skyWorldService;
@@ -67,9 +71,14 @@ public class PlayerListener implements Listener {
     private final Map<UUID, BossBar> islandBossBars = new HashMap<>();
     private final Map<UUID, BossBar> chunkEffectBossBars = new HashMap<>();
     private final Map<UUID, Boolean> skyCityNightVisionApplied = new HashMap<>();
+    private final Map<UUID, Long> lavaRescueProtectionUntil = new HashMap<>();
+    private final Map<UUID, Map<String, Location>> checkpointLocations = new HashMap<>();
+    private final Map<UUID, Map<Material, Location>> checkpointLocationsByWool = new HashMap<>();
+    private final Map<UUID, Location> lastCheckpointLocations = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
+    private record CheckpointMarker(Material woolType, Material plateType, Location plateLocation) { }
 
     public PlayerListener(SkyCityPlugin plugin, IslandService islandService, SkyWorldService skyWorldService, CoreService coreService) {
         this.plugin = plugin;
@@ -123,6 +132,10 @@ public class PlayerListener implements Listener {
         clearSkyCityNightVision(event.getPlayer());
         removeIslandBossBar(event.getPlayer());
         removeChunkEffectBossBar(event.getPlayer());
+        checkpointLocations.remove(event.getPlayer().getUniqueId());
+        checkpointLocationsByWool.remove(event.getPlayer().getUniqueId());
+        lastCheckpointLocations.remove(event.getPlayer().getUniqueId());
+        lavaRescueProtectionUntil.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -204,6 +217,8 @@ public class PlayerListener implements Listener {
             clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
+        updateCheckpoint(event.getPlayer(), event.getTo());
+        if (tryHandleLavaRescue(event.getPlayer(), event.getTo())) return;
 
         boolean changedBlock = event.getFrom().getBlockX() != event.getTo().getBlockX()
                 || event.getFrom().getBlockY() != event.getTo().getBlockY()
@@ -237,8 +252,36 @@ public class PlayerListener implements Listener {
             clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
+        tryHandleLavaRescue(event.getPlayer(), event.getTo());
         updateParcelPvpState(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEnvironmentDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!skyWorldService.isSkyCityWorld(player.getWorld())) return;
+        EntityDamageEvent.DamageCause cause = event.getCause();
+        if (cause != EntityDamageEvent.DamageCause.LAVA
+                && cause != EntityDamageEvent.DamageCause.FIRE
+                && cause != EntityDamageEvent.DamageCause.FIRE_TICK) {
+            return;
+        }
+        if (!isLavaRescueProtected(player.getUniqueId()) && !isTouchingLava(player.getLocation())) return;
+        event.setCancelled(true);
+        clearLavaEffects(player);
+        if (cause == EntityDamageEvent.DamageCause.LAVA) {
+            tryHandleLavaRescue(player, player.getLocation());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onCombust(EntityCombustEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!skyWorldService.isSkyCityWorld(player.getWorld())) return;
+        if (!isLavaRescueProtected(player.getUniqueId()) && !isTouchingLava(player.getLocation())) return;
+        event.setCancelled(true);
+        clearLavaEffects(player);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -359,6 +402,170 @@ public class PlayerListener implements Listener {
             }
         }, 20L, 20L);
         parcelBanCountdownTasks.put(playerId, taskId);
+    }
+
+    private boolean tryHandleLavaRescue(Player player, Location location) {
+        if (player == null || location == null || location.getWorld() == null) return false;
+        if (!skyWorldService.isSkyCityWorld(location.getWorld())) return false;
+        if (!isTouchingLava(location)) return false;
+        Location rescueTarget = resolveLavaRescueTarget(player, location);
+        if (rescueTarget == null) return false;
+        lavaRescueProtectionUntil.put(player.getUniqueId(), System.currentTimeMillis() + LAVA_RESCUE_PROTECTION_MS);
+        clearLavaEffects(player);
+        player.teleport(rescueTarget);
+        clearLavaEffects(player);
+        return true;
+    }
+
+    private Location resolveLavaRescueTarget(Location location) {
+        return resolveLavaRescueTarget(null, location);
+    }
+
+    private Location resolveLavaRescueTarget(Player player, Location location) {
+        if (player != null) {
+            CheckpointMarker marker = findCheckpointMarker(location);
+            if (marker != null) {
+                if (marker.woolType() == Material.WHITE_WOOL) {
+                    Location lastCheckpoint = lastCheckpointLocations.get(player.getUniqueId());
+                    if (isSafeFromLava(lastCheckpoint)) {
+                        return lastCheckpoint;
+                    }
+                }
+                Location checkpoint = checkpointLocations
+                        .getOrDefault(player.getUniqueId(), Map.of())
+                        .get(checkpointKey(marker.woolType(), marker.plateType()));
+                if (isSafeFromLava(checkpoint)) {
+                    return checkpoint;
+                }
+            }
+            Material woolOnly = findWoolMarker(location);
+            if (woolOnly != null) {
+                if (woolOnly == Material.WHITE_WOOL) {
+                    Location lastCheckpoint = lastCheckpointLocations.get(player.getUniqueId());
+                    if (isSafeFromLava(lastCheckpoint)) {
+                        return lastCheckpoint;
+                    }
+                }
+                Location woolCheckpoint = checkpointLocationsByWool
+                        .getOrDefault(player.getUniqueId(), Map.of())
+                        .get(woolOnly);
+                if (isSafeFromLava(woolCheckpoint)) {
+                    return woolCheckpoint;
+                }
+            }
+        }
+        IslandData island = islandService.getIslandAt(location);
+        if (island == null) return islandService.getSpawnLocation();
+        ParcelData parcel = islandService.getParcelAt(island, location);
+        if (parcel != null && isSafeFromLava(parcel.getSpawn())) {
+            return parcel.getSpawn();
+        }
+        if (isSafeFromLava(island.getIslandSpawn())) {
+            return island.getIslandSpawn();
+        }
+        return islandService.getSpawnLocation();
+    }
+
+    private void updateCheckpoint(Player player, Location location) {
+        if (player == null || location == null || location.getWorld() == null) return;
+        CheckpointMarker marker = findCheckpointMarker(location);
+        if (marker == null) return;
+        lastCheckpointLocations.put(player.getUniqueId(), marker.plateLocation());
+        checkpointLocations
+                .computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>())
+                .put(checkpointKey(marker.woolType(), marker.plateType()), marker.plateLocation());
+        checkpointLocationsByWool
+                .computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>())
+                .put(marker.woolType(), marker.plateLocation());
+    }
+
+    private CheckpointMarker findCheckpointMarker(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        Block feet = location.getBlock();
+        CheckpointMarker marker = checkpointMarkerFromPlate(feet);
+        if (marker != null) return marker;
+        return checkpointMarkerFromPlate(feet.getRelative(0, -1, 0));
+    }
+
+    private CheckpointMarker checkpointMarkerFromPlate(Block plateBlock) {
+        if (plateBlock == null || !isPressurePlate(plateBlock.getType())) return null;
+        Block woolBlock = plateBlock.getRelative(0, -1, 0);
+        if (!isWool(woolBlock.getType())) {
+            woolBlock = plateBlock.getRelative(0, -2, 0);
+        }
+        if (!isWool(woolBlock.getType())) return null;
+        Location plateLocation = plateBlock.getLocation().add(0.5, 0.0, 0.5);
+        return new CheckpointMarker(woolBlock.getType(), plateBlock.getType(), plateLocation);
+    }
+
+    private String checkpointKey(Material woolType, Material plateType) {
+        return woolType.name() + "|" + plateType.name();
+    }
+
+    private Material findWoolMarker(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        Block feet = location.getBlock();
+        Material wool = woolFromBlock(feet);
+        if (wool != null) return wool;
+        wool = woolFromBlock(feet.getRelative(0, -1, 0));
+        if (wool != null) return wool;
+        return woolFromBlock(feet.getRelative(0, -2, 0));
+    }
+
+    private Material woolFromBlock(Block block) {
+        if (block == null) return null;
+        return isWool(block.getType()) ? block.getType() : null;
+    }
+
+    private boolean isSafeFromLava(Location location) {
+        return location != null && location.getWorld() != null && !isTouchingLava(location);
+    }
+
+    private boolean isTouchingLava(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        return isLavaBlockAt(location, 0.0, 0.0, 0.0)
+                || isLavaBlockAt(location, 0.0, 1.0, 0.0)
+                || isLavaBlockAt(location, 0.0, 1.62, 0.0)
+                || isLavaBlockAt(location, 0.3, 0.0, 0.0)
+                || isLavaBlockAt(location, -0.3, 0.0, 0.0)
+                || isLavaBlockAt(location, 0.0, 0.0, 0.3)
+                || isLavaBlockAt(location, 0.0, 0.0, -0.3)
+                || isLavaBlockAt(location, 0.3, 1.0, 0.0)
+                || isLavaBlockAt(location, -0.3, 1.0, 0.0)
+                || isLavaBlockAt(location, 0.0, 1.0, 0.3)
+                || isLavaBlockAt(location, 0.0, 1.0, -0.3);
+    }
+
+    private boolean isLavaBlockAt(Location location, double x, double y, double z) {
+        return isLavaMaterial(location.clone().add(x, y, z).getBlock().getType());
+    }
+
+    private boolean isLavaMaterial(Material material) {
+        return material == Material.LAVA || material == Material.LAVA_CAULDRON;
+    }
+
+    private boolean isPressurePlate(Material material) {
+        return material != null && material.name().endsWith("_PRESSURE_PLATE");
+    }
+
+    private boolean isWool(Material material) {
+        return material != null && material.name().endsWith("_WOOL");
+    }
+
+    private boolean isLavaRescueProtected(UUID playerId) {
+        Long until = lavaRescueProtectionUntil.get(playerId);
+        if (until == null) return false;
+        if (until < System.currentTimeMillis()) {
+            lavaRescueProtectionUntil.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+
+    private void clearLavaEffects(Player player) {
+        player.setFireTicks(0);
+        player.setVisualFire(false);
+        player.setNoDamageTicks(Math.max(player.getNoDamageTicks(), 20));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
