@@ -15,6 +15,7 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
@@ -77,6 +78,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Map<Material, Location>> checkpointLocationsByWool = new HashMap<>();
     private final Map<UUID, Location> lastCheckpointLocations = new HashMap<>();
     private final Map<UUID, Long> linkedCheckpointTeleportUntil = new HashMap<>();
+    private final Map<UUID, Long> checkpointParticleTickWindow = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -139,6 +141,7 @@ public class PlayerListener implements Listener {
         lastCheckpointLocations.remove(event.getPlayer().getUniqueId());
         lavaRescueProtectionUntil.remove(event.getPlayer().getUniqueId());
         linkedCheckpointTeleportUntil.remove(event.getPlayer().getUniqueId());
+        checkpointParticleTickWindow.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -417,6 +420,7 @@ public class PlayerListener implements Listener {
         lavaRescueProtectionUntil.put(player.getUniqueId(), System.currentTimeMillis() + LAVA_RESCUE_PROTECTION_MS);
         clearLavaEffects(player);
         player.teleport(rescueTarget);
+        playCheckpointTeleportSound(player, rescueTarget);
         clearLavaEffects(player);
         return true;
     }
@@ -432,29 +436,37 @@ public class PlayerListener implements Listener {
                 if (marker.woolType() == Material.WHITE_WOOL) {
                     Location lastCheckpoint = lastCheckpointLocations.get(player.getUniqueId());
                     if (isSafeFromLava(lastCheckpoint)) {
-                        return lastCheckpoint;
+                        return orientCheckpointLocation(player, lastCheckpoint);
                     }
                 }
                 Location checkpoint = checkpointLocations
                         .getOrDefault(player.getUniqueId(), Map.of())
                         .get(checkpointKey(marker.woolType(), marker.plateType()));
                 if (isSafeFromLava(checkpoint)) {
-                    return checkpoint;
+                    return orientCheckpointLocation(player, checkpoint);
                 }
             }
             Material woolOnly = findWoolMarker(location);
             if (woolOnly != null) {
+                IslandData island = islandService.getIslandAt(location);
+                ParcelData regionParcel = island == null ? null : islandService.getParcelAt(island, location);
                 if (woolOnly == Material.WHITE_WOOL) {
                     Location lastCheckpoint = lastCheckpointLocations.get(player.getUniqueId());
                     if (isSafeFromLava(lastCheckpoint)) {
-                        return lastCheckpoint;
+                        return orientCheckpointLocation(player, lastCheckpoint);
                     }
                 }
                 Location woolCheckpoint = checkpointLocationsByWool
                         .getOrDefault(player.getUniqueId(), Map.of())
                         .get(woolOnly);
                 if (isSafeFromLava(woolCheckpoint)) {
-                    return woolCheckpoint;
+                    return orientCheckpointLocation(player, woolCheckpoint);
+                }
+                if (island != null) {
+                    java.util.List<Location> uniqueTargets = findMatchingCheckpointPlatesByWool(island, regionParcel, woolOnly);
+                    if (uniqueTargets.size() == 1 && isSafeFromLava(uniqueTargets.get(0))) {
+                        return orientCheckpointLocation(player, uniqueTargets.get(0));
+                    }
                 }
             }
         }
@@ -502,9 +514,11 @@ public class PlayerListener implements Listener {
             }
         }
         if (target == null || !isSafeFromLava(target.clone().add(0.0, 1.0, 0.0))) return false;
+        target = orientCheckpointLocation(player, target);
         spawnLinkedCheckpointParticles(current, target);
         linkedCheckpointTeleportUntil.put(player.getUniqueId(), System.currentTimeMillis() + 1_500L);
         player.teleport(target);
+        playCheckpointTeleportSound(player, target);
         return true;
     }
 
@@ -533,15 +547,17 @@ public class PlayerListener implements Listener {
         for (String chunkKey : island.getUnlockedChunks()) {
             String[] parts = chunkKey.split(":");
             if (parts.length != 2) continue;
-            int chunkX;
-            int chunkZ;
+            int relChunkX;
+            int relChunkZ;
             try {
-                chunkX = Integer.parseInt(parts[0]);
-                chunkZ = Integer.parseInt(parts[1]);
+                relChunkX = Integer.parseInt(parts[0]);
+                relChunkZ = Integer.parseInt(parts[1]);
             } catch (NumberFormatException ignored) {
                 continue;
             }
             if (skyWorldService.getWorld() == null) continue;
+            int chunkX = islandService.plotMinChunkX(island.getGridX()) + relChunkX;
+            int chunkZ = islandService.plotMinChunkZ(island.getGridZ()) + relChunkZ;
             org.bukkit.Chunk chunk = skyWorldService.getWorld().getChunkAt(chunkX, chunkZ);
             int minY = chunk.getWorld().getMinHeight();
             int maxY = chunk.getWorld().getMaxHeight();
@@ -567,6 +583,48 @@ public class PlayerListener implements Listener {
         return matches;
     }
 
+    private java.util.List<Location> findMatchingCheckpointPlatesByWool(IslandData island, ParcelData regionParcel, Material woolType) {
+        java.util.List<Location> matches = new java.util.ArrayList<>();
+        if (island == null || woolType == null) return matches;
+        for (String chunkKey : island.getUnlockedChunks()) {
+            String[] parts = chunkKey.split(":");
+            if (parts.length != 2) continue;
+            int relChunkX;
+            int relChunkZ;
+            try {
+                relChunkX = Integer.parseInt(parts[0]);
+                relChunkZ = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+            if (skyWorldService.getWorld() == null) continue;
+            int chunkX = islandService.plotMinChunkX(island.getGridX()) + relChunkX;
+            int chunkZ = islandService.plotMinChunkZ(island.getGridZ()) + relChunkZ;
+            org.bukkit.Chunk chunk = skyWorldService.getWorld().getChunkAt(chunkX, chunkZ);
+            int minY = chunk.getWorld().getMinHeight();
+            int maxY = chunk.getWorld().getMaxHeight();
+            for (int localX = 0; localX < 16; localX++) {
+                for (int localZ = 0; localZ < 16; localZ++) {
+                    for (int y = minY; y < maxY; y++) {
+                        Block block = chunk.getBlock(localX, y, localZ);
+                        if (!isPressurePlate(block.getType())) continue;
+                        ParcelData candidateParcel = islandService.getParcelAt(island, block.getLocation());
+                        if (regionParcel != null) {
+                            if (candidateParcel == null || candidateParcel != regionParcel) continue;
+                        } else if (candidateParcel != null) {
+                            continue;
+                        }
+                        CheckpointMarker marker = checkpointMarkerFromPlate(block);
+                        if (marker == null || marker.woolType() != woolType) continue;
+                        matches.add(marker.plateLocation());
+                        if (matches.size() > 1) return matches;
+                    }
+                }
+            }
+        }
+        return matches;
+    }
+
     private String checkpointKey(Material woolType, Material plateType) {
         return woolType.name() + "|" + plateType.name();
     }
@@ -584,6 +642,16 @@ public class PlayerListener implements Listener {
     private Material woolFromBlock(Block block) {
         if (block == null) return null;
         return isWool(block.getType()) ? block.getType() : null;
+    }
+
+    private Location orientCheckpointLocation(Player player, Location location) {
+        if (location == null) return null;
+        Location oriented = location.clone();
+        IslandData island = islandService.getIslandAt(location);
+        Float yaw = island == null ? null : islandService.getCheckpointPlateYaw(island, location);
+        oriented.setYaw(yaw != null ? yaw : (player == null ? oriented.getYaw() : player.getLocation().getYaw()));
+        oriented.setPitch(0.0F);
+        return oriented;
     }
 
     private boolean isSafeFromLava(Location location) {
@@ -656,6 +724,66 @@ public class PlayerListener implements Listener {
         if (location == null || location.getWorld() == null) return;
         location.getWorld().spawnParticle(Particle.PORTAL, location.clone().add(0.0, 0.4, 0.0), 24, 0.25, 0.2, 0.25, 0.05);
         location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0.0, 0.9, 0.0), 8, 0.15, 0.3, 0.15, 0.0);
+    }
+
+    private void spawnNearbyLinkedCheckpointParticles(Player player, IslandData island) {
+        if (player == null || island == null || player.getWorld() == null) return;
+        long now = System.currentTimeMillis();
+        Long lastTick = checkpointParticleTickWindow.get(player.getUniqueId());
+        if (lastTick != null && now - lastTick < 600L) return;
+        checkpointParticleTickWindow.put(player.getUniqueId(), now);
+        java.util.Set<String> shown = new java.util.HashSet<>();
+        org.bukkit.Chunk center = player.getLocation().getChunk();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                org.bukkit.Chunk chunk = player.getWorld().getChunkAt(center.getX() + dx, center.getZ() + dz);
+                int relChunkX = islandService.relativeChunkX(island, chunk.getX());
+                int relChunkZ = islandService.relativeChunkZ(island, chunk.getZ());
+                if (!islandService.isChunkUnlocked(island, relChunkX, relChunkZ)) continue;
+                int minY = Math.max(player.getWorld().getMinHeight(), player.getLocation().getBlockY() - 4);
+                int maxY = Math.min(player.getWorld().getMaxHeight() - 1, player.getLocation().getBlockY() + 4);
+                for (int localX = 0; localX < 16; localX++) {
+                    for (int localZ = 0; localZ < 16; localZ++) {
+                        for (int y = minY; y <= maxY; y++) {
+                            Block block = chunk.getBlock(localX, y, localZ);
+                            CheckpointMarker marker = checkpointMarkerFromPlate(block);
+                            if (marker == null) continue;
+                            ParcelData regionParcel = islandService.getParcelAt(island, block.getLocation());
+                            String key = (regionParcel == null ? "island" : regionParcel.getChunkKey()) + "|" + checkpointKey(marker.woolType(), marker.plateType());
+                            if (!shown.add(key)) continue;
+                            java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
+                            java.util.List<Location> woolTargets = findMatchingCheckpointPlatesByWool(island, regionParcel, marker.woolType());
+                            if (woolTargets.size() == 1) {
+                                spawnWoolTargetParticles(player, woolTargets.get(0));
+                            }
+                            if (matches.size() != 2) continue;
+                            for (Location match : matches) {
+                                spawnCheckpointGlow(player, match);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void spawnCheckpointGlow(Player player, Location location) {
+        if (player == null || location == null) return;
+        player.spawnParticle(Particle.PORTAL, location.clone().add(0.0, 0.25, 0.0), 6, 0.14, 0.06, 0.14, 0.02);
+    }
+
+    private void spawnWoolTargetParticles(Player player, Location location) {
+        if (player == null || location == null) return;
+        Location base = location.clone().add(0.0, 0.18, 0.0);
+        player.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, base, 1, 0.03, 0.02, 0.03, 0.0);
+    }
+
+    private void playCheckpointTeleportSound(Player player, Location target) {
+        if (player == null) return;
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
+        if (target != null && target.getWorld() != null) {
+            target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
+        }
     }
 
     private boolean sameBlock(Location first, Location second) {
@@ -1084,6 +1212,7 @@ public class PlayerListener implements Listener {
             String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
             String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Last " + islandLoad + "%";
             showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment);
+            spawnNearbyLinkedCheckpointParticles(player, island);
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
             int displayChunkX = islandService.displayChunkX(relChunkX);

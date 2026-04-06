@@ -223,6 +223,9 @@ public class ProtectionListener implements Listener {
             player.sendMessage(ChatColor.RED + "Bambuslimit erreicht: " + islandService.getCurrentLevelDef(island).getBambooLimit());
             return;
         }
+        if (type.name().endsWith("_PRESSURE_PLATE")) {
+            islandService.setCheckpointPlateYaw(island, block.getLocation(), player.getLocation().getYaw());
+        }
 
         if (coreService.isCoreItem(event.getItemInHand())) {
             coreService.markPlacedCore(block, island.getOwner());
@@ -298,6 +301,9 @@ public class ProtectionListener implements Listener {
             coreService.removeCoreDisplays(island);
             islandService.markIslandActivity(player.getUniqueId());
             return;
+        }
+        if (block.getType().name().endsWith("_PRESSURE_PLATE")) {
+            islandService.removeCheckpointPlateYaw(island, block.getLocation());
         }
         islandService.markIslandActivity(player.getUniqueId());
         islandService.onTrackedBlockBroken(island, block);

@@ -1875,6 +1875,26 @@ public class IslandService {
         return isParcelOwner(island, parcel, playerId) || (parcel != null && parcel.getUsers().contains(playerId));
     }
 
+    public void setCheckpointPlateYaw(IslandData island, Location location, float yaw) {
+        if (island == null || location == null) return;
+        island.getCheckpointPlateYaw().put(blockKey(location), normalizeYaw(yaw));
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+    }
+
+    public Float getCheckpointPlateYaw(IslandData island, Location location) {
+        if (island == null || location == null) return null;
+        return island.getCheckpointPlateYaw().get(blockKey(location));
+    }
+
+    public void removeCheckpointPlateYaw(IslandData island, Location location) {
+        if (island == null || location == null) return;
+        if (island.getCheckpointPlateYaw().remove(blockKey(location)) != null) {
+            island.setLastActiveAt(System.currentTimeMillis());
+            save();
+        }
+    }
+
     public boolean hasParcelMemberSetting(IslandData island, ParcelData parcel, UUID playerId, java.util.function.Predicate<AccessSettings> predicate) {
         return isParcelMember(island, parcel, playerId) && parcel != null && predicate != null && predicate.test(parcel.getMemberSettings());
     }
@@ -4978,6 +4998,16 @@ public class IslandService {
 
     public String chunkKey(int x, int z) { return x + ":" + z; }
 
+    private String blockKey(Location location) {
+        return location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
+    }
+
+    private float normalizeYaw(float yaw) {
+        float normalized = yaw % 360.0F;
+        if (normalized < 0.0F) normalized += 360.0F;
+        return normalized;
+    }
+
     private void ensureTemplateFile() {
         if (templateFile.exists()) return;
         try {
@@ -5066,6 +5096,7 @@ public class IslandService {
                 .put("progress", new LinkedHashMap<>(island.getProgress()))
                 .put("upgradeTiers", new LinkedHashMap<>(island.getUpgradeTiers()))
                 .put("cacheBlocks", new LinkedHashMap<>(island.getCachedBlockCounts()))
+                .put("checkpointPlateYaw", new LinkedHashMap<>(island.getCheckpointPlateYaw()))
                 .put("growthBoostUntil", new LinkedHashMap<>(island.getGrowthBoostUntil()))
                 .put("growthBoostTier", new LinkedHashMap<>(island.getGrowthBoostTier()));
 
@@ -5115,6 +5146,7 @@ public class IslandService {
         putIntMap((Map<String, Object>) document.get("progress", Map.class), island.getProgress());
         putIntMap((Map<String, Object>) document.get("upgradeTiers", Map.class), island.getUpgradeTiers());
         putIntMap((Map<String, Object>) document.get("cacheBlocks", Map.class), island.getCachedBlockCounts());
+        putFloatMap((Map<String, Object>) document.get("checkpointPlateYaw", Map.class), island.getCheckpointPlateYaw());
         putLongMap((Map<String, Object>) document.get("growthBoostUntil", Map.class), island.getGrowthBoostUntil());
         putIntMap((Map<String, Object>) document.get("growthBoostTier", Map.class), island.getGrowthBoostTier());
         List<Document> parcels = (List<Document>) document.get("parcels", List.class);
@@ -5348,6 +5380,13 @@ public class IslandService {
         }
     }
 
+    private void putFloatMap(Map<String, Object> source, Map<String, Float> target) {
+        if (source == null || target == null) return;
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            target.put(entry.getKey(), floatValue(entry.getValue()));
+        }
+    }
+
     private int intValue(Object value) {
         return value instanceof Number number ? number.intValue() : 0;
     }
@@ -5358,6 +5397,10 @@ public class IslandService {
 
     private double doubleValue(Object value) {
         return value instanceof Number number ? number.doubleValue() : 0.0D;
+    }
+
+    private float floatValue(Object value) {
+        return value instanceof Number number ? number.floatValue() : 0.0F;
     }
 
     private String defaultString(String value, String fallback) {
