@@ -14,6 +14,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
@@ -75,6 +76,7 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Map<String, Location>> checkpointLocations = new HashMap<>();
     private final Map<UUID, Map<Material, Location>> checkpointLocationsByWool = new HashMap<>();
     private final Map<UUID, Location> lastCheckpointLocations = new HashMap<>();
+    private final Map<UUID, Long> linkedCheckpointTeleportUntil = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -136,6 +138,7 @@ public class PlayerListener implements Listener {
         checkpointLocationsByWool.remove(event.getPlayer().getUniqueId());
         lastCheckpointLocations.remove(event.getPlayer().getUniqueId());
         lavaRescueProtectionUntil.remove(event.getPlayer().getUniqueId());
+        linkedCheckpointTeleportUntil.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -223,6 +226,7 @@ public class PlayerListener implements Listener {
         boolean changedBlock = event.getFrom().getBlockX() != event.getTo().getBlockX()
                 || event.getFrom().getBlockY() != event.getTo().getBlockY()
                 || event.getFrom().getBlockZ() != event.getTo().getBlockZ();
+        if (changedBlock && tryHandleLinkedCheckpointTeleport(event.getPlayer(), event.getTo())) return;
         if (changedBlock) {
             handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
             handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
@@ -479,6 +483,31 @@ public class PlayerListener implements Listener {
                 .put(marker.woolType(), marker.plateLocation());
     }
 
+    private boolean tryHandleLinkedCheckpointTeleport(Player player, Location location) {
+        if (player == null || location == null || location.getWorld() == null) return false;
+        if (isLinkedCheckpointTeleportProtected(player.getUniqueId())) return false;
+        CheckpointMarker marker = findCheckpointMarker(location);
+        if (marker == null) return false;
+        IslandData island = islandService.getIslandAt(location);
+        if (island == null) return false;
+        ParcelData regionParcel = islandService.getParcelAt(island, location);
+        java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
+        if (matches.size() != 2) return false;
+        Location current = marker.plateLocation();
+        Location target = null;
+        for (Location candidate : matches) {
+            if (!sameBlock(candidate, current)) {
+                target = candidate;
+                break;
+            }
+        }
+        if (target == null || !isSafeFromLava(target.clone().add(0.0, 1.0, 0.0))) return false;
+        spawnLinkedCheckpointParticles(current, target);
+        linkedCheckpointTeleportUntil.put(player.getUniqueId(), System.currentTimeMillis() + 1_500L);
+        player.teleport(target);
+        return true;
+    }
+
     private CheckpointMarker findCheckpointMarker(Location location) {
         if (location == null || location.getWorld() == null) return null;
         Block feet = location.getBlock();
@@ -496,6 +525,46 @@ public class PlayerListener implements Listener {
         if (!isWool(woolBlock.getType())) return null;
         Location plateLocation = plateBlock.getLocation().add(0.5, 0.0, 0.5);
         return new CheckpointMarker(woolBlock.getType(), plateBlock.getType(), plateLocation);
+    }
+
+    private java.util.List<Location> findMatchingCheckpointPlates(IslandData island, ParcelData regionParcel, Material woolType, Material plateType) {
+        java.util.List<Location> matches = new java.util.ArrayList<>();
+        if (island == null || woolType == null || plateType == null) return matches;
+        for (String chunkKey : island.getUnlockedChunks()) {
+            String[] parts = chunkKey.split(":");
+            if (parts.length != 2) continue;
+            int chunkX;
+            int chunkZ;
+            try {
+                chunkX = Integer.parseInt(parts[0]);
+                chunkZ = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+            if (skyWorldService.getWorld() == null) continue;
+            org.bukkit.Chunk chunk = skyWorldService.getWorld().getChunkAt(chunkX, chunkZ);
+            int minY = chunk.getWorld().getMinHeight();
+            int maxY = chunk.getWorld().getMaxHeight();
+            for (int localX = 0; localX < 16; localX++) {
+                for (int localZ = 0; localZ < 16; localZ++) {
+                    for (int y = minY; y < maxY; y++) {
+                        Block block = chunk.getBlock(localX, y, localZ);
+                        if (block.getType() != plateType) continue;
+                        ParcelData candidateParcel = islandService.getParcelAt(island, block.getLocation());
+                        if (regionParcel != null) {
+                            if (candidateParcel == null || candidateParcel != regionParcel) continue;
+                        } else if (candidateParcel != null) {
+                            continue;
+                        }
+                        CheckpointMarker marker = checkpointMarkerFromPlate(block);
+                        if (marker == null || marker.woolType() != woolType) continue;
+                        matches.add(marker.plateLocation());
+                        if (matches.size() > 2) return matches;
+                    }
+                }
+            }
+        }
+        return matches;
     }
 
     private String checkpointKey(Material woolType, Material plateType) {
@@ -562,10 +631,41 @@ public class PlayerListener implements Listener {
         return true;
     }
 
+    private boolean isLinkedCheckpointTeleportProtected(UUID playerId) {
+        Long until = linkedCheckpointTeleportUntil.get(playerId);
+        if (until == null) return false;
+        if (until < System.currentTimeMillis()) {
+            linkedCheckpointTeleportUntil.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+
     private void clearLavaEffects(Player player) {
         player.setFireTicks(0);
         player.setVisualFire(false);
         player.setNoDamageTicks(Math.max(player.getNoDamageTicks(), 20));
+    }
+
+    private void spawnLinkedCheckpointParticles(Location first, Location second) {
+        spawnCheckpointParticles(first);
+        spawnCheckpointParticles(second);
+    }
+
+    private void spawnCheckpointParticles(Location location) {
+        if (location == null || location.getWorld() == null) return;
+        location.getWorld().spawnParticle(Particle.PORTAL, location.clone().add(0.0, 0.4, 0.0), 24, 0.25, 0.2, 0.25, 0.05);
+        location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0.0, 0.9, 0.0), 8, 0.15, 0.3, 0.15, 0.0);
+    }
+
+    private boolean sameBlock(Location first, Location second) {
+        return first != null
+                && second != null
+                && first.getWorld() != null
+                && first.getWorld().equals(second.getWorld())
+                && first.getBlockX() == second.getBlockX()
+                && first.getBlockY() == second.getBlockY()
+                && first.getBlockZ() == second.getBlockZ();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
