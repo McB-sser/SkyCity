@@ -40,6 +40,7 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.util.Vector;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
@@ -66,6 +67,7 @@ public class PlayerListener implements Listener {
     private static final long LAVA_RESCUE_PROTECTION_MS = 2_000L;
     private static final String CHECKPOINT_HOLO_PREFIX = "skycity_checkpoint_holo_";
     private static final String JUMP_PAD_HOLO_PREFIX = "skycity_jump_pad_holo_";
+    private static final String PVP_TEAM_WOOL_METADATA = "skycity_pvp_team_wool";
     private static final long JUMP_PAD_COOLDOWN_MS = 1_000L;
     private static final long JUMP_PAD_FALL_PROTECTION_MS = 10_000L;
     private final SkyCityPlugin plugin;
@@ -94,6 +96,10 @@ public class PlayerListener implements Listener {
     private final Map<UUID, String> lastActivatedCheckpointKey = new HashMap<>();
     private final Map<UUID, Long> jumpPadCooldownUntil = new HashMap<>();
     private final Map<UUID, Long> jumpPadFallProtectionUntil = new HashMap<>();
+    private final Map<UUID, Material> parcelPvpTeamWool = new HashMap<>();
+    private final Map<UUID, Location> parcelPvpTeamRespawns = new HashMap<>();
+    private final Map<UUID, Location> pendingParcelPvpRespawns = new HashMap<>();
+    private final Map<UUID, Boolean> parcelPvpCompassSuppressed = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -159,10 +165,20 @@ public class PlayerListener implements Listener {
         lastActivatedCheckpointKey.remove(event.getPlayer().getUniqueId());
         jumpPadCooldownUntil.remove(event.getPlayer().getUniqueId());
         jumpPadFallProtectionUntil.remove(event.getPlayer().getUniqueId());
+        parcelPvpTeamWool.remove(event.getPlayer().getUniqueId());
+        parcelPvpTeamRespawns.remove(event.getPlayer().getUniqueId());
+        pendingParcelPvpRespawns.remove(event.getPlayer().getUniqueId());
+        parcelPvpCompassSuppressed.remove(event.getPlayer().getUniqueId());
+        event.getPlayer().removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
     }
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
+        Location pvpRespawn = pendingParcelPvpRespawns.remove(event.getPlayer().getUniqueId());
+        if (pvpRespawn != null) {
+            event.setRespawnLocation(pvpRespawn);
+            return;
+        }
         Location pveRespawn = islandService.consumePendingPveRespawn(event.getPlayer().getUniqueId()).orElse(null);
         if (pveRespawn != null) {
             event.setRespawnLocation(pveRespawn);
@@ -252,6 +268,8 @@ public class PlayerListener implements Listener {
             handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
             handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
             updateParcelPvpState(event.getPlayer(), event.getTo());
+            updateParcelPvpCompass(event.getPlayer(), event.getTo());
+            updateParcelPvpTeam(event.getPlayer(), event.getTo());
             updateParcelPveState(event.getPlayer(), event.getTo());
         }
 
@@ -279,6 +297,8 @@ public class PlayerListener implements Listener {
         }
         tryHandleLavaRescue(event.getPlayer(), event.getTo());
         updateParcelPvpState(event.getPlayer(), event.getTo());
+        updateParcelPvpCompass(event.getPlayer(), event.getTo());
+        updateParcelPvpTeam(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
     }
 
@@ -358,10 +378,12 @@ public class PlayerListener implements Listener {
         Player killer = resolveKiller(tag, parcelKey);
         String parcelName = islandService.getParcelDisplayName(parcel);
         if (killer == null) {
+            prepareParcelPvpRespawn(victim, island, parcel);
             broadcastParcelPvpMessage(ChatColor.YELLOW + victim.getName() + ChatColor.GRAY + " ist in der PvP-Zone " + parcelName + " gestorben und beh\u00e4lt alles.");
             return;
         }
 
+        prepareParcelPvpRespawn(victim, island, parcel);
         ItemStack transferred = transferRandomInventoryItem(victim, killer);
         islandService.recordParcelPvpKill(island, parcel, killer.getUniqueId());
         refreshParcelPvpScoreboards(island, parcel);
@@ -370,6 +392,109 @@ public class PlayerListener implements Listener {
             return;
         }
         broadcastParcelPvpMessage(ChatColor.RED + victim.getName() + ChatColor.GRAY + " wurde von " + ChatColor.GOLD + killer.getName() + ChatColor.GRAY + " get\u00f6tet. \u00dcbertragen: " + ChatColor.AQUA + formatItemName(transferred) + ChatColor.GRAY + ".");
+    }
+
+    private void updateParcelPvpTeam(Player player, Location location) {
+        if (player == null || location == null || location.getWorld() == null) return;
+        UUID playerId = player.getUniqueId();
+        IslandData island = islandService.getIslandAt(location);
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, location);
+        if (parcel == null || !parcel.isPvpEnabled() || !islandService.hasParcelPvpConsent(playerId, island, parcel)) {
+            parcelPvpTeamWool.remove(playerId);
+            parcelPvpTeamRespawns.remove(playerId);
+            player.removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
+            return;
+        }
+        Material wool = findWoolMarker(location);
+        if (!isWool(wool)) return;
+        Material previousWool = parcelPvpTeamWool.put(playerId, wool);
+        parcelPvpTeamRespawns.put(playerId, centeredSpawn(locationForTouchedWool(location, wool)));
+        player.setMetadata(PVP_TEAM_WOOL_METADATA, new FixedMetadataValue(plugin, wool.name()));
+        if (previousWool != wool) {
+            showParcelPvpScoreboard(player, island, parcel);
+        }
+    }
+
+    private void prepareParcelPvpRespawn(Player player, IslandData island, ParcelData parcel) {
+        if (player == null || island == null || parcel == null) return;
+        Location respawn = findParcelPvpRespawnLocation(player.getUniqueId(), island, parcel);
+        if (respawn != null) {
+            pendingParcelPvpRespawns.put(player.getUniqueId(), respawn);
+        }
+    }
+
+    private Location findParcelPvpRespawnLocation(UUID playerId, IslandData island, ParcelData parcel) {
+        if (playerId == null || island == null || parcel == null) return null;
+        Location whiteRespawn = findParcelWoolRespawn(island, parcel, Material.WHITE_WOOL);
+        if (whiteRespawn != null) return whiteRespawn;
+        Material teamWool = parcelPvpTeamWool.get(playerId);
+        Location storedTeamRespawn = parcelPvpTeamRespawns.get(playerId);
+        if (teamWool != null && storedTeamRespawn != null && isCurrentWoolLocation(storedTeamRespawn, teamWool)) {
+            return storedTeamRespawn.clone();
+        }
+        if (teamWool != null) {
+            Location scannedTeamRespawn = findParcelWoolRespawn(island, parcel, teamWool);
+            if (scannedTeamRespawn != null) return scannedTeamRespawn;
+        }
+        return safeParcelFallback(parcel, island);
+    }
+
+    private Location findParcelWoolRespawn(IslandData island, ParcelData parcel, Material woolType) {
+        if (island == null || parcel == null || woolType == null || !isWool(woolType) || skyWorldService.getWorld() == null) return null;
+        int minY = Math.max(parcel.getMinY(), skyWorldService.getWorld().getMinHeight());
+        int maxY = Math.min(parcel.getMaxY(), skyWorldService.getWorld().getMaxHeight() - 1);
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                for (int y = minY; y <= maxY; y++) {
+                    Block block = skyWorldService.getWorld().getBlockAt(x, y, z);
+                    if (block.getType() != woolType) continue;
+                    if (islandService.getParcelAt(island, block.getLocation()) != parcel) continue;
+                    return centeredSpawn(block.getLocation());
+                }
+            }
+        }
+        return null;
+    }
+
+    private Location safeParcelFallback(ParcelData parcel, IslandData island) {
+        if (parcel != null && parcel.getSpawn() != null && isSafeRespawnLocation(parcel.getSpawn())) {
+            return parcel.getSpawn().clone();
+        }
+        if (island != null && island.getIslandSpawn() != null && isSafeRespawnLocation(island.getIslandSpawn())) {
+            return island.getIslandSpawn().clone();
+        }
+        return islandService.getSpawnLocation();
+    }
+
+    private Location centeredSpawn(Location base) {
+        if (base == null || base.getWorld() == null) return null;
+        Location location = base.clone();
+        Block block = location.getBlock();
+        return new Location(location.getWorld(), block.getX() + 0.5, block.getY() + 1.0, block.getZ() + 0.5);
+    }
+
+    private Location locationForTouchedWool(Location location, Material woolType) {
+        if (location == null || location.getWorld() == null || woolType == null) return location;
+        Block feet = location.getBlock();
+        if (feet.getType() == woolType) return feet.getLocation();
+        Block below = feet.getRelative(0, -1, 0);
+        if (below.getType() == woolType) return below.getLocation();
+        Block belowTwo = feet.getRelative(0, -2, 0);
+        if (belowTwo.getType() == woolType) return belowTwo.getLocation();
+        return location;
+    }
+
+    private boolean isCurrentWoolLocation(Location location, Material woolType) {
+        if (location == null || location.getWorld() == null || woolType == null) return false;
+        return location.getBlock().getType() == woolType;
+    }
+
+    private boolean isSafeRespawnLocation(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        Block feet = location.getBlock();
+        Block head = feet.getRelative(0, 1, 0);
+        Block ground = feet.getRelative(0, -1, 0);
+        return feet.isPassable() && head.isPassable() && !isLavaMaterial(ground.getType()) && !isLavaMaterial(feet.getType()) && !isLavaMaterial(head.getType());
     }
 
     private void handleParcelBanEntryCountdown(Player player, Location to) {
@@ -1262,8 +1387,34 @@ public class PlayerListener implements Listener {
         stopParcelPvpExitCountdown(playerId);
         Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
+            player.removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
+            restoreCompassTarget(player);
             clearPvpScoreboard(player);
         }
+    }
+
+    private void updateParcelPvpCompass(Player player, Location to) {
+        if (player == null || to == null || to.getWorld() == null) return;
+        UUID playerId = player.getUniqueId();
+        IslandData island = islandService.getIslandAt(to);
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, to);
+        boolean suppress = parcel != null
+                && parcel.isPvpEnabled()
+                && !parcel.isPvpCompassEnabled()
+                && islandService.hasParcelPvpConsent(playerId, island, parcel);
+        if (suppress) {
+            player.setCompassTarget(player.getLocation());
+            parcelPvpCompassSuppressed.put(playerId, true);
+            return;
+        }
+        if (Boolean.TRUE.equals(parcelPvpCompassSuppressed.remove(playerId))) {
+            restoreCompassTarget(player);
+        }
+    }
+
+    private void restoreCompassTarget(Player player) {
+        if (player == null || player.getWorld() == null) return;
+        player.setCompassTarget(player.getWorld().getSpawnLocation());
     }
 
     private void updateParcelPveState(Player player, Location to) {
@@ -1337,6 +1488,8 @@ public class PlayerListener implements Listener {
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         int score = 15;
         objective.getScore(ChatColor.WHITE + "GS: " + ChatColor.YELLOW + islandService.getParcelDisplayName(parcel)).setScore(score--);
+        Material teamWool = parcelPvpTeamWool.get(player.getUniqueId());
+        objective.getScore(ChatColor.WHITE + "Team: " + formatPvpTeamLabel(teamWool)).setScore(score--);
         objective.getScore(ChatColor.DARK_GRAY + " ").setScore(score--);
         var ranking = parcel.getPvpKills().entrySet().stream()
                 .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
@@ -1354,6 +1507,29 @@ public class PlayerListener implements Listener {
             }
         }
         player.setScoreboard(scoreboard);
+    }
+
+    private String formatPvpTeamLabel(Material wool) {
+        if (!isWool(wool)) return ChatColor.GRAY + "-";
+        return switch (wool) {
+            case WHITE_WOOL -> ChatColor.WHITE + "Wei\u00df";
+            case ORANGE_WOOL -> ChatColor.GOLD + "Orange";
+            case MAGENTA_WOOL -> ChatColor.LIGHT_PURPLE + "Magenta";
+            case LIGHT_BLUE_WOOL -> ChatColor.AQUA + "Hellblau";
+            case YELLOW_WOOL -> ChatColor.YELLOW + "Gelb";
+            case LIME_WOOL -> ChatColor.GREEN + "Lime";
+            case PINK_WOOL -> ChatColor.LIGHT_PURPLE + "Pink";
+            case GRAY_WOOL -> ChatColor.DARK_GRAY + "Grau";
+            case LIGHT_GRAY_WOOL -> ChatColor.GRAY + "Hellgrau";
+            case CYAN_WOOL -> ChatColor.DARK_AQUA + "Cyan";
+            case PURPLE_WOOL -> ChatColor.DARK_PURPLE + "Lila";
+            case BLUE_WOOL -> ChatColor.BLUE + "Blau";
+            case BROWN_WOOL -> ChatColor.GOLD + "Braun";
+            case GREEN_WOOL -> ChatColor.DARK_GREEN + "Gr\u00fcn";
+            case RED_WOOL -> ChatColor.RED + "Rot";
+            case BLACK_WOOL -> ChatColor.BLACK + "Schwarz";
+            default -> ChatColor.GRAY + wool.name().replace("_WOOL", "");
+        };
     }
 
     private void clearPvpScoreboard(Player player) {

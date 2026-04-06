@@ -1721,6 +1721,7 @@ public class CoreService {
          inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(35, this.named(parcel.isPveEnabled() ? Material.NETHER_STAR : Material.GRAY_WOOL, (parcel.isPveEnabled() ? ChatColor.DARK_GREEN : ChatColor.GRAY) + "GS-PvE", List.of(ChatColor.GRAY + "Aktiviert Wellenkampf auf diesem GS", ChatColor.GRAY + "Skaliert mit Grundfl\u00e4che und Spielerzahl", ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(39, this.named(parcel.isPvpCompassEnabled() ? Material.COMPASS : Material.RECOVERY_COMPASS, (parcel.isPvpCompassEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "PvP-Kompass", List.of(ChatColor.GRAY + "Ortung anderer Spieler in PvP", ChatColor.GRAY + "Status: " + (parcel.isPvpCompassEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.RED + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
          inv.setItem(37, this.named(Material.BOOK, ChatColor.GOLD + "PvE-Anleitung", List.of(
             ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone (max 5x5)",
             ChatColor.GRAY + "Bis zu 1 Loch 2x2 in der Startzone erlaubt",

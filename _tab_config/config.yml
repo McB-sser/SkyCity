@@ -125,6 +125,26 @@ layout:
     default:
       slot-count: 80
       fixed-slots:
+        - '41|&c&lPvP-Zone'
+        - '42|%skycity_pvp_zone_name%'
+        - '43|&7Dein Team: %skycity_pvp_zone_team%'
+        - '44|%skycity_pvp_zone_player_header%'
+        - '45|%skycity_pvp_zone_player_1%'
+        - '46|%skycity_pvp_zone_player_2%'
+        - '47|%skycity_pvp_zone_player_3%'
+        - '48|%skycity_pvp_zone_player_4%'
+        - '49|%skycity_pvp_zone_player_5%'
+        - '50|%skycity_pvp_zone_player_6%'
+        - '51|%skycity_pvp_zone_player_7%'
+        - '52|%skycity_pvp_zone_player_8%'
+        - '53|%skycity_pvp_zone_player_9%'
+        - '54|%skycity_pvp_zone_player_10%'
+        - '55|%skycity_pvp_zone_player_11%'
+        - '56|%skycity_pvp_zone_player_12%'
+        - '57|%skycity_pvp_zone_player_13%'
+        - '58|%skycity_pvp_zone_player_14%'
+        - '59|%skycity_pvp_zone_player_15%'
+        - '60|%skycity_pvp_zone_player_16%'
         - '61|&6&lInsel'
         - '62|&6%skycity_island_title%'
         - '63|&7Deine Rolle: %skycity_island_viewer_role%'
@@ -148,7 +168,7 @@ layout:
       groups:
         players:
           slots:
-            - 1-57
+            - 1-40
 
 # https://github.com/NEZNAMY/TAB/wiki/Feature-guide:-Ping-Spoof
 ping-spoof:

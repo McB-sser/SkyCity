@@ -873,6 +873,15 @@ public class CoreMenuListener implements Listener {
                     return;
                 }
             }
+            case 39 -> {
+                var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    boolean enabled = !parcel.isPvpCompassEnabled();
+                    if (islandService.setParcelPvpCompassEnabled(island, parcel, player.getUniqueId(), enabled)) {
+                        player.sendMessage((enabled ? ChatColor.AQUA : ChatColor.RED) + "PvP-Kompass " + (enabled ? "aktiviert." : "deaktiviert."));
+                    }
+                }
+            }
             case 49 -> {
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return;
