@@ -306,7 +306,65 @@ Wenn PvP auf einem Grundstueck aktiv ist:
 
 Das unterscheidet SkyCity deutlich von einfachen Inselplugins.
 
-## 13. Insel-Zeitmodus
+## 13. Checkpoints, Woll-Logik und Teleport-Platten
+
+SkyCity unterstuetzt eine eigene Checkpoint-/Teleport-Mechanik ueber farbige Wolle, Druckplatten und Lava. Damit lassen sich Parcours, Jump-and-Run-Strecken, PvE-Routen oder Teleport-Verbindungen direkt auf Inseln und Grundstuecken bauen.
+
+Grundregeln:
+
+- alle Wollfarben zaehlen
+- alle Druckplatten-Typen zaehlen
+- die Wolle darf direkt unter der Druckplatte liegen oder einen Block tiefer
+- die Teleport-Blickrichtung einer Druckplatte entspricht der Blickrichtung des Spielers beim Platzieren
+- die Mechanik koppelt nie bereichsuebergreifend
+- auf Grundstuecken gilt sie nur innerhalb genau dieses Grundstuecks
+- ausserhalb von Grundstuecken gilt sie nur im freien Inselbereich
+
+### 1 erkannte Platte
+
+Wenn es fuer eine Woll-/Druckplatten-Kombination in einem Bereich genau eine erkannte Platte gibt:
+
+- wird sie als echter Checkpoint behandelt
+- ueber ihr schwebt ein Enderauge
+- beim Betreten wird ein positiver Klang abgespielt
+
+### 2 erkannte Platten
+
+Wenn es fuer dieselbe Woll-/Druckplatten-Kombination genau zwei erkannte Platten gibt:
+
+- werden beide als Teleport-Paar gekoppelt
+- beide zeigen Portal-/Enderman-Partikel
+- beim Betreten einer Platte wird zur anderen teleportiert
+- dabei wird der Enderman-Teleport-Sound abgespielt
+- diese 2er-Konstellation zaehlt bewusst nicht als Checkpoint
+
+### 3 oder mehr erkannte Platten
+
+Wenn es fuer dieselbe Woll-/Druckplatten-Kombination drei oder mehr erkannte Platten gibt:
+
+- werden sie nicht als 2er-Teleport gekoppelt
+- alle erkannten Ziele zeigen ein schwebendes Enderauge
+- sie bleiben als Checkpoint-Ziele nutzbar
+
+### Lava-Regeln
+
+Lava kann mit derselben Woll-/Platten-Logik als Ruecksprung-Ausloeser verwendet werden.
+
+- `Wolle + Druckplatte + Lava` nutzt dieselbe Kombination wie das zugehoerige Ziel
+- auch `Wolle` ohne Druckplatte mit Lava darueber wird erkannt
+- bei genau einem passenden Ziel ist kein vorheriger Checkpoint-Kontakt noetig
+
+Sonderfall `WHITE_WOOL`:
+
+- weisse Wolle mit Lava teleportiert immer zum zuletzt beruehrten echten Checkpoint
+- 2er-Teleportpaare zaehlen dabei nicht als Checkpoint
+
+Fallbacks und Sicherheit:
+
+- wenn kein gueltiges Woll-/Platten-Ziel gefunden wird, faellt das System auf Plotspawn, Inselspawn und zuletzt `/spawn` zurueck
+- abgebaute oder geaenderte Zielplatten werden vor dem Teleport geprueft und automatisch verworfen
+
+## 14. Insel-Zeitmodus
 
 Inseln koennen eine eigene Zeitdarstellung fuer Spieler haben. Das Plugin unterstuetzt verschiedene Modi wie:
 
@@ -317,13 +375,13 @@ Inseln koennen eine eigene Zeitdarstellung fuer Spieler haben. Das Plugin unters
 
 Dadurch kann eine Insel atmosphaerisch angepasst werden, ohne dass die Weltzeit fuer alle Spieler gleich aussehen muss.
 
-## 14. Biome und Inselanpassung
+## 15. Biome und Inselanpassung
 
 Ueber die Menues koennen Spieler Biome fuer Inselbereiche bzw. Chunks verwalten. Das erlaubt gestalterische Anpassungen fuer verschiedene Themenbereiche, Farmen oder Bauten.
 
 Zusammen mit dem Chunk-System und den Insel-Templates entsteht so eine flexible Inselgestaltung.
 
-## 15. Automatische Limits und Performance-Schutz
+## 16. Automatische Limits und Performance-Schutz
 
 SkyCity begrenzt bestimmte technisch intensive Elemente aktiv, um die Inselwelt stabil zu halten.
 
@@ -339,7 +397,7 @@ Beispiele:
 
 Diese Grenzen orientieren sich am Insel-Level und helfen, Lag und Missbrauch einzudaemmen.
 
-## 16. Chat- und GUI-gestuetzte Verwaltung
+## 17. Chat- und GUI-gestuetzte Verwaltung
 
 Viele Einstellungen werden nicht nur ueber Befehle, sondern ueber Menues im Core verwaltet. Dazu gehoeren unter anderem:
 

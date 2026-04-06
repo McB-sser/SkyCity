@@ -48,10 +48,13 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.util.Transformation;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -438,6 +441,8 @@ public class PlayerListener implements Listener {
 
     private Location resolveLavaRescueTarget(Player player, Location location) {
         if (player != null) {
+            IslandData island = islandService.getIslandAt(location);
+            ParcelData regionParcel = island == null ? null : islandService.getParcelAt(island, location);
             CheckpointMarker marker = findCheckpointMarker(location);
             if (marker != null) {
                 if (marker.woolType() == Material.WHITE_WOOL) {
@@ -450,11 +455,15 @@ public class PlayerListener implements Listener {
                 if (isSafeFromLava(checkpoint)) {
                     return orientCheckpointLocation(player, checkpoint);
                 }
+                if (island != null) {
+                    java.util.List<Location> exactTargets = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
+                    if (exactTargets.size() == 1 && isSafeFromLava(exactTargets.get(0))) {
+                        return orientCheckpointLocation(player, exactTargets.get(0));
+                    }
+                }
             }
             Material woolOnly = findWoolMarker(location);
             if (woolOnly != null) {
-                IslandData island = islandService.getIslandAt(location);
-                ParcelData regionParcel = island == null ? null : islandService.getParcelAt(island, location);
                 if (woolOnly == Material.WHITE_WOOL) {
                     Location lastCheckpoint = getValidLastCheckpoint(player.getUniqueId());
                     if (isSafeFromLava(lastCheckpoint)) {
@@ -489,6 +498,11 @@ public class PlayerListener implements Listener {
         if (player == null || location == null || location.getWorld() == null) return;
         CheckpointMarker marker = findCheckpointMarker(location);
         if (marker == null) return;
+        IslandData island = islandService.getIslandAt(location);
+        if (island == null) return;
+        ParcelData regionParcel = islandService.getParcelAt(island, location);
+        java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
+        if (matches.size() == 2) return;
         String checkpointKey = marker.plateLocation().getBlockX() + ":" + marker.plateLocation().getBlockY() + ":" + marker.plateLocation().getBlockZ();
         if (!checkpointKey.equals(lastActivatedCheckpointKey.get(player.getUniqueId()))) {
             lastActivatedCheckpointKey.put(player.getUniqueId(), checkpointKey);
@@ -574,6 +588,7 @@ public class PlayerListener implements Listener {
                     for (int y = minY; y < maxY; y++) {
                         Block block = chunk.getBlock(localX, y, localZ);
                         if (block.getType() != plateType) continue;
+                        if (hasLavaDirectlyAbove(block)) continue;
                         ParcelData candidateParcel = islandService.getParcelAt(island, block.getLocation());
                         if (regionParcel != null) {
                             if (candidateParcel == null || candidateParcel != regionParcel) continue;
@@ -723,6 +738,10 @@ public class PlayerListener implements Listener {
         return material == Material.LAVA || material == Material.LAVA_CAULDRON;
     }
 
+    private boolean hasLavaDirectlyAbove(Block block) {
+        return block != null && isLavaMaterial(block.getRelative(0, 1, 0).getType());
+    }
+
     private boolean isPressurePlate(Material material) {
         return material != null && material.name().endsWith("_PRESSURE_PLATE");
     }
@@ -796,7 +815,9 @@ public class PlayerListener implements Listener {
                             if (!shown.add(key)) continue;
                             java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, marker.woolType(), marker.plateType());
                             if (matches.size() == 1) {
-                                spawnWoolTargetParticles(player, matches.get(0));
+                                String tag = checkpointHoloTag(matches.get(0));
+                                activeTags.add(tag);
+                                ensureCheckpointHolo(matches.get(0), tag);
                                 continue;
                             }
                             if (matches.size() == 2) {
@@ -825,12 +846,6 @@ public class PlayerListener implements Listener {
         player.spawnParticle(Particle.PORTAL, location.clone().add(0.0, 0.25, 0.0), 6, 0.14, 0.06, 0.14, 0.02);
     }
 
-    private void spawnWoolTargetParticles(Player player, Location location) {
-        if (player == null || location == null) return;
-        Location base = location.clone().add(0.0, 0.18, 0.0);
-        player.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, base, 1, 0.03, 0.02, 0.03, 0.0);
-    }
-
     private void playCheckpointTeleportSound(Player player, Location target) {
         if (player == null) return;
         player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
@@ -841,7 +856,7 @@ public class PlayerListener implements Listener {
 
     private void playCheckpointActivateSound(Player player) {
         if (player == null) return;
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8F, 1.25F);
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.35F, 0.85F);
     }
 
     private void ensureCheckpointHolo(Location location, String tag) {
@@ -858,6 +873,7 @@ public class PlayerListener implements Listener {
                 }
                 display.setBillboard(Display.Billboard.CENTER);
                 display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+                display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
                 display.setItemStack(new ItemStack(Material.ENDER_EYE));
                 return;
             }
@@ -866,6 +882,7 @@ public class PlayerListener implements Listener {
         display.setItemStack(new ItemStack(Material.ENDER_EYE));
         display.setBillboard(Display.Billboard.CENTER);
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
         display.addScoreboardTag(tag);
     }
 
