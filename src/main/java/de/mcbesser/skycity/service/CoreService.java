@@ -934,7 +934,10 @@ public class CoreService {
       }
       lines.add(" ");
       lines.add(ChatColor.GOLD + "Belohnung");
+      int freeChunksAfterLevelUp = island.getAvailableChunkUnlocks() + next.chunkUnlocksGranted();
+      int totalChunksAfterLevelUp = island.getUnlockedChunks().size() + island.getAvailableChunkUnlocks() + next.chunkUnlocksGranted();
       lines.add(ChatColor.AQUA + "+" + next.chunkUnlocksGranted() + " freie Chunks");
+      lines.add(ChatColor.GRAY + "Danach frei: " + ChatColor.WHITE + freeChunksAfterLevelUp + ChatColor.DARK_GRAY + " (gesamt " + totalChunksAfterLevelUp + "/" + this.islandService.getTotalIslandChunkCount() + ")");
       return lines;
    }
 
