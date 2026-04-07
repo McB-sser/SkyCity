@@ -780,7 +780,6 @@ public class PlayerListener implements Listener {
                         CheckpointMarker marker = checkpointMarkerFromPlate(block);
                         if (marker == null || marker.woolType() != woolType) continue;
                         matches.add(marker.plateLocation());
-                        if (matches.size() > 2) return matches;
                     }
                 }
             }
