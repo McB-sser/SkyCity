@@ -18,6 +18,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.AnaloguePowerable;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
@@ -55,10 +56,14 @@ import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.block.data.Powerable;
+import org.bukkit.block.data.type.RedstoneWire;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -106,6 +111,7 @@ public class PlayerListener implements Listener {
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
     private record CheckpointMarker(Material woolType, Material plateType, Location plateLocation) { }
+    private record TeamScoreEntry(Material wool, int points) { }
     public PlayerListener(SkyCityPlugin plugin, IslandService islandService, SkyWorldService skyWorldService, CoreService coreService) {
         this.plugin = plugin;
         this.islandService = islandService;
@@ -1540,6 +1546,7 @@ public class PlayerListener implements Listener {
         objective.getScore(ChatColor.WHITE + "GS: " + ChatColor.YELLOW + islandService.getParcelDisplayName(parcel)).setScore(score--);
         Material teamWool = parcelPvpTeamWool.get(player.getUniqueId());
         objective.getScore(ChatColor.WHITE + "Team: " + formatPvpTeamLabel(teamWool)).setScore(score--);
+        score = appendParcelTeamPoints(objective, score, island, parcel);
         objective.getScore(ChatColor.DARK_GRAY + " ").setScore(score--);
         var ranking = parcel.getPvpKills().entrySet().stream()
                 .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
@@ -1600,9 +1607,86 @@ public class PlayerListener implements Listener {
         objective.getScore(ChatColor.WHITE + "GS: " + ChatColor.YELLOW + islandService.getParcelDisplayName(parcel)).setScore(score--);
         Material teamWool = parcelPvpTeamWool.get(player.getUniqueId());
         objective.getScore(ChatColor.WHITE + "Team: " + formatPvpTeamLabel(teamWool)).setScore(score--);
+        score = appendParcelTeamPoints(objective, score, island, parcel);
         objective.getScore(ChatColor.WHITE + "Modus: " + ChatColor.AQUA + "Games").setScore(score--);
         objective.getScore(ChatColor.GRAY + "Kein Spielerschaden").setScore(score--);
         player.setScoreboard(scoreboard);
+    }
+
+    private int appendParcelTeamPoints(Objective objective, int score, IslandData island, ParcelData parcel) {
+        if (objective == null || island == null || parcel == null || score <= 0) return score;
+        List<TeamScoreEntry> entries = collectParcelTeamScores(island, parcel);
+        if (entries.isEmpty()) return score;
+        objective.getScore(ChatColor.YELLOW + "Punkte:").setScore(score--);
+        for (TeamScoreEntry entry : entries) {
+            if (score <= 0) break;
+            objective.getScore(formatTeamScoreLine(entry)).setScore(score--);
+        }
+        return score;
+    }
+
+    private List<TeamScoreEntry> collectParcelTeamScores(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null || skyWorldService.getWorld() == null) return List.of();
+        Map<Material, Integer> activeScores = new LinkedHashMap<>();
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
+                for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                    Block block = skyWorldService.getWorld().getBlockAt(x, y, z);
+                    if (!isTeamScoreComponent(block)) continue;
+                    Material wool = resolveTeamScoreWool(block);
+                    if (!isWool(wool)) continue;
+                    activeScores.putIfAbsent(wool, 0);
+                    if (isActiveTeamScoreComponent(block)) {
+                        activeScores.put(wool, activeScores.get(wool) + 1);
+                    }
+                }
+            }
+        }
+        return activeScores.entrySet().stream()
+                .map(entry -> new TeamScoreEntry(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    private Material resolveTeamScoreWool(Block block) {
+        if (!isTeamScoreComponent(block)) return null;
+        Material direct = woolFromBlock(block.getRelative(0, -1, 0));
+        if (direct != null) return direct;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) != 1) continue;
+                    Material wool = woolFromBlock(block.getRelative(dx, dy, dz));
+                    if (wool != null) return wool;
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isTeamScoreComponent(Block block) {
+        if (block == null) return false;
+        return switch (block.getType()) {
+            case LEVER, REDSTONE_WIRE, REPEATER, COMPARATOR, REDSTONE_TORCH, REDSTONE_WALL_TORCH -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isActiveTeamScoreComponent(Block block) {
+        if (!isTeamScoreComponent(block)) return false;
+        return switch (block.getType()) {
+            case REDSTONE_TORCH, REDSTONE_WALL_TORCH -> true;
+            case REDSTONE_WIRE -> block.getBlockData() instanceof RedstoneWire wire && wire.getPower() > 0;
+            default -> {
+                if (block.getBlockData() instanceof AnaloguePowerable analogue) {
+                    yield analogue.getPower() > 0;
+                }
+                yield block.getBlockData() instanceof Powerable powerable && powerable.isPowered();
+            }
+        };
+    }
+
+    private String formatTeamScoreLine(TeamScoreEntry entry) {
+        return woolChatColor(entry.wool()) + woolLabel(entry.wool()) + ChatColor.WHITE + ": " + entry.points();
     }
 
     private String formatPvpTeamLabel(Material wool) {
@@ -1625,6 +1709,51 @@ public class PlayerListener implements Listener {
             case RED_WOOL -> ChatColor.RED + "Rot";
             case BLACK_WOOL -> ChatColor.BLACK + "Schwarz";
             default -> ChatColor.GRAY + wool.name().replace("_WOOL", "");
+        };
+    }
+
+    private ChatColor woolChatColor(Material wool) {
+        if (!isWool(wool)) return ChatColor.GRAY;
+        return switch (wool) {
+            case WHITE_WOOL -> ChatColor.WHITE;
+            case ORANGE_WOOL -> ChatColor.GOLD;
+            case MAGENTA_WOOL, PINK_WOOL -> ChatColor.LIGHT_PURPLE;
+            case LIGHT_BLUE_WOOL -> ChatColor.AQUA;
+            case YELLOW_WOOL -> ChatColor.YELLOW;
+            case LIME_WOOL -> ChatColor.GREEN;
+            case GRAY_WOOL -> ChatColor.DARK_GRAY;
+            case LIGHT_GRAY_WOOL -> ChatColor.GRAY;
+            case CYAN_WOOL -> ChatColor.DARK_AQUA;
+            case PURPLE_WOOL -> ChatColor.DARK_PURPLE;
+            case BLUE_WOOL -> ChatColor.BLUE;
+            case BROWN_WOOL -> ChatColor.GOLD;
+            case GREEN_WOOL -> ChatColor.DARK_GREEN;
+            case RED_WOOL -> ChatColor.RED;
+            case BLACK_WOOL -> ChatColor.BLACK;
+            default -> ChatColor.GRAY;
+        };
+    }
+
+    private String woolLabel(Material wool) {
+        if (!isWool(wool)) return "-";
+        return switch (wool) {
+            case WHITE_WOOL -> "Wei\u00df";
+            case ORANGE_WOOL -> "Orange";
+            case MAGENTA_WOOL -> "Magenta";
+            case LIGHT_BLUE_WOOL -> "Hellblau";
+            case YELLOW_WOOL -> "Gelb";
+            case LIME_WOOL -> "Lime";
+            case PINK_WOOL -> "Pink";
+            case GRAY_WOOL -> "Grau";
+            case LIGHT_GRAY_WOOL -> "Hellgrau";
+            case CYAN_WOOL -> "Cyan";
+            case PURPLE_WOOL -> "Lila";
+            case BLUE_WOOL -> "Blau";
+            case BROWN_WOOL -> "Braun";
+            case GREEN_WOOL -> "Gr\u00fcn";
+            case RED_WOOL -> "Rot";
+            case BLACK_WOOL -> "Schwarz";
+            default -> wool.name().replace("_WOOL", "");
         };
     }
 
