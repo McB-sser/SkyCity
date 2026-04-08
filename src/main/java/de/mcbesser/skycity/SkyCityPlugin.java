@@ -72,8 +72,9 @@ public class SkyCityPlugin extends JavaPlugin {
             registerVaultEconomyIfAvailable();
         }, 20L, 40L);
 
-        Bukkit.getPluginManager().registerEvents(new PlayerListener(this, islandService, skyWorldService, coreService), this);
-        Bukkit.getPluginManager().registerEvents(new ProtectionListener(this, islandService, coreService, skyWorldService), this);
+        PlayerListener playerListener = new PlayerListener(this, islandService, skyWorldService, coreService);
+        Bukkit.getPluginManager().registerEvents(playerListener, this);
+        Bukkit.getPluginManager().registerEvents(new ProtectionListener(this, islandService, coreService, skyWorldService, playerListener), this);
         Bukkit.getPluginManager().registerEvents(new PlotWandListener(this, islandService, skyWorldService, coreService), this);
         Bukkit.getPluginManager().registerEvents(new CoreMenuListener(islandService, coreService, particlePreviewService), this);
         Bukkit.getPluginManager().registerEvents(new BootstrapListener(), this);

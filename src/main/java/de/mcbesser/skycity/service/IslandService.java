@@ -328,6 +328,7 @@ public class IslandService {
     private final SkyCityPlugin plugin;
     private final SkyWorldService skyWorldService;
     private final Map<UUID, IslandData> islands = new HashMap<>();
+    private final Set<UUID> activeGrowthBoostIslands = new HashSet<>();
     private final Map<String, Long> growthDebugWindowStart = new HashMap<>();
     private final Map<String, Integer> growthDebugAttempts = new HashMap<>();
     private final Map<String, Integer> growthDebugHits = new HashMap<>();
@@ -520,14 +521,40 @@ public class IslandService {
     }
 
     private void finalizeLoadedIslands() {
+        activeGrowthBoostIslands.clear();
         for (IslandData island : islands.values()) {
             if (island.getPoints() <= 0) island.setPoints(Math.max(1, island.getGeneratedChunks().size()));
             if (island.getLastActiveAt() <= 0) island.setLastActiveAt(System.currentTimeMillis());
+            refreshGrowthBoostTracking(island);
             rebuildPlacementCaches(island);
             if (!isIslandFullyPregenerated(island)) {
                 queuePregeneration(island);
             }
         }
+    }
+
+    public boolean hasAnyActiveGrowthBoosts() {
+        return !activeGrowthBoostIslands.isEmpty();
+    }
+
+    public List<IslandData> getIslandsWithActiveGrowthBoosts() {
+        List<IslandData> result = new ArrayList<>(activeGrowthBoostIslands.size());
+        for (UUID owner : activeGrowthBoostIslands) {
+            IslandData island = islands.get(owner);
+            if (island != null) {
+                result.add(island);
+            }
+        }
+        return result;
+    }
+
+    private void refreshGrowthBoostTracking(IslandData island) {
+        if (island == null) return;
+        if (island.getGrowthBoostUntil().isEmpty() || island.getGrowthBoostTier().isEmpty()) {
+            activeGrowthBoostIslands.remove(island.getOwner());
+            return;
+        }
+        activeGrowthBoostIslands.add(island.getOwner());
     }
 
     public void save() {
@@ -697,6 +724,7 @@ public class IslandService {
     private void deleteIslandData(IslandData island, boolean createReplacementForMasters) {
         if (island == null) return;
         islands.remove(island.getOwner());
+        activeGrowthBoostIslands.remove(island.getOwner());
         pendingMasterInvites.entrySet().removeIf(e -> e.getValue().equals(island.getOwner()) || e.getKey().equals(island.getOwner()));
         pendingBorderUnlockRequests.entrySet().removeIf(entry ->
                 entry.getValue().requesterOwner.equals(island.getOwner())
@@ -1405,7 +1433,9 @@ public class IslandService {
         }
 
         islands.remove(island.getOwner());
+        activeGrowthBoostIslands.remove(island.getOwner());
         islands.put(newMaster, migrated);
+        refreshGrowthBoostTracking(migrated);
 
         List<Consumer<IslandData>> createCallbacks = islandCreationCallbacks.remove(island.getOwner());
         if (createCallbacks != null) islandCreationCallbacks.put(newMaster, createCallbacks);
@@ -3589,6 +3619,7 @@ public class IslandService {
             if (until > 0L || tier > 0) {
                 island.getGrowthBoostUntil().remove(key);
                 island.getGrowthBoostTier().remove(key);
+                refreshGrowthBoostTracking(island);
                 save();
             }
             return 0;
@@ -3620,6 +3651,7 @@ public class IslandService {
         long base = Math.max(now, island.getGrowthBoostUntil().getOrDefault(key, now));
         island.getGrowthBoostUntil().put(key, base + duration);
         island.getGrowthBoostTier().put(key, Math.max(tier, island.getGrowthBoostTier().getOrDefault(key, 0)));
+        refreshGrowthBoostTracking(island);
         island.setLastActiveAt(now);
         save();
         return true;

@@ -62,14 +62,19 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class PlayerListener implements Listener {
     private static final long PVP_KILL_TIMEOUT_MS = 15_000L;
     private static final long LAVA_RESCUE_PROTECTION_MS = 2_000L;
+    private static final long CHECKPOINT_CACHE_TTL_MS = 60_000L;
+    private static final long COMBAT_SCOREBOARD_REFRESH_MS = 1_000L;
+    private static final long TEAM_SCORE_CACHE_TTL_MS = 1_000L;
     private static final String CHECKPOINT_HOLO_PREFIX = "skycity_checkpoint_holo_";
     private static final String JUMP_PAD_HOLO_PREFIX = "skycity_jump_pad_holo_";
     private static final String PVP_TEAM_WOOL_METADATA = "skycity_pvp_team_wool";
@@ -103,15 +108,23 @@ public class PlayerListener implements Listener {
     private final Map<UUID, String> lastActivatedCheckpointKey = new HashMap<>();
     private final Map<UUID, Long> jumpPadCooldownUntil = new HashMap<>();
     private final Map<UUID, Long> jumpPadFallProtectionUntil = new HashMap<>();
+    private final Map<UUID, CheckpointIndexCache> checkpointIndexCache = new HashMap<>();
+    private final Map<String, TeamScoreCache> parcelTeamScoreCache = new HashMap<>();
+    private final Map<String, UUID> checkpointDisplaysByTag = new HashMap<>();
+    private final Map<String, UUID> jumpPadDisplaysByTag = new HashMap<>();
     private final Map<UUID, Material> parcelPvpTeamWool = new HashMap<>();
     private final Map<UUID, Location> parcelPvpTeamRespawns = new HashMap<>();
     private final Map<UUID, Location> pendingParcelPvpRespawns = new HashMap<>();
     private final Map<UUID, Boolean> parcelPvpCompassSuppressed = new HashMap<>();
+    private final Map<UUID, CombatScoreboardState> combatScoreboardStates = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
     private record CheckpointMarker(Material woolType, Material plateType, Location plateLocation) { }
+    private record CheckpointIndexCache(long builtAt, Set<String> unlockedChunks, Map<String, List<Location>> exactMatches, Map<String, List<Location>> woolMatches) { }
+    private record TeamScoreCache(long builtAt, List<TeamScoreEntry> entries) { }
     private record TeamScoreEntry(Material wool, int points) { }
+    private record CombatScoreboardState(String zoneKey, long refreshedAt) { }
     public PlayerListener(SkyCityPlugin plugin, IslandService islandService, SkyWorldService skyWorldService, CoreService coreService) {
         this.plugin = plugin;
         this.islandService = islandService;
@@ -172,12 +185,14 @@ public class PlayerListener implements Listener {
         linkedCheckpointTeleportUntil.remove(event.getPlayer().getUniqueId());
         checkpointParticleTickWindow.remove(event.getPlayer().getUniqueId());
         lastActivatedCheckpointKey.remove(event.getPlayer().getUniqueId());
+        checkpointIndexCache.remove(event.getPlayer().getUniqueId());
         jumpPadCooldownUntil.remove(event.getPlayer().getUniqueId());
         jumpPadFallProtectionUntil.remove(event.getPlayer().getUniqueId());
         parcelPvpTeamWool.remove(event.getPlayer().getUniqueId());
         parcelPvpTeamRespawns.remove(event.getPlayer().getUniqueId());
         pendingParcelPvpRespawns.remove(event.getPlayer().getUniqueId());
         parcelPvpCompassSuppressed.remove(event.getPlayer().getUniqueId());
+        combatScoreboardStates.remove(event.getPlayer().getUniqueId());
         event.getPlayer().removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
     }
 
@@ -267,22 +282,20 @@ public class PlayerListener implements Listener {
             clearParcelPveState(event.getPlayer().getUniqueId());
             return;
         }
-        updateCheckpoint(event.getPlayer(), event.getTo());
-        if (tryHandleLavaRescue(event.getPlayer(), event.getTo())) return;
-
         boolean changedBlock = event.getFrom().getBlockX() != event.getTo().getBlockX()
                 || event.getFrom().getBlockY() != event.getTo().getBlockY()
                 || event.getFrom().getBlockZ() != event.getTo().getBlockZ();
+        if (!changedBlock) return;
+        updateCheckpoint(event.getPlayer(), event.getTo());
+        if (tryHandleLavaRescue(event.getPlayer(), event.getTo())) return;
         if (changedBlock && tryHandleJumpPad(event.getPlayer(), event.getFrom(), event.getTo())) return;
         if (changedBlock && tryHandleLinkedCheckpointTeleport(event.getPlayer(), event.getFrom(), event.getTo())) return;
-        if (changedBlock) {
-            handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
-            handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
-        }
+        handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
+        handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
         updateParcelPvpState(event.getPlayer(), event.getTo());
-            updateParcelPvpCompass(event.getPlayer(), event.getTo());
-            updateParcelPvpTeam(event.getPlayer(), event.getTo());
-            updateParcelPveState(event.getPlayer(), event.getTo());
+        updateParcelPvpCompass(event.getPlayer(), event.getTo());
+        updateParcelPvpTeam(event.getPlayer(), event.getTo());
+        updateParcelPveState(event.getPlayer(), event.getTo());
 
         if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
         updateIslandPresenceMessage(event.getPlayer(), event.getTo(), false);
@@ -746,51 +759,40 @@ public class PlayerListener implements Listener {
     }
 
     private java.util.List<Location> findMatchingCheckpointPlates(IslandData island, ParcelData regionParcel, Material woolType, Material plateType) {
-        java.util.List<Location> matches = new java.util.ArrayList<>();
-        if (island == null || woolType == null || plateType == null) return matches;
-        for (String chunkKey : island.getUnlockedChunks()) {
-            String[] parts = chunkKey.split(":");
-            if (parts.length != 2) continue;
-            int relChunkX;
-            int relChunkZ;
-            try {
-                relChunkX = Integer.parseInt(parts[0]);
-                relChunkZ = Integer.parseInt(parts[1]);
-            } catch (NumberFormatException ignored) {
-                continue;
-            }
-            if (skyWorldService.getWorld() == null) continue;
-            int chunkX = islandService.plotMinChunkX(island.getGridX()) + relChunkX;
-            int chunkZ = islandService.plotMinChunkZ(island.getGridZ()) + relChunkZ;
-            org.bukkit.Chunk chunk = skyWorldService.getWorld().getChunkAt(chunkX, chunkZ);
-            int minY = chunk.getWorld().getMinHeight();
-            int maxY = chunk.getWorld().getMaxHeight();
-            for (int localX = 0; localX < 16; localX++) {
-                for (int localZ = 0; localZ < 16; localZ++) {
-                    for (int y = minY; y < maxY; y++) {
-                        Block block = chunk.getBlock(localX, y, localZ);
-                        if (block.getType() != plateType) continue;
-                        if (hasLavaDirectlyAbove(block)) continue;
-                        ParcelData candidateParcel = islandService.getParcelAt(island, block.getLocation());
-                        if (regionParcel != null) {
-                            if (candidateParcel == null || candidateParcel != regionParcel) continue;
-                        } else if (candidateParcel != null) {
-                            continue;
-                        }
-                        CheckpointMarker marker = checkpointMarkerFromPlate(block);
-                        if (marker == null || marker.woolType() != woolType) continue;
-                        matches.add(marker.plateLocation());
-                    }
-                }
-            }
-        }
-        return matches;
+        if (island == null || woolType == null || plateType == null) return new java.util.ArrayList<>();
+        CheckpointIndexCache cache = getCheckpointIndex(island);
+        String key = checkpointSearchKey(regionParcel, woolType, plateType);
+        return new java.util.ArrayList<>(cache.exactMatches().getOrDefault(key, java.util.List.of()));
     }
 
     private java.util.List<Location> findMatchingCheckpointPlatesByWool(IslandData island, ParcelData regionParcel, Material woolType) {
-        java.util.List<Location> matches = new java.util.ArrayList<>();
-        if (island == null || woolType == null) return matches;
-        for (String chunkKey : island.getUnlockedChunks()) {
+        if (island == null || woolType == null) return new java.util.ArrayList<>();
+        CheckpointIndexCache cache = getCheckpointIndex(island);
+        String key = checkpointWoolSearchKey(regionParcel, woolType);
+        return new java.util.ArrayList<>(cache.woolMatches().getOrDefault(key, java.util.List.of()));
+    }
+
+    private CheckpointIndexCache getCheckpointIndex(IslandData island) {
+        Set<String> unlockedChunks = new HashSet<>(island.getUnlockedChunks());
+        CheckpointIndexCache cached = checkpointIndexCache.get(island.getOwner());
+        long now = System.currentTimeMillis();
+        if (cached != null
+                && now - cached.builtAt() < CHECKPOINT_CACHE_TTL_MS
+                && cached.unlockedChunks().equals(unlockedChunks)) {
+            return cached;
+        }
+        CheckpointIndexCache rebuilt = buildCheckpointIndex(island, unlockedChunks, now);
+        checkpointIndexCache.put(island.getOwner(), rebuilt);
+        return rebuilt;
+    }
+
+    private CheckpointIndexCache buildCheckpointIndex(IslandData island, Set<String> unlockedChunks, long builtAt) {
+        Map<String, List<Location>> exactMatches = new HashMap<>();
+        Map<String, List<Location>> woolMatches = new HashMap<>();
+        if (island == null || skyWorldService.getWorld() == null) {
+            return new CheckpointIndexCache(builtAt, unlockedChunks, exactMatches, woolMatches);
+        }
+        for (String chunkKey : unlockedChunks) {
             String[] parts = chunkKey.split(":");
             if (parts.length != 2) continue;
             int relChunkX;
@@ -801,7 +803,6 @@ public class PlayerListener implements Listener {
             } catch (NumberFormatException ignored) {
                 continue;
             }
-            if (skyWorldService.getWorld() == null) continue;
             int chunkX = islandService.plotMinChunkX(island.getGridX()) + relChunkX;
             int chunkZ = islandService.plotMinChunkZ(island.getGridZ()) + relChunkZ;
             org.bukkit.Chunk chunk = skyWorldService.getWorld().getChunkAt(chunkX, chunkZ);
@@ -812,21 +813,29 @@ public class PlayerListener implements Listener {
                     for (int y = minY; y < maxY; y++) {
                         Block block = chunk.getBlock(localX, y, localZ);
                         if (!isPressurePlate(block.getType())) continue;
-                        ParcelData candidateParcel = islandService.getParcelAt(island, block.getLocation());
-                        if (regionParcel != null) {
-                            if (candidateParcel == null || candidateParcel != regionParcel) continue;
-                        } else if (candidateParcel != null) {
-                            continue;
-                        }
                         CheckpointMarker marker = checkpointMarkerFromPlate(block);
-                        if (marker == null || marker.woolType() != woolType) continue;
-                        matches.add(marker.plateLocation());
-                        if (matches.size() > 1) return matches;
+                        if (marker == null) continue;
+                        ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
+                        String woolKey = checkpointWoolSearchKey(parcel, marker.woolType());
+                        woolMatches.computeIfAbsent(woolKey, ignored -> new java.util.ArrayList<>()).add(marker.plateLocation());
+                        if (hasLavaDirectlyAbove(block)) continue;
+                        String exactKey = checkpointSearchKey(parcel, marker.woolType(), marker.plateType());
+                        exactMatches.computeIfAbsent(exactKey, ignored -> new java.util.ArrayList<>()).add(marker.plateLocation());
                     }
                 }
             }
         }
-        return matches;
+        return new CheckpointIndexCache(builtAt, unlockedChunks, exactMatches, woolMatches);
+    }
+
+    private String checkpointSearchKey(ParcelData parcel, Material woolType, Material plateType) {
+        String parcelKey = parcel == null ? "island" : parcel.getChunkKey();
+        return parcelKey + "|" + woolType.name() + "|" + plateType.name();
+    }
+
+    private String checkpointWoolSearchKey(ParcelData parcel, Material woolType) {
+        String parcelKey = parcel == null ? "island" : parcel.getChunkKey();
+        return parcelKey + "|" + woolType.name();
     }
 
     private String checkpointKey(Material woolType, Material plateType) {
@@ -1102,12 +1111,24 @@ public class PlayerListener implements Listener {
     private void ensureCheckpointHolo(Location location, String tag) {
         if (location == null || location.getWorld() == null || tag == null) return;
         Location displayLocation = location.clone().add(0.0, 0.4, 0.0);
+        Entity tracked = getTrackedDisplay(checkpointDisplaysByTag, tag);
+        if (tracked instanceof ItemDisplay display) {
+            if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                display.teleport(displayLocation);
+            }
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+            display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
+            display.setItemStack(new ItemStack(Material.ENDER_EYE));
+            return;
+        }
         for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
             if (entity instanceof ArmorStand stand && stand.getScoreboardTags().contains(tag)) {
                 stand.remove();
                 continue;
             }
             if (entity instanceof ItemDisplay display && display.getScoreboardTags().contains(tag)) {
+                checkpointDisplaysByTag.put(tag, display.getUniqueId());
                 if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                     display.teleport(displayLocation);
                 }
@@ -1124,19 +1145,19 @@ public class PlayerListener implements Listener {
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
         display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
         display.addScoreboardTag(tag);
+        checkpointDisplaysByTag.put(tag, display.getUniqueId());
     }
 
     private void removeStaleCheckpointDisplays(java.util.Set<String> activeTags) {
-        if (skyWorldService.getWorld() == null) return;
-        for (Entity entity : skyWorldService.getWorld().getEntities()) {
-            if (!(entity instanceof ItemDisplay) && !(entity instanceof ArmorStand)) continue;
-            for (String tag : entity.getScoreboardTags()) {
-                if (!tag.startsWith(CHECKPOINT_HOLO_PREFIX)) continue;
-                if (!activeTags.contains(tag)) {
-                    entity.remove();
-                }
-                break;
+        java.util.Iterator<Map.Entry<String, UUID>> iterator = checkpointDisplaysByTag.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, UUID> entry = iterator.next();
+            if (activeTags.contains(entry.getKey())) continue;
+            Entity entity = Bukkit.getEntity(entry.getValue());
+            if (entity != null) {
+                entity.remove();
             }
+            iterator.remove();
         }
     }
 
@@ -1147,15 +1168,60 @@ public class PlayerListener implements Listener {
                 + location.getBlockZ();
     }
 
+    public void invalidateStructureCaches(Location location, Material material) {
+        if (location == null || location.getWorld() == null || material == null) return;
+        IslandData island = islandService.getIslandAt(location);
+        if (island == null) return;
+        if (isCheckpointStructureMaterial(material)) {
+            checkpointIndexCache.remove(island.getOwner());
+        }
+        if (isTeamScoreMaterial(material)) {
+            ParcelData parcel = islandService.getParcelAt(island, location);
+            String parcelKey = parcel == null ? null : islandService.getParcelPvpKey(island, parcel);
+            if (parcelKey != null) {
+                parcelTeamScoreCache.remove(parcelKey);
+            }
+        }
+    }
+
+    private boolean isCheckpointStructureMaterial(Material material) {
+        return isPressurePlate(material)
+                || isWool(material)
+                || material == Material.LAVA
+                || material == Material.LAVA_CAULDRON
+                || material == Material.SLIME_BLOCK;
+    }
+
+    private boolean isTeamScoreMaterial(Material material) {
+        if (material == null) return false;
+        if (isWool(material)) return true;
+        return switch (material) {
+            case LEVER, REDSTONE_WIRE, REPEATER, COMPARATOR, REDSTONE_TORCH, REDSTONE_WALL_TORCH -> true;
+            default -> false;
+        };
+    }
+
     private void ensureJumpPadHolo(Location location, String tag) {
         if (location == null || location.getWorld() == null || tag == null) return;
         Location displayLocation = location.clone().add(0.0, 0.225, 0.0);
+        Entity tracked = getTrackedDisplay(jumpPadDisplaysByTag, tag);
+        if (tracked instanceof ItemDisplay display) {
+            if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                display.teleport(displayLocation);
+            }
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+            display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
+            display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
+            return;
+        }
         for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
             if (entity instanceof ArmorStand stand && stand.getScoreboardTags().contains(tag)) {
                 stand.remove();
                 continue;
             }
             if (entity instanceof ItemDisplay display && display.getScoreboardTags().contains(tag)) {
+                jumpPadDisplaysByTag.put(tag, display.getUniqueId());
                 if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                     display.teleport(displayLocation);
                 }
@@ -1172,20 +1238,31 @@ public class PlayerListener implements Listener {
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
         display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
         display.addScoreboardTag(tag);
+        jumpPadDisplaysByTag.put(tag, display.getUniqueId());
     }
 
     private void removeStaleJumpPadDisplays(java.util.Set<String> activeTags) {
-        if (skyWorldService.getWorld() == null) return;
-        for (Entity entity : skyWorldService.getWorld().getEntities()) {
-            if (!(entity instanceof ItemDisplay) && !(entity instanceof ArmorStand)) continue;
-            for (String tag : entity.getScoreboardTags()) {
-                if (!tag.startsWith(JUMP_PAD_HOLO_PREFIX)) continue;
-                if (!activeTags.contains(tag)) {
-                    entity.remove();
-                }
-                break;
+        java.util.Iterator<Map.Entry<String, UUID>> iterator = jumpPadDisplaysByTag.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, UUID> entry = iterator.next();
+            if (activeTags.contains(entry.getKey())) continue;
+            Entity entity = Bukkit.getEntity(entry.getValue());
+            if (entity != null) {
+                entity.remove();
             }
+            iterator.remove();
         }
+    }
+
+    private Entity getTrackedDisplay(Map<String, UUID> trackedDisplays, String tag) {
+        UUID entityId = trackedDisplays.get(tag);
+        if (entityId == null) return null;
+        Entity entity = Bukkit.getEntity(entityId);
+        if (entity == null || !entity.isValid()) {
+            trackedDisplays.remove(tag);
+            return null;
+        }
+        return entity;
     }
 
     private String jumpPadHoloTag(Location location) {
@@ -1392,7 +1469,7 @@ public class PlayerListener implements Listener {
         }
         if (sameZone) {
             syncActiveParcelZone(playerId, nextKey, nextMode);
-            if (parcel != null) {
+            if (parcel != null && shouldRefreshCombatScoreboard(playerId, nextKey)) {
                 if (nextMode == ParcelData.CombatMode.GAMES) {
                     islandService.clearParcelPvpConsent(playerId);
                 }
@@ -1401,6 +1478,7 @@ public class PlayerListener implements Listener {
             return;
         }
         syncActiveParcelZone(playerId, nextKey, nextMode);
+        markCombatScoreboardRefreshed(playerId, nextKey);
         String parcelName = islandService.getParcelDisplayName(parcel);
         if (nextMode == ParcelData.CombatMode.GAMES) {
             islandService.clearParcelPvpConsent(playerId);
@@ -1418,6 +1496,7 @@ public class PlayerListener implements Listener {
 
     private void clearParcelPvpState(UUID playerId) {
         syncActiveParcelZone(playerId, null, ParcelData.CombatMode.NONE);
+        combatScoreboardStates.remove(playerId);
         islandService.clearParcelPvpConsent(playerId);
         parcelPvpCombatTags.remove(playerId);
         stopParcelPvpExitCountdown(playerId);
@@ -1431,6 +1510,7 @@ public class PlayerListener implements Listener {
 
     private void clearParcelGamesState(UUID playerId) {
         String previousKey = parcelGamesStates.remove(playerId);
+        combatScoreboardStates.remove(playerId);
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && previousKey != null) {
             clearPvpScoreboard(player);
@@ -1488,17 +1568,21 @@ public class PlayerListener implements Listener {
             return;
         }
         if (nextKey.equals(previousKey)) {
-            showParcelPveScoreboard(player, island, parcel);
+            if (shouldRefreshCombatScoreboard(playerId, nextKey)) {
+                showParcelPveScoreboard(player, island, parcel);
+            }
             return;
         }
         if (islandService.enterParcelPve(player, island, parcel)) {
             parcelPveStates.put(playerId, nextKey);
+            markCombatScoreboardRefreshed(playerId, nextKey);
             showParcelPveScoreboard(player, island, parcel);
         }
     }
 
     private void clearParcelPveState(UUID playerId) {
         String previousKey = parcelPveStates.remove(playerId);
+        combatScoreboardStates.remove(playerId);
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && previousKey != null) {
             islandService.leaveParcelPve(player, previousKey, true);
@@ -1626,6 +1710,12 @@ public class PlayerListener implements Listener {
 
     private List<TeamScoreEntry> collectParcelTeamScores(IslandData island, ParcelData parcel) {
         if (island == null || parcel == null || skyWorldService.getWorld() == null) return List.of();
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        long now = System.currentTimeMillis();
+        TeamScoreCache cached = parcelKey == null ? null : parcelTeamScoreCache.get(parcelKey);
+        if (cached != null && now - cached.builtAt() < TEAM_SCORE_CACHE_TTL_MS) {
+            return cached.entries();
+        }
         Map<Material, Integer> activeScores = new LinkedHashMap<>();
         for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
             for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
@@ -1641,9 +1731,13 @@ public class PlayerListener implements Listener {
                 }
             }
         }
-        return activeScores.entrySet().stream()
+        List<TeamScoreEntry> entries = activeScores.entrySet().stream()
                 .map(entry -> new TeamScoreEntry(entry.getKey(), entry.getValue()))
                 .toList();
+        if (parcelKey != null) {
+            parcelTeamScoreCache.put(parcelKey, new TeamScoreCache(now, entries));
+        }
+        return entries;
     }
 
     private Material resolveTeamScoreWool(Block block) {
@@ -1765,6 +1859,21 @@ public class PlayerListener implements Listener {
         Objective parcelPve = scoreboard.getObjective("parcelpve");
         if (parcelPvp == null && parcelGames == null && parcelPve == null) return;
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+    }
+
+    private boolean shouldRefreshCombatScoreboard(UUID playerId, String zoneKey) {
+        long now = System.currentTimeMillis();
+        CombatScoreboardState state = combatScoreboardStates.get(playerId);
+        if (state == null || zoneKey == null || !zoneKey.equals(state.zoneKey()) || now - state.refreshedAt() >= COMBAT_SCOREBOARD_REFRESH_MS) {
+            combatScoreboardStates.put(playerId, new CombatScoreboardState(zoneKey, now));
+            return true;
+        }
+        return false;
+    }
+
+    private void markCombatScoreboardRefreshed(UUID playerId, String zoneKey) {
+        if (playerId == null) return;
+        combatScoreboardStates.put(playerId, new CombatScoreboardState(zoneKey, System.currentTimeMillis()));
     }
 
     private void refreshParcelPvpScoreboards(IslandData island, ParcelData parcel) {

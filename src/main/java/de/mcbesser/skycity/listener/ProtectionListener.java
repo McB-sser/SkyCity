@@ -1,6 +1,7 @@
 package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.SkyCityPlugin;
+import de.mcbesser.skycity.listener.PlayerListener;
 import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.CoreService;
@@ -117,13 +118,15 @@ public class ProtectionListener implements Listener {
     private final IslandService islandService;
     private final CoreService coreService;
     private final SkyWorldService skyWorldService;
+    private final PlayerListener playerListener;
     private final RandomTickBridge randomTickBridge = new RandomTickBridge();
 
-    public ProtectionListener(SkyCityPlugin plugin, IslandService islandService, CoreService coreService, SkyWorldService skyWorldService) {
+    public ProtectionListener(SkyCityPlugin plugin, IslandService islandService, CoreService coreService, SkyWorldService skyWorldService, PlayerListener playerListener) {
         this.plugin = plugin;
         this.islandService = islandService;
         this.coreService = coreService;
         this.skyWorldService = skyWorldService;
+        this.playerListener = playerListener;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::runPeriodicGrowthBoosts, GROWTH_BOOST_INTERVAL_TICKS, GROWTH_BOOST_INTERVAL_TICKS);
     }
 
@@ -226,6 +229,7 @@ public class ProtectionListener implements Listener {
         if (type.name().endsWith("_PRESSURE_PLATE")) {
             islandService.setCheckpointPlateYaw(island, block.getLocation(), player.getLocation().getYaw());
         }
+        playerListener.invalidateStructureCaches(block.getLocation(), type);
 
         if (coreService.isCoreItem(event.getItemInHand())) {
             coreService.markPlacedCore(block, island.getOwner());
@@ -305,6 +309,7 @@ public class ProtectionListener implements Listener {
         if (block.getType().name().endsWith("_PRESSURE_PLATE")) {
             islandService.removeCheckpointPlateYaw(island, block.getLocation());
         }
+        playerListener.invalidateStructureCaches(block.getLocation(), block.getType());
         islandService.markIslandActivity(player.getUniqueId());
         islandService.onTrackedBlockBroken(island, block);
         coreService.showIslandLimitHint(player, island, block.getType());
@@ -345,9 +350,10 @@ public class ProtectionListener implements Listener {
     private void runPeriodicGrowthBoosts() {
         var world = skyWorldService.getWorld();
         if (world == null) return;
+        if (!islandService.hasAnyActiveGrowthBoosts()) return;
         Integer randomTickSpeedValue = world.getGameRuleValue(GameRule.RANDOM_TICK_SPEED);
         int randomTickSpeed = randomTickSpeedValue == null ? 3 : Math.max(0, randomTickSpeedValue);
-        for (IslandData island : islandService.getAllIslands()) {
+        for (IslandData island : islandService.getIslandsWithActiveGrowthBoosts()) {
             for (String chunkKey : List.copyOf(island.getGrowthBoostUntil().keySet())) {
                 int[] relChunk = parseChunkKey(chunkKey);
                 if (relChunk == null) continue;

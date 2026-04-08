@@ -40,7 +40,7 @@ public final class CoreSidebar {
         if (refreshTask != null) {
             refreshTask.cancel();
         }
-        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAll, 1L, 10L);
+        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAll, 1L, 20L);
     }
 
     public void stop() {
@@ -134,8 +134,20 @@ public final class CoreSidebar {
         if (target == null || !coreService.isCoreBlock(target)) {
             return null;
         }
-        IslandData island = islandService.findIslandByCoreLocation(target.getLocation()).orElse(null);
+        IslandData island = islandService.getIslandAt(target.getLocation());
+        if (island == null || island.getCoreLocation() == null || !sameBlock(island.getCoreLocation(), target.getLocation())) {
+            return null;
+        }
         return island == null ? null : new LookedCore(island);
+    }
+
+    private boolean sameBlock(org.bukkit.Location a, org.bukkit.Location b) {
+        return a != null && b != null
+            && a.getWorld() != null && b.getWorld() != null
+            && a.getWorld().equals(b.getWorld())
+            && a.getBlockX() == b.getBlockX()
+            && a.getBlockY() == b.getBlockY()
+            && a.getBlockZ() == b.getBlockZ();
     }
 
     private List<RenderedLine> buildLines(Player player, IslandData island) {

@@ -146,6 +146,7 @@ public class CoreService {
    private final IslandService islandService;
    private final Set<UUID> visibleAnimalLookTargets = ConcurrentHashMap.newKeySet();
    private final Map<UUID, UUID> playerAnimalLookTargets = new ConcurrentHashMap<>();
+   private final Map<UUID, UUID> animalLookDisplayEntities = new ConcurrentHashMap<>();
    private final Map<UUID, BossBar> limitHintBossBars = new ConcurrentHashMap<>();
    private final Map<UUID, Integer> limitHintHideTasks = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
@@ -2918,7 +2919,7 @@ public class CoreService {
       }, 20L, 100L);
       this.animalLookTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
          this.updateAnimalLookDisplays();
-      }, 1L, 1L);
+      }, 1L, 4L);
    }
 
    public void stopDisplayTask() {
@@ -3056,7 +3057,7 @@ public class CoreService {
       }
    }
 
-   private void ensureText(Location location, String tag, String text) {
+   private ArmorStand ensureText(Location location, String tag, String text) {
       for (Entity e : location.getWorld().getNearbyEntities(location, 0.6, 0.8, 0.6)) {
          if (e instanceof ArmorStand stand && e.getScoreboardTags().contains(tag)) {
             stand.setCustomNameVisible(true);
@@ -3065,7 +3066,7 @@ public class CoreService {
                stand.teleport(location);
             }
 
-            return;
+            return stand;
          }
       }
 
@@ -3077,6 +3078,7 @@ public class CoreService {
       stand.setCustomNameVisible(true);
       stand.setCustomName(text);
       stand.addScoreboardTag(tag);
+      return stand;
    }
 
    private void removeTaggedDisplaysInIsland(IslandData island, String tag) {
@@ -3263,8 +3265,9 @@ public class CoreService {
 
       for (Player player : Bukkit.getOnlinePlayers()) {
          if (!player.isOnline()) continue;
+         Location eyeLocation = player.getEyeLocation();
          RayTraceResult trace = player.getWorld()
-            .rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 12.0, 0.2, entity -> entity instanceof Animals || this.islandService.isTrackedGolem(entity.getType()));
+            .rayTraceEntities(eyeLocation, eyeLocation.getDirection(), 12.0, 0.2, entity -> entity instanceof Animals || this.islandService.isTrackedGolem(entity.getType()));
          Entity target = trace == null ? null : trace.getHitEntity();
          if ((target instanceof Animals || target != null && this.islandService.isTrackedGolem(target.getType())) && target.isValid()) {
             activeTargets.add(target.getUniqueId());
@@ -3281,7 +3284,10 @@ public class CoreService {
          IslandData island = this.islandService.getIslandAt(entity.getLocation());
          if (island == null) continue;
          String tag = this.animalLookTag(entityId);
-         this.ensureText(entity.getLocation().clone().add(0.0, 1.4, 0.0), tag, this.buildEntityLimitLookText(entity, island));
+         ArmorStand stand = this.ensureText(entity.getLocation().clone().add(0.0, 1.4, 0.0), tag, this.buildEntityLimitLookText(entity, island));
+         if (stand != null) {
+            this.animalLookDisplayEntities.put(entityId, stand.getUniqueId());
+         }
       }
 
       for (UUID entityId : new ArrayList<>(this.visibleAnimalLookTargets)) {
@@ -3302,6 +3308,15 @@ public class CoreService {
    }
 
    private void removeAnimalLookDisplay(UUID animalId) {
+      UUID standId = this.animalLookDisplayEntities.remove(animalId);
+      if (standId != null) {
+         Entity standEntity = Bukkit.getEntity(standId);
+         if (standEntity instanceof ArmorStand stand && stand.isValid()) {
+            stand.remove();
+            return;
+         }
+      }
+
       String tag = this.animalLookTag(animalId);
 
       for (World world : Bukkit.getWorlds()) {
