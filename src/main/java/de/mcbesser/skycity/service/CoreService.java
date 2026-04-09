@@ -3058,27 +3058,39 @@ public class CoreService {
    }
 
    private ArmorStand ensureText(Location location, String tag, String text) {
-      for (Entity e : location.getWorld().getNearbyEntities(location, 0.6, 0.8, 0.6)) {
-         if (e instanceof ArmorStand stand && e.getScoreboardTags().contains(tag)) {
-            stand.setCustomNameVisible(true);
-            stand.setCustomName(text);
-            if (stand.getLocation().distanceSquared(location) > 0.04) {
-               stand.teleport(location);
-            }
-
-            return stand;
+      ArmorStand resolved = null;
+      for (Entity e : location.getWorld().getNearbyEntities(location, 2.5, 4.0, 2.5)) {
+         if (!(e instanceof ArmorStand stand) || !e.getScoreboardTags().contains(tag)) {
+            continue;
+         }
+         if (resolved == null) {
+            resolved = stand;
+         } else {
+            stand.remove();
          }
       }
 
-      ArmorStand stand = (ArmorStand)location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
+      if (resolved == null) {
+         resolved = (ArmorStand)location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
+         resolved.addScoreboardTag(tag);
+      }
+
+      this.configureDisplayStand(resolved, location, text);
+      return resolved;
+   }
+
+   private void configureDisplayStand(ArmorStand stand, Location location, String text) {
       stand.setVisible(false);
       stand.setMarker(true);
       stand.setGravity(false);
       stand.setSmall(true);
+      stand.setBasePlate(false);
+      stand.setArms(false);
       stand.setCustomNameVisible(true);
       stand.setCustomName(text);
-      stand.addScoreboardTag(tag);
-      return stand;
+      if (stand.getLocation().distanceSquared(location) > 1.0E-4D) {
+         stand.teleport(location);
+      }
    }
 
    private void removeTaggedDisplaysInIsland(IslandData island, String tag) {

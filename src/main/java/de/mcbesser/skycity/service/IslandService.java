@@ -1358,6 +1358,7 @@ public class IslandService {
             UUID newMaster = island.getMasters().iterator().next();
             island.getMasters().remove(newMaster);
             IslandData migrated = transferIslandMaster(island, newMaster);
+            migrated.getMasters().remove(playerId);
             migrated.setLastActiveAt(System.currentTimeMillis());
             save();
             return migrated;
@@ -4041,6 +4042,16 @@ public class IslandService {
         if (milestone >= 9) materials.put(Material.OBSIDIAN, scaledMaterial(milestone - 8, 4096, 1.28D));
         if (milestone >= 10) materials.put(Material.DIAMOND, scaledMaterial(milestone - 9, 2048, 1.30D));
         if (milestone >= 11) materials.put(Material.OBSERVER, scaledMaterial(milestone - 10, 64, 1.18D));
+
+        if (milestone == 1) {
+            islandLevelReq = Math.max(1L, (long) Math.ceil(islandLevelReq / 100.0D));
+            experienceReq = Math.max(1L, (long) Math.ceil(experienceReq / 100.0D));
+            Map<Material, Integer> reducedMaterials = new LinkedHashMap<>();
+            for (Map.Entry<Material, Integer> entry : materials.entrySet()) {
+                reducedMaterials.put(entry.getKey(), Math.max(1, (int) Math.ceil(entry.getValue() / 100.0D)));
+            }
+            materials = reducedMaterials;
+        }
 
         return new MilestoneRequirement(
                 milestone,
