@@ -352,6 +352,7 @@ public class IslandService {
     private final Set<UUID> pendingIslandCreations = new HashSet<>();
     private final Map<UUID, IslandPlot> requestedIslandPlots = new HashMap<>();
     private final Set<String> reservedCreationPlots = new HashSet<>();
+    private final Set<UUID> islandsPendingDeletion = new HashSet<>();
     private final Map<UUID, UUID> pendingMasterInvites = new HashMap<>();
     private final Map<UUID, Location> plotSelectionPos1 = new HashMap<>();
     private final Map<UUID, Location> plotSelectionPos2 = new HashMap<>();
@@ -400,6 +401,7 @@ public class IslandService {
         queuedIslandAreaCleanupOwners.clear();
         reservedCleanupPlots.clear();
         cleanupProgressByPlot.clear();
+        islandsPendingDeletion.clear();
         if (islandCollection.size() == 0 && legacyDataFile.exists()) {
             loadLegacyYamlData();
             save();
@@ -790,6 +792,7 @@ public class IslandService {
 
     private void deleteIslandData(IslandData island, boolean createReplacementForMasters) {
         if (island == null) return;
+        islandsPendingDeletion.add(island.getOwner());
         removeIslandRuntimeState(island);
         evacuateIslandPlayers(island);
         scheduleIslandAreaCleanup(island);
@@ -803,6 +806,7 @@ public class IslandService {
         for (UUID master : new ArrayList<>(island.getMasters())) {
             pendingMasterInvites.remove(master);
         }
+        save();
     }
 
     private void scheduleIslandAreaCleanup(IslandData island) {
@@ -831,6 +835,10 @@ public class IslandService {
         islandCreationQueue.removeIf(task -> task.playerId().equals(island.getOwner()));
         islandCreationCallbacks.remove(island.getOwner());
         islandReadyCallbacks.remove(island.getOwner());
+        IslandPlot requestedPlot = requestedIslandPlots.remove(island.getOwner());
+        if (requestedPlot != null) {
+            reservedCreationPlots.remove(plotKey(requestedPlot.gridX(), requestedPlot.gridZ()));
+        }
         growthDebugWindowStart.entrySet().removeIf(entry -> entry.getKey().startsWith(island.getOwner() + ":"));
         growthDebugAttempts.entrySet().removeIf(entry -> entry.getKey().startsWith(island.getOwner() + ":"));
         growthDebugHits.entrySet().removeIf(entry -> entry.getKey().startsWith(island.getOwner() + ":"));
@@ -862,9 +870,11 @@ public class IslandService {
                 if (queuedIslandAreaCleanupOwners.add(task.islandOwner())) {
                     islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(task.islandOwner(), task.gridX(), task.gridZ(), nextIndex));
                 }
+                saveCleanupReservations(true);
             } else {
                 reservedCleanupPlots.remove(plotKey(task.gridX(), task.gridZ()));
                 cleanupProgressByPlot.remove(plotKey(task.gridX(), task.gridZ()));
+                islandsPendingDeletion.remove(task.islandOwner());
                 saveCleanupReservations(true);
             }
         }
@@ -930,6 +940,10 @@ public class IslandService {
 
     private void dispatchIslandReadyCallbacks(IslandData island) {
         if (island == null) return;
+        if (islandsPendingDeletion.contains(island.getOwner())) {
+            islandReadyCallbacks.remove(island.getOwner());
+            return;
+        }
         List<Consumer<IslandData>> callbacks = islandReadyCallbacks.remove(island.getOwner());
         if (callbacks == null) return;
         for (Consumer<IslandData> callback : callbacks) {
@@ -943,6 +957,7 @@ public class IslandService {
 
     public void queuePregeneration(IslandData island) {
         if (island == null) return;
+        if (islandsPendingDeletion.contains(island.getOwner())) return;
         if (isIslandFullyPregenerated(island)) return;
         if (queuedPregenerationOwners.add(island.getOwner())) {
             pregenerationQueue.offer(new PregenerationTask(island.getOwner(), 0));
