@@ -1,6 +1,7 @@
 package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.model.IslandData;
+import de.mcbesser.skycity.model.IslandPlot;
 import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
@@ -21,7 +22,10 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,6 +35,7 @@ public class CoreMenuListener implements Listener {
     private final IslandService islandService;
     private final CoreService coreService;
     private final ParticlePreviewService particlePreviewService;
+    private final Map<UUID, Integer> claimStatusTasks = new HashMap<>();
 
     public CoreMenuListener(IslandService islandService, CoreService coreService, ParticlePreviewService particlePreviewService) {
         this.islandService = islandService;
@@ -48,6 +53,8 @@ public class CoreMenuListener implements Listener {
             handleUpgradeProgressClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.IslandInventoryHolder holder) {
             handleIslandMenuClick(event, player, holder.islandOwner());
+        } else if (top.getHolder() instanceof CoreService.IslandOverviewInventoryHolder holder) {
+            handleIslandOverviewMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelsInventoryHolder holder) {
             handleParcelsMenuClick(event, player, holder.islandOwner());
         } else if (top.getHolder() instanceof CoreService.ChunkMapInventoryHolder holder) {
@@ -204,8 +211,112 @@ public class CoreMenuListener implements Listener {
             case 15 -> player.openInventory(coreService.createParcelsMenu(player, island));
             case 29 -> player.openInventory(coreService.createIslandShopMenu(player, island));
             case 31 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0));
+            case 33 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             default -> {
             }
+        }
+    }
+
+    private void handleIslandOverviewMenuClick(InventoryClickEvent event, Player player, CoreService.IslandOverviewInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData ownIsland = holder.islandOwner() == null ? null : islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (ownIsland != null && !islandService.hasBuildAccess(player.getUniqueId(), ownIsland)) return;
+        int raw = event.getRawSlot();
+        if (raw == 49) {
+            if (ownIsland != null) {
+                player.openInventory(coreService.createIslandMenu(player, ownIsland));
+            } else {
+                player.closeInventory();
+                sendNoIslandHelp(player);
+            }
+            return;
+        }
+        if (raw < 0 || raw > 44) return;
+
+        int row = raw / 9;
+        int col = raw % 9;
+        if (row > 4 || col < 2 || col > 6) return;
+
+        int offsetX = col - 4;
+        int offsetZ = row - 2;
+        int targetGridX = holder.centerGridX() + offsetX;
+        int targetGridZ = holder.centerGridZ() + offsetZ;
+        if (targetGridX == 0 && targetGridZ == 0) return;
+        IslandData target = islandService.getIslandByGrid(targetGridX, targetGridZ).orElse(null);
+        if (target == null) {
+            if (holder.claimMode()) {
+                claimIslandFromOverview(player, targetGridX, targetGridZ);
+            }
+            return;
+        }
+        if (target.getIslandSpawn() == null) return;
+        if (!islandService.canTeleportToIsland(target, player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Zu dieser Insel kannst du dich aktuell nicht teleportieren.");
+            return;
+        }
+        player.teleport(target.getIslandSpawn());
+        player.closeInventory();
+    }
+
+    private void claimIslandFromOverview(Player player, int gridX, int gridZ) {
+        if (islandService.getIsland(player.getUniqueId()).isPresent()) {
+            player.sendMessage(ChatColor.YELLOW + "Du hast bereits eine Insel.");
+            return;
+        }
+        if (islandService.isIslandCreationPending(player.getUniqueId())) {
+            player.sendMessage(ChatColor.YELLOW + "Deine Insel wird bereits vorbereitet.");
+            return;
+        }
+        if (!islandService.isPlotAvailable(gridX, gridZ)) {
+            player.sendMessage(ChatColor.RED + "Dieser Slot ist nicht mehr frei.");
+            return;
+        }
+        player.closeInventory();
+        player.teleport(islandService.getSpawnLocation());
+        player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + "...");
+        boolean queued = islandService.queueIslandCreation(player.getUniqueId(), new IslandPlot(gridX, gridZ), created -> {
+            islandService.ensureCentralSpawnAndCoreSafe(created);
+            coreService.ensureCorePlaced(created);
+            islandService.queuePregeneration(created);
+            islandService.ensureTemplateAtLocation(created, created.getIslandSpawn());
+            Player online = Bukkit.getPlayer(created.getOwner());
+            if (online == null || !online.isOnline()) return;
+            online.sendMessage(ChatColor.GREEN + "Deine Insel wurde auf Slot " + created.getGridX() + ":" + created.getGridZ() + " geclaimt.");
+            online.teleport(created.getIslandSpawn());
+            online.sendMessage(ChatColor.YELLOW + "Weitere Chunks werden jetzt im Hintergrund generiert.");
+            startClaimStatusMessages(online);
+        });
+        if (!queued) {
+            player.sendMessage(ChatColor.RED + "Dieser Slot ist nicht mehr frei.");
+        }
+    }
+
+    private void startClaimStatusMessages(Player player) {
+        UUID playerId = player.getUniqueId();
+        stopClaimStatusMessages(playerId);
+        JavaPlugin plugin = JavaPlugin.getProvidingPlugin(CoreMenuListener.class);
+        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            Player live = Bukkit.getPlayer(playerId);
+            if (live == null || !live.isOnline()) {
+                stopClaimStatusMessages(playerId);
+                return;
+            }
+            if (islandService.isIslandReady(playerId)) {
+                live.sendMessage(ChatColor.GREEN + "Deine Insel ist vollst\u00e4ndig generiert.");
+                stopClaimStatusMessages(playerId);
+                return;
+            }
+            int progress = islandService.getIslandPregenerationProgress(playerId);
+            int total = islandService.getTotalIslandChunkCount();
+            live.sendMessage(ChatColor.GOLD + "Deine Insel wird generiert: " + progress + "/" + total + " Chunks.");
+        }, 60L, 100L);
+        claimStatusTasks.put(playerId, taskId);
+    }
+
+    private void stopClaimStatusMessages(UUID playerId) {
+        Integer taskId = claimStatusTasks.remove(playerId);
+        if (taskId != null) {
+            Bukkit.getScheduler().cancelTask(taskId);
         }
     }
 
@@ -1084,7 +1195,10 @@ public class CoreMenuListener implements Listener {
         if (event.getRawSlot() == 49) {
             IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
             if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
-            else player.closeInventory();
+            else {
+                player.closeInventory();
+                sendNoIslandHelp(player);
+            }
             return;
         }
         if (event.getRawSlot() == 48 && holder.page() > 0) {
@@ -1115,6 +1229,13 @@ public class CoreMenuListener implements Listener {
                 }
             }
         }
+    }
+
+    private void sendNoIslandHelp(Player player) {
+        player.sendMessage(ChatColor.YELLOW + "Du hast aktuell keine Insel.");
+        player.sendMessage(ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is create" + ChatColor.GRAY + " zum Erstellen.");
+        player.sendMessage(ChatColor.GRAY + "Oder nutze " + ChatColor.AQUA + "/is islands" + ChatColor.GRAY + " f\u00fcr freie Slots in deiner N\u00e4he.");
+        player.sendMessage(ChatColor.GRAY + "Danach kommst du mit " + ChatColor.AQUA + "/is home" + ChatColor.GRAY + " direkt zur Insel.");
     }
 
     private void handleIslandTrustMembersMenuClick(InventoryClickEvent event, Player player, CoreService.IslandTrustMembersInventoryHolder holder) {
@@ -1224,6 +1345,7 @@ public class CoreMenuListener implements Listener {
                 if (islandService.leaveMasterRole(player.getUniqueId())) {
                     player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
                     player.teleport(islandService.getSpawnLocation());
+                    sendNoIslandHelp(player);
                 } else {
                     player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master.");
                 }
@@ -1382,6 +1504,7 @@ public class CoreMenuListener implements Listener {
     public void onDrag(InventoryDragEvent event) {
         Inventory top = event.getView().getTopInventory();
         if (top.getHolder() instanceof CoreService.IslandInventoryHolder
+                || top.getHolder() instanceof CoreService.IslandOverviewInventoryHolder
                 || top.getHolder() instanceof CoreService.UpgradeProgressInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelsInventoryHolder
                 || top.getHolder() instanceof CoreService.ChunkMapInventoryHolder

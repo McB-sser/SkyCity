@@ -1081,6 +1081,7 @@ public class CoreService {
       inv.setItem(20, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
       inv.setItem(29, this.named(Material.EMERALD, ChatColor.GREEN + "Insel-Shop", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
       inv.setItem(31, this.named(Material.COMPASS, ChatColor.AQUA + "Teleport-Men\u00fc", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
+      inv.setItem(33, this.named(Material.CARTOGRAPHY_TABLE, ChatColor.GOLD + "Insel\u00fcbersicht", List.of(ChatColor.GRAY + "Inseln rund um deine Insel", ChatColor.YELLOW + "Klick = Karte \u00f6ffnen")));
       inv.setItem(36, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
       inv.setItem(37, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
       inv.setItem(38, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
@@ -1444,6 +1445,76 @@ public class CoreService {
       inv.setItem(13, this.named(Material.MAP, ChatColor.YELLOW + "Chunk-Karte", List.of(ChatColor.GRAY + "\u00dcbersicht \u00fcber 64x64 Chunks")));
       inv.setItem(15, this.named(Material.BLAZE_POWDER, ChatColor.AQUA + "Chunkgrenzen anzeigen", List.of(ChatColor.GRAY + "Partikel an Chunkr\u00e4ndern", ChatColor.YELLOW + "Klick = an/aus umschalten")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      return inv;
+   }
+
+   public Inventory createIslandOverviewMenu(Player viewer) {
+      int centerGridX = this.islandService.gridXFromLocation(viewer.getLocation());
+      int centerGridZ = this.islandService.gridZFromLocation(viewer.getLocation());
+      return this.createIslandOverviewMenu(viewer, null, centerGridX, centerGridZ, true);
+   }
+
+   public Inventory createIslandOverviewMenu(Player viewer, IslandData island) {
+      return this.createIslandOverviewMenu(viewer, island, island.getGridX(), island.getGridZ(), false);
+   }
+
+   private Inventory createIslandOverviewMenu(Player viewer, IslandData island, int centerGridX, int centerGridZ, boolean claimMode) {
+      UUID islandOwner = island == null ? null : island.getOwner();
+      Inventory inv = Bukkit.createInventory(new IslandOverviewInventoryHolder(islandOwner, centerGridX, centerGridZ, claimMode), 54, "Inselumgebung");
+      this.fillWithPanes(inv);
+
+      for (int slot = 0; slot < 45; slot++) {
+         inv.setItem(slot, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
+      }
+
+      for (int row = 0; row < 5; row++) {
+         for (int col = 0; col < 5; col++) {
+            int offsetX = col - 2;
+            int offsetZ = row - 2;
+            int slot = (row * 9) + col + 2;
+            int targetGridX = centerGridX + offsetX;
+            int targetGridZ = centerGridZ + offsetZ;
+            Optional<IslandData> targetOptional = this.islandService.getIslandByGrid(targetGridX, targetGridZ);
+            if (targetOptional.isEmpty()) {
+               if (targetGridX == 0 && targetGridZ == 0) {
+                  inv.setItem(slot, this.named(Material.RED_WOOL, ChatColor.RED + "Spawn", List.of(ChatColor.GRAY + "Position: 0:0", ChatColor.GRAY + "Server-Spawn")));
+               } else if (this.islandService.isPlotBeingCleaned(targetGridX, targetGridZ)) {
+                  int progress = this.islandService.getPlotCleanupProgress(targetGridX, targetGridZ);
+                  int percent = this.islandService.getPlotCleanupPercent(targetGridX, targetGridZ);
+                  long etaSeconds = this.islandService.getPlotCleanupEtaSeconds(targetGridX, targetGridZ);
+                  inv.setItem(slot, this.named(Material.ORANGE_STAINED_GLASS, ChatColor.GOLD + "Wird gel\u00f6scht", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.GRAY + "Fortschritt: " + progress + "/4096 Chunks (" + percent + "%)", ChatColor.GRAY + "Ca. noch: " + etaSeconds + "s", ChatColor.RED + "Slot wird danach wieder frei")));
+               } else if (claimMode && this.islandService.isPlotAvailable(targetGridX, targetGridZ)) {
+                  inv.setItem(slot, this.named(Material.LIME_STAINED_GLASS, ChatColor.GREEN + "Freier Slot", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.YELLOW + "Klick = Insel hier claimen")));
+               } else {
+                  inv.setItem(slot, this.named(Material.BLACK_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "Leer", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.GRAY + "Keine Insel an dieser Position")));
+               }
+               continue;
+            }
+
+            IslandData target = targetOptional.get();
+            boolean own = island != null && target.getOwner().equals(island.getOwner());
+            boolean canTeleport = this.islandService.canTeleportToIsland(target, viewer.getUniqueId());
+            Material material = own ? Material.LIME_WOOL : (canTeleport ? Material.ORANGE_WOOL : Material.RED_WOOL);
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + "Position: " + target.getGridX() + ":" + target.getGridZ());
+            lore.add(ChatColor.DARK_GRAY + "Offset: " + offsetX + ":" + offsetZ);
+            lore.add(ChatColor.GRAY + "Master: " + this.islandService.getIslandMasterDisplay(target));
+            lore.add(ChatColor.GRAY + "Owner: " + this.islandService.getIslandOwnerDisplay(target));
+            if (own) {
+               lore.add(ChatColor.AQUA + "Deine Insel");
+               lore.add(ChatColor.YELLOW + "Klick = zu /is home");
+            } else if (canTeleport) {
+               lore.add(ChatColor.YELLOW + "Klick = teleportieren");
+            } else {
+               lore.add(ChatColor.RED + "Teleport nicht freigegeben");
+            }
+
+            inv.setItem(slot, this.named(material, ChatColor.GOLD + this.islandService.getIslandTitleDisplay(target), lore));
+         }
+      }
+
+      String backText = island == null ? ChatColor.GRAY + "Schlie\u00dfen" : ChatColor.GRAY + "Zur Inselansicht";
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(backText)));
       return inv;
    }
 
@@ -3707,6 +3778,12 @@ public class CoreService {
    }
 
    public static record IslandInventoryHolder(UUID islandOwner) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record IslandOverviewInventoryHolder(UUID islandOwner, int centerGridX, int centerGridZ, boolean claimMode) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

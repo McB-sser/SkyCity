@@ -77,9 +77,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             handleMasterCommands(player, island, new String[]{"masteraccept"});
             return true;
         }
+        if ("islands".equals(sub) && island == null) {
+            player.openInventory(coreService.createIslandOverviewMenu(player));
+            return true;
+        }
         if (island == null) {
-            player.sendMessage(ChatColor.RED + "Du hast noch keine Insel und bist auf keiner Insel Member.");
-            player.sendMessage(ChatColor.YELLOW + "Nutze /is create um eine Insel zu erstellen.");
+            sendNoIslandHelp(player);
             return true;
         }
         if (args.length == 0) {
@@ -98,6 +101,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.AQUA + "Chunkanzeige aktiviert.");
                 coreService.sendCurrentChunkStatusWithUnlock(player, island);
             }
+            case "islands" -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             case "hidechunks" -> {
                 particlePreviewService.deactivate(player);
                 player.sendMessage(ChatColor.YELLOW + "Chunkanzeige deaktiviert.");
@@ -229,7 +233,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             case "masterinvite" -> {
                 if (island == null) {
                     player.sendMessage(ChatColor.RED + "Du hast keine eigene Insel.");
-                    player.sendMessage(ChatColor.YELLOW + "Nutze /is create.");
+                    sendNoIslandHelp(player);
                     return;
                 }
                 if (!islandService.isIslandMaster(island, player.getUniqueId())) {
@@ -274,7 +278,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 if (islandService.leaveMasterRole(player.getUniqueId())) {
                     player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
                     player.teleport(islandService.getSpawnLocation());
-                    player.sendMessage(ChatColor.YELLOW + "Nutze /is create um eine eigene Insel zu erstellen.");
+                    sendNoIslandHelp(player);
                 } else {
                     player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master eingetragen oder bist nicht Master.");
                 }
@@ -556,7 +560,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             return List.of();
         }
-        if (args.length == 1) return List.of("create", "home", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masterinvite", "masteraccept", "masterleave", "owner", "member", "unmember", "kick", "ban", "unban", "pkick", "pban", "punban", "plot");
+        if (args.length == 1) return List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masterinvite", "masteraccept", "masterleave", "owner", "member", "unmember", "kick", "ban", "unban", "pkick", "pban", "punban", "plot");
         if (args.length == 2 && "title".equalsIgnoreCase(args[0])) return List.of("clear");
         if (args.length == 2 && "masterinvite".equalsIgnoreCase(args[0])) {
             List<String> names = new ArrayList<>();
@@ -663,6 +667,13 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         if (taskId != null) {
             Bukkit.getScheduler().cancelTask(taskId);
         }
+    }
+
+    private void sendNoIslandHelp(Player player) {
+        player.sendMessage(ChatColor.RED + "Du hast noch keine Insel und bist auf keiner Insel Member.");
+        player.sendMessage(ChatColor.YELLOW + "Nutze /is create, um eine Insel zu erstellen.");
+        player.sendMessage(ChatColor.GRAY + "Oder nutze " + ChatColor.AQUA + "/is islands" + ChatColor.GRAY + ", um freie Slots in deiner N\u00e4he zu claimen.");
+        player.sendMessage(ChatColor.GRAY + "Danach kommst du mit /is oder /is home direkt dorthin.");
     }
 }
 
