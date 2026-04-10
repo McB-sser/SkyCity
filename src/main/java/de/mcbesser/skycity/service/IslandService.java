@@ -346,6 +346,7 @@ public class IslandService {
     private final List<ChunkTemplateDef> templates = new ArrayList<>();
     private final Queue<PregenerationTask> pregenerationQueue = new ArrayDeque<>();
     private final Set<UUID> queuedPregenerationOwners = new HashSet<>();
+    private final Map<UUID, Integer> pregenerationProgressByOwner = new HashMap<>();
     private final Queue<IslandCreationTask> islandCreationQueue = new ArrayDeque<>();
     private final Map<UUID, List<Consumer<IslandData>>> islandCreationCallbacks = new HashMap<>();
     private final Map<UUID, List<Consumer<IslandData>>> islandReadyCallbacks = new HashMap<>();
@@ -402,6 +403,7 @@ public class IslandService {
         reservedCleanupPlots.clear();
         cleanupProgressByPlot.clear();
         islandsPendingDeletion.clear();
+        pregenerationProgressByOwner.clear();
         if (islandCollection.size() == 0 && legacyDataFile.exists()) {
             loadLegacyYamlData();
             save();
@@ -553,6 +555,7 @@ public class IslandService {
                 plugin.getLogger().warning("Cleanup-Reservierung konnte nicht geladen werden: " + ex.getMessage());
             }
         }
+        healCleanupReservations(false);
     }
 
     private void finalizeLoadedIslands() {
@@ -617,7 +620,9 @@ public class IslandService {
     }
 
     public void startPregenerationTask() {
-        stopPregenerationTask();
+        if (pregenerationTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(pregenerationTaskId);
+        }
         pregenerationTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickPregeneration, 40L, 1L);
     }
 
@@ -625,14 +630,6 @@ public class IslandService {
         if (pregenerationTaskId != -1) {
             Bukkit.getScheduler().cancelTask(pregenerationTaskId);
             pregenerationTaskId = -1;
-        }
-        if (cleanupTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(cleanupTaskId);
-            cleanupTaskId = -1;
-        }
-        if (islandAreaCleanupTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(islandAreaCleanupTaskId);
-            islandAreaCleanupTaskId = -1;
         }
     }
 
@@ -711,7 +708,10 @@ public class IslandService {
 
     public int getIslandPregenerationProgress(UUID playerId) {
         IslandData island = getIsland(playerId).orElse(null);
-        return island == null ? 0 : Math.min(TOTAL_CHUNKS, island.getGeneratedChunks().size());
+        if (island == null) return 0;
+        int generated = Math.min(TOTAL_CHUNKS, island.getGeneratedChunks().size());
+        int indexed = Math.min(TOTAL_CHUNKS, pregenerationProgressByOwner.getOrDefault(playerId, generated));
+        return Math.max(generated, indexed);
     }
 
     public int getTotalIslandChunkCount() {
@@ -755,6 +755,7 @@ public class IslandService {
             IslandData island = islands.get(task.islandOwner());
             if (island == null) continue;
             int idx = task.nextIndex();
+            pregenerationProgressByOwner.put(task.islandOwner(), Math.max(0, Math.min(TOTAL_CHUNKS, idx)));
             int processed = 0;
             while (idx < TOTAL_CHUNKS && processed < budget && processed < maxPerIslandTask) {
                 int relX = pregenerationRelXByIndex(idx);
@@ -763,12 +764,17 @@ public class IslandService {
                 idx++;
                 processed++;
             }
+            pregenerationProgressByOwner.put(task.islandOwner(), Math.max(0, Math.min(TOTAL_CHUNKS, idx)));
+            if (idx >= TOTAL_CHUNKS || idx % 32 == 0) {
+                save();
+            }
             budget -= processed;
             if (idx < TOTAL_CHUNKS) {
                 if (queuedPregenerationOwners.add(task.islandOwner())) {
                     pregenerationQueue.offer(new PregenerationTask(task.islandOwner(), idx));
                 }
             } else {
+                pregenerationProgressByOwner.remove(task.islandOwner());
                 dispatchIslandReadyCallbacks(island);
             }
         }
@@ -835,6 +841,7 @@ public class IslandService {
         islandCreationQueue.removeIf(task -> task.playerId().equals(island.getOwner()));
         islandCreationCallbacks.remove(island.getOwner());
         islandReadyCallbacks.remove(island.getOwner());
+        pregenerationProgressByOwner.remove(island.getOwner());
         IslandPlot requestedPlot = requestedIslandPlots.remove(island.getOwner());
         if (requestedPlot != null) {
             reservedCreationPlots.remove(plotKey(requestedPlot.gridX(), requestedPlot.gridZ()));
@@ -859,25 +866,112 @@ public class IslandService {
     }
 
     private void tickIslandAreaCleanupQueue() {
+        healCleanupReservations(true);
         int budget = 2;
         while (budget > 0 && !islandAreaCleanupQueue.isEmpty()) {
             IslandAreaCleanupTask task = islandAreaCleanupQueue.poll();
-            queuedIslandAreaCleanupOwners.remove(task.islandOwner());
-            int nextIndex = clearIslandAreaChunkBatch(task.gridX(), task.gridZ(), task.nextChunkIndex(), 1);
-            budget--;
-            if (nextIndex < TOTAL_CHUNKS) {
-                cleanupProgressByPlot.put(plotKey(task.gridX(), task.gridZ()), nextIndex);
+            try {
+                queuedIslandAreaCleanupOwners.remove(task.islandOwner());
+                int nextIndex = clearIslandAreaChunkBatch(task.gridX(), task.gridZ(), task.nextChunkIndex(), 1);
+                budget--;
+                if (nextIndex < TOTAL_CHUNKS) {
+                    cleanupProgressByPlot.put(plotKey(task.gridX(), task.gridZ()), nextIndex);
+                    if (queuedIslandAreaCleanupOwners.add(task.islandOwner())) {
+                        islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(task.islandOwner(), task.gridX(), task.gridZ(), nextIndex));
+                    }
+                    saveCleanupReservations(true);
+                } else {
+                    reservedCleanupPlots.remove(plotKey(task.gridX(), task.gridZ()));
+                    cleanupProgressByPlot.remove(plotKey(task.gridX(), task.gridZ()));
+                    islandsPendingDeletion.remove(task.islandOwner());
+                    saveCleanupReservations(true);
+                }
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Cleanup-Tick fehlgeschlagen f\u00fcr Plot " + task.gridX() + ":" + task.gridZ() + ": " + ex.getMessage());
                 if (queuedIslandAreaCleanupOwners.add(task.islandOwner())) {
-                    islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(task.islandOwner(), task.gridX(), task.gridZ(), nextIndex));
+                    islandAreaCleanupQueue.offer(task);
                 }
                 saveCleanupReservations(true);
-            } else {
-                reservedCleanupPlots.remove(plotKey(task.gridX(), task.gridZ()));
-                cleanupProgressByPlot.remove(plotKey(task.gridX(), task.gridZ()));
-                islandsPendingDeletion.remove(task.islandOwner());
-                saveCleanupReservations(true);
+                return;
             }
         }
+    }
+
+    private void healCleanupReservations(boolean persistIfChanged) {
+        Map<String, IslandAreaCleanupTask> queuedByPlot = new HashMap<>();
+        Set<UUID> queuedOwners = new HashSet<>();
+        for (IslandAreaCleanupTask task : islandAreaCleanupQueue) {
+            queuedByPlot.put(plotKey(task.gridX(), task.gridZ()), task);
+            queuedOwners.add(task.islandOwner());
+        }
+
+        boolean changed = false;
+        for (String plotKey : new HashSet<>(reservedCleanupPlots)) {
+            IslandAreaCleanupTask queuedTask = queuedByPlot.get(plotKey);
+            int trackedProgress = Math.max(0, Math.min(TOTAL_CHUNKS, cleanupProgressByPlot.getOrDefault(plotKey, 0)));
+            if (queuedTask != null) {
+                cleanupProgressByPlot.put(plotKey, Math.max(trackedProgress, queuedTask.nextChunkIndex()));
+                continue;
+            }
+
+            String[] parts = plotKey.split(":");
+            if (parts.length != 2) continue;
+            int gridX;
+            int gridZ;
+            try {
+                gridX = Integer.parseInt(parts[0]);
+                gridZ = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+
+            if (trackedProgress >= TOTAL_CHUNKS || isPlotLikelyCleared(gridX, gridZ)) {
+                reservedCleanupPlots.remove(plotKey);
+                cleanupProgressByPlot.remove(plotKey);
+                changed = true;
+                plugin.getLogger().info("Cleanup-Selbstheilung aktiv: Plot " + plotKey + " war bereits leer und wurde aus der Lösch-Reservierung entfernt.");
+                continue;
+            }
+
+            UUID syntheticOwner = UUID.nameUUIDFromBytes(("cleanup:" + plotKey).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            if (!queuedOwners.add(syntheticOwner)) {
+                continue;
+            }
+            int nextChunkIndex = trackedProgress;
+            islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(syntheticOwner, gridX, gridZ, nextChunkIndex));
+            queuedIslandAreaCleanupOwners.add(syntheticOwner);
+            changed = true;
+            plugin.getLogger().info("Cleanup-Selbstheilung aktiv: Plot " + plotKey + " erneut in die Lösch-Queue eingetragen.");
+        }
+
+        if (changed && persistIfChanged) {
+            saveCleanupReservations(true);
+        }
+    }
+
+    private boolean isPlotLikelyCleared(int gridX, int gridZ) {
+        World world = skyWorldService.getWorld();
+        if (world == null) return true;
+        int minChunkX = plotMinChunkX(gridX);
+        int minChunkZ = plotMinChunkZ(gridZ);
+        int minY = Math.max(world.getMinHeight(), SkyWorldService.SPAWN_Y - 16);
+        int maxY = Math.min(world.getMaxHeight() - 1, SkyWorldService.SPAWN_Y + 20);
+
+        for (int chunkOffsetX = 0; chunkOffsetX < ISLAND_CHUNKS; chunkOffsetX += 8) {
+            for (int chunkOffsetZ = 0; chunkOffsetZ < ISLAND_CHUNKS; chunkOffsetZ += 8) {
+                Chunk chunk = world.getChunkAt(minChunkX + chunkOffsetX, minChunkZ + chunkOffsetZ);
+                for (int localX = 0; localX < 16; localX += 5) {
+                    for (int localZ = 0; localZ < 16; localZ += 5) {
+                        for (int y = minY; y <= maxY; y += 2) {
+                            if (!chunk.getBlock(localX, y, localZ).getType().isAir()) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private void evacuateIslandPlayers(IslandData island) {
@@ -959,8 +1053,12 @@ public class IslandService {
         if (island == null) return;
         if (islandsPendingDeletion.contains(island.getOwner())) return;
         if (isIslandFullyPregenerated(island)) return;
+        pregenerationProgressByOwner.put(island.getOwner(), Math.max(
+                pregenerationProgressByOwner.getOrDefault(island.getOwner(), 0),
+                Math.min(TOTAL_CHUNKS, island.getGeneratedChunks().size())
+        ));
         if (queuedPregenerationOwners.add(island.getOwner())) {
-            pregenerationQueue.offer(new PregenerationTask(island.getOwner(), 0));
+            pregenerationQueue.offer(new PregenerationTask(island.getOwner(), pregenerationProgressByOwner.get(island.getOwner())));
         }
     }
 
@@ -5269,16 +5367,50 @@ public class IslandService {
     }
 
     public int getPlotCleanupProgress(int gridX, int gridZ) {
-        return Math.max(0, Math.min(TOTAL_CHUNKS, cleanupProgressByPlot.getOrDefault(plotKey(gridX, gridZ), 0)));
+        int tracked = Math.max(0, Math.min(TOTAL_CHUNKS, cleanupProgressByPlot.getOrDefault(plotKey(gridX, gridZ), 0)));
+        for (IslandAreaCleanupTask task : islandAreaCleanupQueue) {
+            if (task.gridX() == gridX && task.gridZ() == gridZ) {
+                tracked = Math.max(tracked, Math.max(0, Math.min(TOTAL_CHUNKS, task.nextChunkIndex())));
+            }
+        }
+        return tracked;
     }
 
-    public int getPlotCleanupPercent(int gridX, int gridZ) {
-        return (int) Math.round((getPlotCleanupProgress(gridX, gridZ) * 100.0D) / TOTAL_CHUNKS);
+    public double getPlotCleanupPercent(int gridX, int gridZ) {
+        double percent = (getPlotCleanupProgress(gridX, gridZ) * 100.0D) / TOTAL_CHUNKS;
+        if (percent > 0.0D && percent < 0.1D) {
+            return 0.1D;
+        }
+        return Math.min(100.0D, percent);
     }
 
     public long getPlotCleanupEtaSeconds(int gridX, int gridZ) {
         int remainingChunks = Math.max(0, TOTAL_CHUNKS - getPlotCleanupProgress(gridX, gridZ));
         return (long) Math.ceil(remainingChunks / 40.0D);
+    }
+
+    public int getPlotCleanupQueuePosition(int gridX, int gridZ) {
+        String targetKey = plotKey(gridX, gridZ);
+        int pos = 1;
+        for (IslandAreaCleanupTask task : islandAreaCleanupQueue) {
+            if (plotKey(task.gridX(), task.gridZ()).equals(targetKey)) {
+                return pos;
+            }
+            pos++;
+        }
+        return reservedCleanupPlots.contains(targetKey) ? 1 : -1;
+    }
+
+    public long getPlotCleanupQueueWaitSeconds(int gridX, int gridZ) {
+        String targetKey = plotKey(gridX, gridZ);
+        long remainingChunksAhead = 0L;
+        for (IslandAreaCleanupTask task : islandAreaCleanupQueue) {
+            if (plotKey(task.gridX(), task.gridZ()).equals(targetKey)) {
+                break;
+            }
+            remainingChunksAhead += Math.max(0, TOTAL_CHUNKS - task.nextChunkIndex());
+        }
+        return (long) Math.ceil(remainingChunksAhead / 40.0D);
     }
 
     private IslandPlot findNextFreePlot() {

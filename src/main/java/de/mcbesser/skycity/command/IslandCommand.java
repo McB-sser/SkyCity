@@ -60,8 +60,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
             player.teleport(islandService.getSpawnLocation());
-            player.sendMessage(ChatColor.GOLD + "Inselerstellung gestartet...");
-            islandService.queueIslandCreation(player.getUniqueId(), created -> {
+            boolean queued = islandService.queueIslandCreation(player.getUniqueId(), null, created -> {
                 islandService.ensureCentralSpawnAndCoreSafe(created);
                 coreService.ensureCorePlaced(created);
                 islandService.queuePregeneration(created);
@@ -71,6 +70,16 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 startGenerationStatusMessages(online);
                 startInitialTeleportWhenReady(online);
             });
+            if (!queued) {
+                player.sendMessage(ChatColor.RED + "Inselerstellung konnte nicht gestartet werden.");
+                return true;
+            }
+            int queuePos = islandService.getIslandCreationQueuePosition(player.getUniqueId());
+            if (queuePos > 1) {
+                player.sendMessage(ChatColor.GOLD + "Inselerstellung gestartet. Warteschlange Platz " + queuePos + ".");
+            } else {
+                player.sendMessage(ChatColor.GOLD + "Inselerstellung gestartet...");
+            }
             return true;
         }
         if ("masteraccept".equals(sub)) {
@@ -276,6 +285,8 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             case "masterleave" -> {
                 if (islandService.leaveMasterRole(player.getUniqueId())) {
+                    stopGenerationStatusMessages(player.getUniqueId());
+                    stopInitialTeleportTask(player.getUniqueId());
                     player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
                     player.teleport(islandService.getSpawnLocation());
                     sendNoIslandHelp(player);
@@ -605,6 +616,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 stopGenerationStatusMessages(playerId);
                 return;
             }
+            IslandData own = islandService.getPrimaryIsland(playerId).orElse(null);
+            if (own == null && !islandService.isIslandCreationPending(playerId)) {
+                stopGenerationStatusMessages(playerId);
+                return;
+            }
             if (islandService.isIslandReady(playerId)) {
                 live.sendMessage(ChatColor.GREEN + "Insel-Generierung abgeschlossen.");
                 stopGenerationStatusMessages(playerId);
@@ -638,9 +654,10 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 stopInitialTeleportTask(playerId);
                 return;
             }
-            IslandData own = islandService.getIsland(playerId).orElse(null);
+            IslandData own = islandService.getPrimaryIsland(playerId).orElse(null);
             if (own == null) {
                 stopInitialTeleportTask(playerId);
+                stopGenerationStatusMessages(playerId);
                 return;
             }
             if (!islandService.isInitialAreaGenerated(own)) {

@@ -273,7 +273,6 @@ public class CoreMenuListener implements Listener {
         }
         player.closeInventory();
         player.teleport(islandService.getSpawnLocation());
-        player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + "...");
         boolean queued = islandService.queueIslandCreation(player.getUniqueId(), new IslandPlot(gridX, gridZ), created -> {
             islandService.ensureCentralSpawnAndCoreSafe(created);
             coreService.ensureCorePlaced(created);
@@ -288,6 +287,13 @@ public class CoreMenuListener implements Listener {
         });
         if (!queued) {
             player.sendMessage(ChatColor.RED + "Dieser Slot ist nicht mehr frei.");
+            return;
+        }
+        int queuePos = islandService.getIslandCreationQueuePosition(player.getUniqueId());
+        if (queuePos > 1) {
+            player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + ". Warteschlange Platz " + queuePos + ".");
+        } else {
+            player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + "...");
         }
     }
 
@@ -298,6 +304,11 @@ public class CoreMenuListener implements Listener {
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
             Player live = Bukkit.getPlayer(playerId);
             if (live == null || !live.isOnline()) {
+                stopClaimStatusMessages(playerId);
+                return;
+            }
+            IslandData own = islandService.getPrimaryIsland(playerId).orElse(null);
+            if (own == null && !islandService.isIslandCreationPending(playerId)) {
                 stopClaimStatusMessages(playerId);
                 return;
             }

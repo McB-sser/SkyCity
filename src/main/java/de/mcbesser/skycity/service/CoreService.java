@@ -1474,15 +1474,30 @@ public class CoreService {
             int slot = (row * 9) + col + 2;
             int targetGridX = centerGridX + offsetX;
             int targetGridZ = centerGridZ + offsetZ;
+            if (this.islandService.isPlotBeingCleaned(targetGridX, targetGridZ)) {
+               int progress = this.islandService.getPlotCleanupProgress(targetGridX, targetGridZ);
+               double percent = this.islandService.getPlotCleanupPercent(targetGridX, targetGridZ);
+               long etaSeconds = this.islandService.getPlotCleanupEtaSeconds(targetGridX, targetGridZ);
+               int queuePosition = this.islandService.getPlotCleanupQueuePosition(targetGridX, targetGridZ);
+               long queueWaitSeconds = this.islandService.getPlotCleanupQueueWaitSeconds(targetGridX, targetGridZ);
+               List<String> cleanupLore = new ArrayList<>();
+               cleanupLore.add(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ);
+               cleanupLore.add(ChatColor.GRAY + "Fortschritt: " + progress + "/4096 Chunks (" + String.format(java.util.Locale.US, "%.1f", percent) + "%)");
+               cleanupLore.add(ChatColor.GRAY + "Ca. noch: " + etaSeconds + "s");
+               if (queuePosition > 1) {
+                  cleanupLore.add(ChatColor.YELLOW + "L\u00f6sch-Warteschlange: Platz " + queuePosition);
+                  cleanupLore.add(ChatColor.GRAY + "Start ca. in: " + queueWaitSeconds + "s");
+               } else {
+                  cleanupLore.add(ChatColor.YELLOW + "L\u00f6schung l\u00e4uft gerade");
+               }
+               cleanupLore.add(ChatColor.RED + "Slot wird danach wieder frei");
+               inv.setItem(slot, this.named(Material.ORANGE_STAINED_GLASS, ChatColor.GOLD + "Wird gel\u00f6scht", cleanupLore));
+               continue;
+            }
             Optional<IslandData> targetOptional = this.islandService.getIslandByGrid(targetGridX, targetGridZ);
             if (targetOptional.isEmpty()) {
                if (targetGridX == 0 && targetGridZ == 0) {
                   inv.setItem(slot, this.named(Material.RED_WOOL, ChatColor.RED + "Spawn", List.of(ChatColor.GRAY + "Position: 0:0", ChatColor.GRAY + "Server-Spawn")));
-               } else if (this.islandService.isPlotBeingCleaned(targetGridX, targetGridZ)) {
-                  int progress = this.islandService.getPlotCleanupProgress(targetGridX, targetGridZ);
-                  int percent = this.islandService.getPlotCleanupPercent(targetGridX, targetGridZ);
-                  long etaSeconds = this.islandService.getPlotCleanupEtaSeconds(targetGridX, targetGridZ);
-                  inv.setItem(slot, this.named(Material.ORANGE_STAINED_GLASS, ChatColor.GOLD + "Wird gel\u00f6scht", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.GRAY + "Fortschritt: " + progress + "/4096 Chunks (" + percent + "%)", ChatColor.GRAY + "Ca. noch: " + etaSeconds + "s", ChatColor.RED + "Slot wird danach wieder frei")));
                } else if (claimMode && this.islandService.isPlotAvailable(targetGridX, targetGridZ)) {
                   inv.setItem(slot, this.named(Material.LIME_STAINED_GLASS, ChatColor.GREEN + "Freier Slot", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.YELLOW + "Klick = Insel hier claimen")));
                } else {
