@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.service;
+﻿package de.mcbesser.skycity.service;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.AccessSettings;
@@ -269,15 +269,15 @@ public class IslandService {
 
         private String objectiveText() {
             String base = switch (objectiveMode) {
-                case KILL_ALL_OF_TYPE -> "Toete alle " + objectivePluralName;
-                case SPARE_TYPE -> "Toete keine " + objectivePluralName;
+                case KILL_ALL_OF_TYPE -> "T\u00f6te alle " + objectivePluralName;
+                case SPARE_TYPE -> "T\u00f6te keine " + objectivePluralName;
             };
             if (objectiveMode != PveObjectiveMode.SPARE_TYPE || spareSurvivalDeadline <= 0L) {
                 return base;
             }
             long remainingMs = Math.max(0L, spareSurvivalDeadline - System.currentTimeMillis());
             long remainingSeconds = (remainingMs + 999L) / 1000L;
-            return base + " [" + remainingSeconds + "s ueberleben]";
+            return base + " [" + remainingSeconds + "s \u00fcberleben]";
         }
     }
     private static final class PendingBorderUnlockRequest {
@@ -929,7 +929,7 @@ public class IslandService {
                 reservedCleanupPlots.remove(plotKey);
                 cleanupProgressByPlot.remove(plotKey);
                 changed = true;
-                plugin.getLogger().info("Cleanup-Selbstheilung aktiv: Plot " + plotKey + " war bereits leer und wurde aus der Lösch-Reservierung entfernt.");
+                plugin.getLogger().info("Cleanup-Selbstheilung aktiv: Plot " + plotKey + " war bereits leer und wurde aus der L\u00f6sch-Reservierung entfernt.");
                 continue;
             }
 
@@ -941,7 +941,7 @@ public class IslandService {
             islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(syntheticOwner, gridX, gridZ, nextChunkIndex));
             queuedIslandAreaCleanupOwners.add(syntheticOwner);
             changed = true;
-            plugin.getLogger().info("Cleanup-Selbstheilung aktiv: Plot " + plotKey + " erneut in die Lösch-Queue eingetragen.");
+            plugin.getLogger().info("Cleanup-Selbstheilung aktiv: Plot " + plotKey + " erneut in die L\u00f6sch-Q\u00fc\u00fc eingetragen.");
         }
 
         if (changed && persistIfChanged) {
@@ -2614,7 +2614,7 @@ public class IslandService {
         if (runtime == null) {
             runtime = buildPveZoneRuntime(island, parcel).orElse(null);
             if (runtime == null) {
-                player.sendMessage(ChatColor.RED + "Diese PvE-Zone ist ungueltig. Startzone/Marker pruefen.");
+                player.sendMessage(ChatColor.RED + "Diese PvE-Zone ist ung\u00fcltig. Startzone/Marker pr\u00fcfen.");
                 return false;
             }
             activePveZones.put(key, runtime);
@@ -2649,7 +2649,7 @@ public class IslandService {
         if (runtime == null) return;
         runtime.participants.remove(player.getUniqueId());
         if (resetZone) {
-            resetPveZone(runtime, ChatColor.RED + player.getName() + ChatColor.GRAY + " hat die PvE-Zone verlassen. Alles wurde zurueckgesetzt.");
+            resetPveZone(runtime, ChatColor.RED + player.getName() + ChatColor.GRAY + " hat die PvE-Zone verlassen. Alles wurde zur\u00fcckgesetzt.");
         }
     }
 
@@ -2688,7 +2688,7 @@ public class IslandService {
         runtime.mobLastRangedHitAt.remove(entity.getUniqueId());
         runtime.invalidMobIds.remove(entity.getUniqueId());
         if (runtime.objectiveMode == PveObjectiveMode.SPARE_TYPE && archetype != null && archetype.key().equals(runtime.objectiveArchetypeKey)) {
-            resetPveZone(runtime, ChatColor.RED + "Aufgabe fehlgeschlagen: " + runtime.objectivePluralName + " durften nicht getoetet werden.");
+            resetPveZone(runtime, ChatColor.RED + "Aufgabe fehlgeschlagen: " + runtime.objectivePluralName + " durften nicht get\u00f6tet werden.");
             return true;
         }
         if (!valid) {
@@ -4526,9 +4526,9 @@ public class IslandService {
     }
 
     private Optional<String> validateParcelPveDetails(IslandData island, ParcelData parcel) {
-        if (island == null || parcel == null) return Optional.of("PvE-Pruefung fehlgeschlagen: Insel oder Grundstueck fehlt.");
+        if (island == null || parcel == null) return Optional.of("PvE-Pr\u00fcfung fehlgeschlagen: Insel oder Grundst\u00fcck fehlt.");
         World world = skyWorldService.getWorld();
-        if (world == null) return Optional.of("PvE-Pruefung fehlgeschlagen: SkyCity-Welt ist nicht geladen.");
+        if (world == null) return Optional.of("PvE-Pr\u00fcfung fehlgeschlagen: SkyCity-Welt ist nicht geladen.");
 
         List<Block> startBlocks = new ArrayList<>();
         int minStartX = Integer.MAX_VALUE;
@@ -4552,7 +4552,7 @@ public class IslandService {
                         maxStartZ = Math.max(maxStartZ, z);
                         if (startY == null) startY = y;
                         if (startY != y) {
-                            return Optional.of("Startzone ungueltig: wei\u00dfe Wolle muss auf derselben Hoehe liegen.");
+                            return Optional.of("Startzone ung\u00fcltig: wei\u00dfe Wolle muss auf derselben H\u00f6he liegen.");
                         }
                     } else if (createPveSpawnMarker(block, markerCount + 1) != null) {
                         markerCount++;
@@ -4565,7 +4565,7 @@ public class IslandService {
             return Optional.of("Startzone fehlt: Es wurde keine wei\u00dfe Wolle gefunden.");
         }
         if (markerCount <= 0) {
-            return Optional.of("Spawnmarker fehlen: Es wurde keine gueltige farbige Wolle fuer Mobs gefunden.");
+            return Optional.of("Spawnmarker fehlen: Es wurde keine g\u00fcltige farbige Wolle f\u00fcr Mobs gefunden.");
         }
 
         int width = maxStartX - minStartX + 1;
@@ -4577,12 +4577,12 @@ public class IslandService {
         int rectArea = width * depth;
         int missingBlocks = rectArea - startBlocks.size();
         if (missingBlocks > 4) {
-            return Optional.of("Startzone ungueltig: Es sind mehr als 4 Luftbloecke im 5x5-Bereich der Startzone.");
+            return Optional.of("Startzone ung\u00fcltig: Es sind mehr als 4 Luftbl\u00f6cke im 5x5-Bereich der Startzone.");
         }
 
         Location respawnLocation = new Location(world, (minStartX + maxStartX) / 2.0 + 0.5, startY + 1.0, (minStartZ + maxStartZ) / 2.0 + 0.5);
         if (!respawnLocation.getBlock().isPassable()) {
-            return Optional.of("Startzone blockiert: Ueber der wei\u00dfen Wolle ist kein freier Spawnplatz.");
+            return Optional.of("Startzone blockiert: \u00dcber der wei\u00dfen Wolle ist kein freier Spawnplatz.");
         }
         Optional<String> zoneCheck = validatePveZoneShell(parcel, respawnLocation, minStartX, minStartZ, maxStartX, maxStartZ, startY);
         if (zoneCheck.isPresent()) {
@@ -4592,9 +4592,9 @@ public class IslandService {
     }
 
     private Optional<String> validatePveZoneShell(ParcelData parcel, Location startLocation, int startMinX, int startMinZ, int startMaxX, int startMaxZ, int startY) {
-        if (parcel == null || startLocation == null || startLocation.getWorld() == null) return Optional.of("PvE-Zone ungueltig: Interne Startpruefung fehlgeschlagen.");
+        if (parcel == null || startLocation == null || startLocation.getWorld() == null) return Optional.of("PvE-Zone ung\u00fcltig: Interne Startpr\u00fcfung fehlgeschlagen.");
         Block startBlock = startLocation.getBlock();
-        if (!startBlock.isPassable()) return Optional.of("Startzone blockiert: Der Ausgang ueber der Startzone ist nicht frei.");
+        if (!startBlock.isPassable()) return Optional.of("Startzone blockiert: Der Ausgang \u00fcber der Startzone ist nicht frei.");
         Set<String> visited = new HashSet<>();
         ArrayDeque<Block> queue = new ArrayDeque<>();
         String exitSide = null;
@@ -4608,12 +4608,12 @@ public class IslandService {
                     || current.getZ() <= parcel.getMinZ() || current.getZ() >= parcel.getMaxZ()) {
                 String candidateSide = classifyValidPveExitSide(parcel, current, startMinX, startMinZ, startMaxX, startMaxZ, startY);
                 if (candidateSide == null) {
-                    return Optional.of("Zone ist offen: Der Ausgang muss an der Startzone liegen und bis 3 Bloecke hoch frei sein.");
+                    return Optional.of("Zone ist offen: Der Ausgang muss an der Startzone liegen und bis 3 Bl\u00f6cke hoch frei sein.");
                 }
                 if (exitSide == null) {
                     exitSide = candidateSide;
                 } else if (!exitSide.equals(candidateSide)) {
-                    return Optional.of("Zone ist offen: Es ist nur ein zusammenhaengender Ausgang an einer Startzonen-Seite erlaubt.");
+                    return Optional.of("Zone ist offen: Es ist nur ein zusammenh\u00e4ngender Ausgang an einer Startzonen-Seite erlaubt.");
                 }
             }
             for (int[] offset : List.of(new int[]{1, 0, 0}, new int[]{-1, 0, 0}, new int[]{0, 1, 0}, new int[]{0, -1, 0}, new int[]{0, 0, 1}, new int[]{0, 0, -1})) {
@@ -4623,12 +4623,12 @@ public class IslandService {
                         || next.getZ() < parcel.getMinZ() || next.getZ() > parcel.getMaxZ()) {
                     String candidateSide = classifyValidPveExitSide(parcel, current, startMinX, startMinZ, startMaxX, startMaxZ, startY);
                     if (candidateSide == null) {
-                        return Optional.of("Zone ist offen: Der Ausgang muss an der Startzone liegen und bis 3 Bloecke hoch frei sein.");
+                        return Optional.of("Zone ist offen: Der Ausgang muss an der Startzone liegen und bis 3 Bl\u00f6cke hoch frei sein.");
                     }
                     if (exitSide == null) {
                         exitSide = candidateSide;
                     } else if (!exitSide.equals(candidateSide)) {
-                        return Optional.of("Zone ist offen: Es ist nur ein zusammenhaengender Ausgang an einer Startzonen-Seite erlaubt.");
+                        return Optional.of("Zone ist offen: Es ist nur ein zusammenh\u00e4ngender Ausgang an einer Startzonen-Seite erlaubt.");
                     }
                     continue;
                 }
@@ -4700,7 +4700,7 @@ public class IslandService {
                 familyName = "Spinnen-Familie";
                 archetypes = List.of(
                         new PveMobArchetype("spider_jagdspinne", EntityType.SPIDER, "Jagdspinne", "Jagdspinnen", 2, 1, ChatColor.DARK_GREEN, 0.31, 1.10, 1.00, null, null, null, null),
-                        new PveMobArchetype("spider_hoehlenspinne", EntityType.CAVE_SPIDER, "Hoehlenspinne", "Hoehlenspinnen", 2, 1, ChatColor.DARK_AQUA, 0.34, 0.85, 1.20, null, null, null, null),
+                        new PveMobArchetype("spider_hoehlenspinne", EntityType.CAVE_SPIDER, "H\u00f6hlenspinne", "H\u00f6hlenspinnen", 2, 1, ChatColor.DARK_AQUA, 0.34, 0.85, 1.20, null, null, null, null),
                         new PveMobArchetype("spider_hetzer", EntityType.SPIDER, "Hetzerspinne", "Hetzerspinnen", 2, 1, ChatColor.GREEN, 0.35, 0.90, 1.10, null, null, null, null)
                 );
                 level = 2;
@@ -4709,19 +4709,19 @@ public class IslandService {
             case YELLOW_WOOL -> {
                 familyName = "Skelett-Familie";
                 archetypes = List.of(
-                        new PveMobArchetype("skeleton_waldlaeufer", EntityType.SKELETON, "Waldlaeufer", "Waldlaeufer", 2, 2, ChatColor.GREEN, 0.28, 0.95, 1.15, Color.fromRGB(70, 116, 56), Color.fromRGB(190, 224, 178), Color.fromRGB(74, 108, 58), Color.fromRGB(28, 24, 18)),
+                        new PveMobArchetype("skeleton_waldlaeufer", EntityType.SKELETON, "Waldl\u00e4ufer", "Waldl\u00e4ufer", 2, 2, ChatColor.GREEN, 0.28, 0.95, 1.15, Color.fromRGB(70, 116, 56), Color.fromRGB(190, 224, 178), Color.fromRGB(74, 108, 58), Color.fromRGB(28, 24, 18)),
                         new PveMobArchetype("skeleton_rekrut", EntityType.SKELETON, "Rekrut", "Rekruten", 2, 2, ChatColor.BLUE, 0.26, 1.15, 0.95, Color.fromRGB(110, 118, 136), Color.fromRGB(188, 196, 214), Color.fromRGB(54, 66, 118), Color.fromRGB(20, 20, 28)),
-                        new PveMobArchetype("skeleton_jaeger", EntityType.SKELETON, "Jaeger", "Jaeger", 2, 2, ChatColor.GOLD, 0.30, 0.90, 1.25, Color.fromRGB(122, 68, 38), Color.fromRGB(214, 166, 116), Color.fromRGB(64, 96, 46), Color.fromRGB(34, 20, 12))
+                        new PveMobArchetype("skeleton_jaeger", EntityType.SKELETON, "J\u00e4ger", "J\u00e4ger", 2, 2, ChatColor.GOLD, 0.30, 0.90, 1.25, Color.fromRGB(122, 68, 38), Color.fromRGB(214, 166, 116), Color.fromRGB(64, 96, 46), Color.fromRGB(34, 20, 12))
                 );
                 level = 2;
                 reward = 2;
             }
             case ORANGE_WOOL -> {
-                familyName = "Wueste";
+                familyName = "W\u00fcste";
                 archetypes = List.of(
-                        new PveMobArchetype("husk_wuestenraeuber", EntityType.HUSK, "Wuestenraeuber", "Wuestenraeuber", 3, 2, ChatColor.GOLD, 0.24, 1.20, 1.10, Color.fromRGB(160, 114, 70), Color.fromRGB(226, 188, 102), Color.fromRGB(132, 82, 36), Color.fromRGB(68, 38, 18)),
-                        new PveMobArchetype("husk_pluenderer", EntityType.HUSK, "Pluenderer", "Pluenderer", 3, 2, ChatColor.RED, 0.26, 1.00, 1.25, Color.fromRGB(86, 62, 38), Color.fromRGB(144, 88, 42), Color.fromRGB(98, 58, 34), Color.fromRGB(34, 22, 14)),
-                        new PveMobArchetype("husk_spaeher", EntityType.HUSK, "Spaeher", "Spaeher", 3, 2, ChatColor.YELLOW, 0.29, 0.90, 1.05, Color.fromRGB(186, 176, 120), Color.fromRGB(210, 214, 172), Color.fromRGB(94, 112, 66), Color.fromRGB(40, 34, 20))
+                        new PveMobArchetype("husk_wuestenraeuber", EntityType.HUSK, "W\u00fcstenr\u00e4uber", "W\u00fcstenr\u00e4uber", 3, 2, ChatColor.GOLD, 0.24, 1.20, 1.10, Color.fromRGB(160, 114, 70), Color.fromRGB(226, 188, 102), Color.fromRGB(132, 82, 36), Color.fromRGB(68, 38, 18)),
+                        new PveMobArchetype("husk_pluenderer", EntityType.HUSK, "Pl\u00fcnderer", "Pl\u00fcnderer", 3, 2, ChatColor.RED, 0.26, 1.00, 1.25, Color.fromRGB(86, 62, 38), Color.fromRGB(144, 88, 42), Color.fromRGB(98, 58, 34), Color.fromRGB(34, 22, 14)),
+                        new PveMobArchetype("husk_spaeher", EntityType.HUSK, "Sp\u00e4her", "Sp\u00e4her", 3, 2, ChatColor.YELLOW, 0.29, 0.90, 1.05, Color.fromRGB(186, 176, 120), Color.fromRGB(210, 214, 172), Color.fromRGB(94, 112, 66), Color.fromRGB(40, 34, 20))
                 );
                 level = 3;
                 reward = 2;
@@ -4730,7 +4730,7 @@ public class IslandService {
                 familyName = "Hafen";
                 archetypes = List.of(
                         new PveMobArchetype("drowned_kai", EntityType.DROWNED, "Kai", "Kais", 3, 2, ChatColor.AQUA, 0.23, 1.15, 1.00, Color.fromRGB(30, 78, 118), Color.fromRGB(214, 228, 236), Color.fromRGB(52, 102, 176), Color.fromRGB(18, 28, 46)),
-                        new PveMobArchetype("drowned_faehrmann", EntityType.DROWNED, "Faehrmann", "Faehrmaenner", 3, 2, ChatColor.DARK_AQUA, 0.22, 1.25, 0.90, Color.fromRGB(78, 56, 34), Color.fromRGB(210, 188, 154), Color.fromRGB(58, 72, 132), Color.fromRGB(26, 18, 12)),
+                        new PveMobArchetype("drowned_faehrmann", EntityType.DROWNED, "F\u00e4hrmann", "F\u00e4hrm\u00e4nner", 3, 2, ChatColor.DARK_AQUA, 0.22, 1.25, 0.90, Color.fromRGB(78, 56, 34), Color.fromRGB(210, 188, 154), Color.fromRGB(58, 72, 132), Color.fromRGB(26, 18, 12)),
                         new PveMobArchetype("drowned_hafenwache", EntityType.DROWNED, "Hafenwache", "Hafenwachen", 3, 2, ChatColor.BLUE, 0.25, 1.00, 1.20, Color.fromRGB(36, 42, 86), Color.fromRGB(118, 156, 198), Color.fromRGB(42, 58, 94), Color.fromRGB(10, 14, 28))
                 );
                 level = 3;
@@ -4740,8 +4740,8 @@ public class IslandService {
                 familyName = "Sprengtrupp";
                 archetypes = List.of(
                         new PveMobArchetype("creeper_sprengmeister", EntityType.CREEPER, "Sprengmeister", "Sprengmeister", 4, 3, ChatColor.RED, 0.30, 1.20, 1.15, null, null, null, null),
-                        new PveMobArchetype("creeper_zuender", EntityType.CREEPER, "Zuender", "Zuender", 4, 3, ChatColor.GOLD, 0.33, 0.95, 1.25, null, null, null, null),
-                        new PveMobArchetype("creeper_sturmlaeufer", EntityType.CREEPER, "Sturmlaeufer", "Sturmlaeufer", 4, 3, ChatColor.YELLOW, 0.36, 0.90, 1.10, null, null, null, null)
+                        new PveMobArchetype("creeper_zuender", EntityType.CREEPER, "Z\u00fcnder", "Z\u00fcnder", 4, 3, ChatColor.GOLD, 0.33, 0.95, 1.25, null, null, null, null),
+                        new PveMobArchetype("creeper_sturmlaeufer", EntityType.CREEPER, "Sturml\u00e4ufer", "Sturml\u00e4ufer", 4, 3, ChatColor.YELLOW, 0.36, 0.90, 1.10, null, null, null, null)
                 );
                 level = 4;
                 reward = 3;
@@ -4749,7 +4749,7 @@ public class IslandService {
             case BLACK_WOOL -> {
                 familyName = "Nachtwache";
                 archetypes = List.of(
-                        new PveMobArchetype("wither_nachtwaechter", EntityType.WITHER_SKELETON, "Nachtwaechter", "Nachtwaechter", 5, 4, ChatColor.DARK_GRAY, 0.25, 1.20, 1.10, Color.fromRGB(66, 66, 74), Color.fromRGB(142, 142, 148), Color.fromRGB(26, 26, 30), Color.fromRGB(6, 6, 6)),
+                        new PveMobArchetype("wither_nachtwaechter", EntityType.WITHER_SKELETON, "Nachtw\u00e4chter", "Nachtw\u00e4chter", 5, 4, ChatColor.DARK_GRAY, 0.25, 1.20, 1.10, Color.fromRGB(66, 66, 74), Color.fromRGB(142, 142, 148), Color.fromRGB(26, 26, 30), Color.fromRGB(6, 6, 6)),
                         new PveMobArchetype("wither_vorsteher", EntityType.WITHER_SKELETON, "Vorsteher", "Vorsteher", 5, 4, ChatColor.GOLD, 0.27, 1.05, 1.25, Color.fromRGB(112, 82, 46), Color.fromRGB(194, 168, 126), Color.fromRGB(58, 42, 36), Color.fromRGB(18, 12, 10)),
                         new PveMobArchetype("wither_richter", EntityType.WITHER_SKELETON, "Richter", "Richter", 5, 4, ChatColor.WHITE, 0.24, 1.35, 1.00, Color.fromRGB(96, 30, 30), Color.fromRGB(224, 224, 224), Color.fromRGB(42, 42, 46), Color.fromRGB(10, 10, 10))
                 );
@@ -4896,7 +4896,7 @@ public class IslandService {
             if (runtime.objectiveMode == PveObjectiveMode.SPARE_TYPE && areOnlyObjectiveMobsRemaining(runtime)) {
                 if (runtime.spareSurvivalDeadline <= 0L) {
                     runtime.spareSurvivalDeadline = System.currentTimeMillis() + PVE_SPARE_SURVIVAL_MS;
-                    broadcastPveZone(runtime, ChatColor.YELLOW + "Nur noch " + runtime.objectivePluralName + " uebrig. Jetzt " + (PVE_SPARE_SURVIVAL_MS / 1000L) + " Sekunden ueberleben.");
+                    broadcastPveZone(runtime, ChatColor.YELLOW + "Nur noch " + runtime.objectivePluralName + " \u00fcbrig. Jetzt " + (PVE_SPARE_SURVIVAL_MS / 1000L) + " Sekunden \u00fcberleben.");
                 } else if (System.currentTimeMillis() >= runtime.spareSurvivalDeadline) {
                     completePveWave(runtime);
                     continue;
@@ -5175,7 +5175,7 @@ public class IslandService {
             mob.setCustomName(formatPveMobName(archetype, label));
         } else {
             runtime.invalidMobIds.add(mob.getUniqueId());
-            mob.setCustomName(ChatColor.DARK_GRAY + "[ungueltig] " + formatPveMobName(archetype, label));
+            mob.setCustomName(ChatColor.DARK_GRAY + "[ung\u00fcltig] " + formatPveMobName(archetype, label));
         }
         mob.setCustomNameVisible(true);
     }

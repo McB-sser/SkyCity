@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.service;
+﻿package de.mcbesser.skycity.service;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.AccessSettings;
@@ -675,7 +675,7 @@ public class CoreService {
          this.named(
             Material.CHEST,
             ChatColor.AQUA + "CoreBank",
-            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Materialien landen im Core-Fortschritt fuer Meilensteine und Techbaum")
+            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Materialien landen im Core-Fortschritt f\u00fcr Meilensteine und Techbaum")
          )
       );
       inv.setItem(
@@ -684,7 +684,7 @@ public class CoreService {
             Material.BOOK,
             ChatColor.YELLOW + "Techbaum",
             List.of(
-               ChatColor.GRAY + "Meilensteine und einzelne Limits in einem Menue",
+               ChatColor.GRAY + "Meilensteine und einzelne Limits in einem Men\u00fc",
                ChatColor.GRAY + "Links = Fokus, Rechts = freischalten",
                ChatColor.YELLOW + "Klick = Techbaum \u00f6ffnen"
             )
@@ -813,7 +813,7 @@ public class CoreService {
             ChatColor.AQUA + "Anzeige: Meilensteinpfad",
             List.of(
                ChatColor.GRAY + "Standardanzeige des Displays",
-               ChatColor.GRAY + "Zeigt alle benoetigten Meilenstein-Items",
+               ChatColor.GRAY + "Zeigt alle ben\u00f6tigten Meilenstein-Items",
                ChatColor.GRAY + "und die Belohnung an"
             )
          );
@@ -920,7 +920,7 @@ public class CoreService {
          return lines;
       }
       long currentIslandLevel = this.islandService.calculateIslandLevel(island);
-      lines.add(ChatColor.GOLD + "Naechster Meilenstein");
+      lines.add(ChatColor.GOLD + "N\u00e4chster Meilenstein");
       lines.add(ChatColor.GREEN + "Insel-Level: " + colorizeRequirement(currentIslandLevel >= next.islandLevel()) + currentIslandLevel + ChatColor.WHITE + "/" + next.islandLevel());
       lines.add(ChatColor.GREEN + "Erfahrung: " + colorizeRequirement(island.getStoredExperience() >= next.experience()) + island.getStoredExperience() + ChatColor.WHITE + "/" + next.experience());
       int shown = 0;
@@ -1622,7 +1622,7 @@ public class CoreService {
                ChatColor.GRAY + "Inselweit: " + ChatColor.WHITE + (islandNightVision ? "AN" : "AUS"),
                ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + nightVisionChunkCost,
                ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + nightVisionIslandCost,
-               ChatColor.YELLOW + "Klick = Nachtsicht-Shop oeffnen"
+               ChatColor.YELLOW + "Klick = Nachtsicht-Shop \u00f6ffnen"
             )
          )
       );
@@ -1663,32 +1663,32 @@ public class CoreService {
       this.fillWithPanes(inv);
       inv.setItem(4, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Nachtsicht", List.of(
          ChatColor.GRAY + "Aktueller Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
-         ChatColor.GRAY + "Wirkt dauerhaft auf deiner Insel",
+         ChatColor.GRAY + "Wirkt da\u00fcrhaft auf deiner Insel",
          ChatColor.GRAY + "solange die Option aktiv ist"
       )));
       inv.setItem(11, this.named(chunkEnabled ? Material.LIME_DYE : Material.YELLOW_DYE, (chunkEnabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Chunk-Nachtsicht aktivieren", List.of(
          ChatColor.GRAY + "Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
          ChatColor.GRAY + "Status: " + ChatColor.WHITE + (chunkEnabled ? "bereits aktiv" : "aus"),
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + chunkCost + " Erfahrung",
-         ChatColor.YELLOW + "Klick = fuer diesen Chunk kaufen"
+         ChatColor.YELLOW + "Klick = f\u00fcr diesen Chunk kaufen"
       )));
       inv.setItem(15, this.named(islandEnabled ? Material.LIME_DYE : Material.YELLOW_DYE, (islandEnabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Inselweite Nachtsicht aktivieren", List.of(
          ChatColor.GRAY + "Status: " + ChatColor.WHITE + (islandEnabled ? "bereits aktiv" : "aus"),
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + islandCost + " Erfahrung",
          ChatColor.GRAY + "Nur Master oder Owner",
-         ChatColor.YELLOW + "Klick = fuer ganze Insel kaufen"
+         ChatColor.YELLOW + "Klick = f\u00fcr ganze Insel kaufen"
       )));
       inv.setItem(29, this.named(chunkEnabled ? Material.BARRIER : Material.GRAY_DYE, (chunkEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Chunk-Nachtsicht deaktivieren", List.of(
          ChatColor.GRAY + "Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0",
-         ChatColor.YELLOW + "Klick = fuer diesen Chunk ausschalten"
+         ChatColor.YELLOW + "Klick = f\u00fcr diesen Chunk ausschalten"
       )));
       inv.setItem(33, this.named(islandEnabled ? Material.BARRIER : Material.GRAY_DYE, (islandEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Inselweite Nachtsicht deaktivieren", List.of(
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0",
          ChatColor.GRAY + "Nur Master oder Owner",
          ChatColor.YELLOW + "Klick = inselweite Nachtsicht ausschalten"
       )));
-      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zurueck", List.of(ChatColor.GRAY + "Zum Insel-Shop")));
+      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Insel-Shop")));
       return inv;
    }
    public Inventory createVisitorSettingsMenu(IslandData island) {
@@ -1814,15 +1814,15 @@ public class CoreService {
             ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone (max 5x5)",
             ChatColor.GRAY + "Bis zu 1 Loch 2x2 in der Startzone erlaubt",
             ChatColor.GRAY + "Ausgang nur an der Startzonen-Seite erlaubt",
-            ChatColor.GRAY + "Der Ausgang darf breiter sein, aber nur zusammenhaengend",
-            ChatColor.GRAY + "Ausgang und Aussenkante muessen 3 hoch frei sein",
+            ChatColor.GRAY + "Der Ausgang darf breiter sein, aber nur zusammenh\u00e4ngend",
+            ChatColor.GRAY + "Ausgang und Aussenkante m\u00fcssen 3 hoch frei sein",
             ChatColor.GRAY + "LIGHT_GRAY = Zombie-Familie (Opa, Hausmeister, Siedler)",
-            ChatColor.GRAY + "GREEN = Spinnen-Familie (Jagd, Hoehle, Hetzer)",
-            ChatColor.GRAY + "YELLOW = Skelett-Familie (Waldlaeufer, Rekrut, Jaeger)",
-            ChatColor.GRAY + "ORANGE = Wueste (Raeuber, Pluenderer, Spaeher)",
-            ChatColor.GRAY + "BLUE = Hafen (Kai, Faehrmann, Hafenwache)",
-            ChatColor.GRAY + "RED = Sprengtrupp (Sprengmeister, Zuender, Sturmlaeufer)",
-            ChatColor.GRAY + "BLACK = Nachtwache (Nachtwaechter, Vorsteher, Richter)"
+            ChatColor.GRAY + "GREEN = Spinnen-Familie (Jagd, H\u00f6hle, Hetzer)",
+            ChatColor.GRAY + "YELLOW = Skelett-Familie (Waldl\u00e4ufer, Rekrut, J\u00e4ger)",
+            ChatColor.GRAY + "ORANGE = W\u00fcste (R\u00e4uber, Pl\u00fcnderer, Sp\u00e4her)",
+            ChatColor.GRAY + "BLUE = Hafen (Kai, F\u00e4hrmann, Hafenwache)",
+            ChatColor.GRAY + "RED = Sprengtrupp (Sprengmeister, Z\u00fcnder, Sturml\u00e4ufer)",
+            ChatColor.GRAY + "BLACK = Nachtwache (Nachtw\u00e4chter, Vorsteher, Richter)"
          )));
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
@@ -1910,7 +1910,7 @@ public class CoreService {
          )));
 
       if (rentMode) {
-         inv.setItem(19, this.named(Material.CLOCK, ChatColor.AQUA + "Mietdauer",
+         inv.setItem(19, this.named(Material.CLOCK, ChatColor.AQUA + "Mietda\u00fcr",
             List.of(
                ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + parcel.getRentDurationAmount() + " " + this.islandService.formatParcelRentOffer(parcel).replaceFirst("^\\d+\\s*", ""),
                ChatColor.YELLOW + "Links = +1",
@@ -2904,7 +2904,7 @@ public class CoreService {
          return false;
       }
       player.getInventory().addItem(new ItemStack(Material.EXPERIENCE_BOTTLE, addable));
-      player.sendMessage(ChatColor.GREEN + "Abgefuellt: " + addable + " XP-Flaschen (Kosten: " + realCost + ").");
+      player.sendMessage(ChatColor.GREEN + "Abgef\u00fcllt: " + addable + " XP-Flaschen (Kosten: " + realCost + ").");
       return true;
    }
 
@@ -3475,7 +3475,7 @@ public class CoreService {
       int limit;
 
       if (this.islandService.isInventoryLimitedMaterial(type)) {
-         label = "Behaelter";
+         label = "Beh\u00e4lter";
          used = this.islandService.getCachedInventoryBlockCount(island);
          limit = this.islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER);
       } else if (type == Material.HOPPER) {
@@ -3647,13 +3647,13 @@ public class CoreService {
       DE_MATERIAL_NAMES.put(Material.POTATO, "Kartoffel");
       DE_MATERIAL_NAMES.put(Material.BREAD, "Brot");
       DE_MATERIAL_NAMES.put(Material.HAY_BLOCK, "Heuballen");
-      DE_MATERIAL_NAMES.put(Material.PUMPKIN, "Kuerbis");
-      DE_MATERIAL_NAMES.put(Material.CARVED_PUMPKIN, "Geschnitzter Kuerbis");
+      DE_MATERIAL_NAMES.put(Material.PUMPKIN, "K\u00fcrbis");
+      DE_MATERIAL_NAMES.put(Material.CARVED_PUMPKIN, "Geschnitzter K\u00fcrbis");
       DE_MATERIAL_NAMES.put(Material.CHEST, "Truhe");
       DE_MATERIAL_NAMES.put(Material.BARREL, "Fass");
       DE_MATERIAL_NAMES.put(Material.STRING, "Faden");
       DE_MATERIAL_NAMES.put(Material.BOW, "Bogen");
-      DE_MATERIAL_NAMES.put(Material.SCAFFOLDING, "Geruest");
+      DE_MATERIAL_NAMES.put(Material.SCAFFOLDING, "Ger\u00fcst");
       DE_MATERIAL_NAMES.put(Material.SMOOTH_STONE_SLAB, "Glatte Steinplatte");
       DE_MATERIAL_NAMES.put(Material.SLIME_BALL, "Schleimball");
       DE_MATERIAL_NAMES.put(Material.LEATHER, "Leder");

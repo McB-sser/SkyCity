@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.listener;
+﻿package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
@@ -1562,7 +1562,7 @@ public class PlayerListener implements Listener {
             parcelPveStates.remove(playerId);
             islandService.leaveParcelPve(player, previousKey, true);
             clearPvpScoreboard(player);
-            player.sendMessage(ChatColor.GRAY + "Du verlaesst die PvE-Zone.");
+            player.sendMessage(ChatColor.GRAY + "Du verl\u00e4sst die PvE-Zone.");
         }
         if (nextKey == null) {
             return;

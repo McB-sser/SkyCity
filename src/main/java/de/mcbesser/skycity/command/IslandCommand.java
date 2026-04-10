@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.command;
+﻿package de.mcbesser.skycity.command;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
@@ -161,7 +161,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     case NO_PENDING_REQUEST -> player.sendMessage(ChatColor.YELLOW + "Keine offene Anfrage f\u00fcr diesen Chunk.");
                     case NOT_AUTHORIZED -> player.sendMessage(ChatColor.RED + "Du darfst diese Anfrage nicht freigeben.");
                     case ALREADY_UNLOCKED -> player.sendMessage(ChatColor.YELLOW + "Chunk ist bereits freigeschaltet.");
-                    case NO_UNLOCKS_LEFT -> player.sendMessage(ChatColor.RED + "Anfrage ist ungueltig: keine freien Unlocks beim Anfrager.");
+                    case NO_UNLOCKS_LEFT -> player.sendMessage(ChatColor.RED + "Anfrage ist ung\u00fcltig: keine freien Unlocks beim Anfrager.");
                     default -> player.sendMessage(ChatColor.RED + "Freigabe konnte nicht verarbeitet werden.");
                 }
             }
@@ -313,7 +313,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         switch (action) {
             case "add" -> {
                 if (!islandService.isIslandOwner(island, player.getUniqueId())) {
-                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Owner hinzufuegen.");
+                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Owner hinzuf\u00fcgen.");
                     return;
                 }
                 if (islandService.isIslandMaster(island, target.getUniqueId())) {

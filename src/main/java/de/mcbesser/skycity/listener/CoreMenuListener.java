@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.listener;
+﻿package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.IslandPlot;
@@ -175,7 +175,7 @@ public class CoreMenuListener implements Listener {
                 if (islandService.levelUp(island)) {
                     player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + Math.max(0, island.getLevel() - 1));
                 } else {
-                    player.sendMessage(ChatColor.RED + "Meilensteinbedingungen nicht erfuellt.");
+                    player.sendMessage(ChatColor.RED + "Meilensteinbedingungen nicht erf\u00fcllt.");
                     coreService.sendUpgradeStatusChat(player, island);
                 }
             }
@@ -189,7 +189,7 @@ public class CoreMenuListener implements Listener {
             if (islandService.unlockUpgrade(island, branch)) {
                 player.sendMessage(ChatColor.GREEN + branch.displayName() + " ausgebaut.");
             } else {
-                player.sendMessage(ChatColor.RED + "Upgradebedingungen nicht erfuellt.");
+                player.sendMessage(ChatColor.RED + "Upgradebedingungen nicht erf\u00fcllt.");
                 islandService.setPinnedUpgrade(island, branch);
                 coreService.sendUpgradeStatusChat(player, island);
             }
@@ -465,7 +465,7 @@ public class CoreMenuListener implements Listener {
                     ChatColor.GOLD + "Plot-Markt",
                     java.util.List.of(
                             ChatColor.GRAY + "Verkauf / Miete festlegen",
-                            ChatColor.YELLOW + "Klick = oeffnen"
+                            ChatColor.YELLOW + "Klick = \u00f6ffnen"
                     )));
             inventory.setItem(22, namedItem(
                     Material.ANVIL,
@@ -511,10 +511,10 @@ public class CoreMenuListener implements Listener {
                     java.util.List.of(
                             ChatColor.GRAY + "1) Wei\u00dfe Wolle = Startzone",
                             ChatColor.GRAY + "2) Ausgang nur an der Startzonen-Seite",
-                            ChatColor.GRAY + "3) Ausgang darf breiter sein, wenn zusammenhaengend",
+                            ChatColor.GRAY + "3) Ausgang darf breiter sein, wenn zusammenh\u00e4ngend",
                             ChatColor.GRAY + "4) Innen + aussen 3 hoch frei",
                             ChatColor.GRAY + "5) LIGHT_GRAY = Zombie-Familie mit Varianten",
-                            ChatColor.GRAY + "6) GREEN = Spinnen, YELLOW = Skelette, ORANGE = Wueste",
+                            ChatColor.GRAY + "6) GREEN = Spinnen, YELLOW = Skelette, ORANGE = W\u00fcste",
                             ChatColor.GRAY + "7) BLUE = Hafen, RED = Sprengtrupp, BLACK = Nachtwache"
                     )));
         }
@@ -1076,7 +1076,7 @@ public class CoreMenuListener implements Listener {
                 } else {
                     boolean enable = !parcel.isRentOfferEnabled();
                     if (enable && (parcel.getRentPrice() <= 0L || parcel.getRentDurationAmount() <= 0)) {
-                        player.sendMessage(ChatColor.RED + "Setze zuerst Mietpreis und Mietdauer.");
+                        player.sendMessage(ChatColor.RED + "Setze zuerst Mietpreis und Mietda\u00fcr.");
                         return;
                     }
                     islandService.configureParcelRentOffer(island, parcel, player.getUniqueId(), parcel.getRentPrice(), parcel.getRentDurationAmount(), parcel.getRentDurationUnit(), enable);
@@ -1089,7 +1089,7 @@ public class CoreMenuListener implements Listener {
                             : ParcelData.MarketPaymentType.EXPERIENCE;
                     islandService.configureParcelPaymentType(island, parcel, player.getUniqueId(), nextType);
                 } else {
-                    player.sendMessage(ChatColor.RED + "CraftTaler sind aktuell nicht verfuegbar.");
+                    player.sendMessage(ChatColor.RED + "CraftTaler sind aktuell nicht verf\u00fcgbar.");
                 }
             }
             case 25 -> {

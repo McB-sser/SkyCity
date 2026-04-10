@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.listener;
+﻿package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.listener.PlayerListener;
@@ -182,7 +182,7 @@ public class ProtectionListener implements Listener {
         if (islandService.isInventoryLimitedMaterial(type)
                 && islandService.getCachedInventoryBlockCount(island) + 1 > islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Behaelterlimit erreicht: " + islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER));
+            player.sendMessage(ChatColor.RED + "Beh\u00e4lterlimit erreicht: " + islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER));
             return;
         }
         if (type == Material.HOPPER && islandService.getCachedHopperCount(island) + 1 > islandService.getCurrentLevelDef(island).getHopperLimit()) {
@@ -1014,7 +1014,7 @@ public class ProtectionListener implements Listener {
             }
             if (parcel.isMemberAnimalKeepTwo() && islandService.countAnimalsInParcelByType(parcel, animals.getType()) <= 2) {
                 event.setCancelled(true);
-                attacker.sendMessage(ChatColor.RED + "Es muessen mindestens 2 Tiere dieser Art im Plot bleiben.");
+                attacker.sendMessage(ChatColor.RED + "Es m\u00fcssen mindestens 2 Tiere dieser Art im Plot bleiben.");
                 return;
             }
             return;
@@ -1050,7 +1050,7 @@ public class ProtectionListener implements Listener {
             Location placeLocation = block.getRelative(event.getBlockFace()).getLocation();
             if (islandService.isInSpawnPlot(placeLocation)) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Spawn ist geschuetzt.");
+                player.sendMessage(ChatColor.RED + "Spawn ist gesch\u00fctzt.");
                 return;
             }
             IslandData island = islandService.getIslandAt(placeLocation);
@@ -1102,7 +1102,7 @@ public class ProtectionListener implements Listener {
                     : block.getRelative(event.getBlockFace()).getLocation();
             if (islandService.isInSpawnPlot(placeLocation)) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Spawn ist geschuetzt.");
+                player.sendMessage(ChatColor.RED + "Spawn ist gesch\u00fctzt.");
                 return;
             }
             IslandData island = islandService.getIslandAt(placeLocation);
@@ -1256,7 +1256,7 @@ public class ProtectionListener implements Listener {
                     || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isFarmUse();
             if (!allowed) {
                 event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Nutzbloecke/Farmaktionen sind hier gesperrt.");
+                player.sendMessage(ChatColor.RED + "Nutzbl\u00f6cke/Farmaktionen sind hier gesperrt.");
                 return;
             }
         }

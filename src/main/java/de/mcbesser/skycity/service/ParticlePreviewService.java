@@ -1,4 +1,4 @@
-package de.mcbesser.skycity.service;
+﻿package de.mcbesser.skycity.service;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
