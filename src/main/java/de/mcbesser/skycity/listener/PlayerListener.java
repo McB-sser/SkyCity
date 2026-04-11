@@ -2402,7 +2402,7 @@ public class PlayerListener implements Listener {
         UUID existingId = ctfCarryDisplaysByPlayer.get(player.getUniqueId());
         Entity existing = existingId == null ? null : Bukkit.getEntity(existingId);
         if (existing instanceof ItemDisplay display && display.isValid()) {
-            configureCtfCarryDisplay(display, carrier.bannerMaterial(), player.getLocation().getYaw());
+            configureCtfCarryDisplay(display, carrier.bannerMaterial());
             if (!player.getPassengers().contains(display)) {
                 player.addPassenger(display);
             }
@@ -2410,20 +2410,19 @@ public class PlayerListener implements Listener {
         }
         removeCtfCarryDisplay(player.getUniqueId());
         ItemDisplay display = (ItemDisplay) player.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
-        configureCtfCarryDisplay(display, carrier.bannerMaterial(), player.getLocation().getYaw());
+        configureCtfCarryDisplay(display, carrier.bannerMaterial());
         display.addScoreboardTag("skycity_ctf_carry_" + player.getUniqueId());
         player.addPassenger(display);
         ctfCarryDisplaysByPlayer.put(player.getUniqueId(), display.getUniqueId());
     }
 
-    private void configureCtfCarryDisplay(ItemDisplay display, Material bannerMaterial, float yaw) {
+    private void configureCtfCarryDisplay(ItemDisplay display, Material bannerMaterial) {
         if (display == null || bannerMaterial == null) return;
         display.setItemStack(new ItemStack(bannerMaterial));
-        display.setBillboard(Display.Billboard.FIXED);
+        display.setBillboard(Display.Billboard.CENTER);
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-        display.setRotation(yaw, 0.0F);
         display.setTransformation(new Transformation(
-                new Vector3f(0.0F, 0.0F, 0.0F),
+                new Vector3f(0.0F, 0.35F, 0.0F),
                 new AxisAngle4f(),
                 new Vector3f(1.0F, 1.0F, 1.0F),
                 new AxisAngle4f()
