@@ -59,6 +59,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -314,6 +315,9 @@ public class IslandService {
     private static final int TOTAL_CHUNKS = 4096;
     private static final long ONE_YEAR_MS = 365L * 24L * 60L * 60L * 1000L;
     private static final long ONE_DAY_MS = 24L * 60L * 60L * 1000L;
+    private static final long INACTIVITY_WARNING_30_DAYS_MS = 30L * ONE_DAY_MS;
+    private static final long INACTIVITY_WARNING_7_DAYS_MS = 7L * ONE_DAY_MS;
+    private static final long INACTIVITY_WARNING_1_DAY_MS = ONE_DAY_MS;
     private static final long CREATION_REQUEST_RESET_WINDOW_MS = 7L * ONE_DAY_MS;
     private static final long BIOME_CHANGE_COST_CHUNK = 120L;
     private static final long BIOME_CHANGE_COST_ISLAND = 3000L;
@@ -828,18 +832,67 @@ public class IslandService {
 
     private void runInactiveIslandCleanup() {
         long now = System.currentTimeMillis();
-        long oneYearMs = 365L * 24L * 60L * 60L * 1000L;
         List<IslandData> toDelete = new ArrayList<>();
+        boolean changed = false;
         for (IslandData island : islands.values()) {
             if (island.getPoints() >= 1000L) continue;
-            if (now - island.getLastActiveAt() < oneYearMs) continue;
+            long inactiveFor = Math.max(0L, now - island.getLastActiveAt());
+            long remainingMillis = ONE_YEAR_MS - inactiveFor;
+            int warningStage = determineInactivityWarningStage(remainingMillis);
+            if (warningStage > island.getInactivityWarningStage()) {
+                notifyInactivityWarning(island, remainingMillis, warningStage);
+                island.setInactivityWarningStage(warningStage);
+                changed = true;
+            }
+            if (inactiveFor < ONE_YEAR_MS) continue;
             toDelete.add(island);
         }
         for (IslandData island : toDelete) {
             deleteIslandData(island, true);
             plugin.getLogger().info("Inaktive Insel gel\u00f6scht (Punkte<1000, >1 Jahr inaktiv): " + island.getOwner());
         }
-        if (!toDelete.isEmpty()) save();
+        if (changed || !toDelete.isEmpty()) save();
+    }
+
+    private int determineInactivityWarningStage(long remainingMillis) {
+        if (remainingMillis <= INACTIVITY_WARNING_1_DAY_MS) {
+            return 3;
+        }
+        if (remainingMillis <= INACTIVITY_WARNING_7_DAYS_MS) {
+            return 2;
+        }
+        if (remainingMillis <= INACTIVITY_WARNING_30_DAYS_MS) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private void notifyInactivityWarning(IslandData island, long remainingMillis, int warningStage) {
+        if (island == null || warningStage <= 0) return;
+        String islandTitle = getIslandTitleDisplay(island);
+        String remainingText = formatDurationShort(Math.max(0L, remainingMillis));
+        for (UUID playerId : getInactivityWarningRecipients(island)) {
+            Player online = Bukkit.getPlayer(playerId);
+            if (online == null || !online.isOnline()) continue;
+            online.sendMessage(ChatColor.GOLD + "Warnung: " + ChatColor.YELLOW + "Die Insel " + ChatColor.WHITE + islandTitle
+                    + ChatColor.YELLOW + " wird bei weiterer Inaktivit\u00e4t in " + ChatColor.GOLD + remainingText
+                    + ChatColor.YELLOW + " automatisch gel\u00f6scht.");
+            online.sendMessage(ChatColor.GRAY + "Ein Login oder Aktivit\u00e4t auf der Insel setzt den Inaktivit\u00e4ts-Timer zur\u00fcck.");
+        }
+    }
+
+    private Set<UUID> getInactivityWarningRecipients(IslandData island) {
+        Set<UUID> recipients = new LinkedHashSet<>();
+        if (island == null) {
+            return recipients;
+        }
+        recipients.add(island.getOwner());
+        recipients.addAll(island.getMasters());
+        recipients.addAll(island.getOwners());
+        recipients.addAll(island.getMemberBuildAccess());
+        recipients.addAll(island.getMemberContainerAccess());
+        recipients.addAll(island.getMemberRedstoneAccess());
+        return recipients;
     }
 
     private void deleteIslandData(IslandData island, boolean createReplacementForMasters) {
@@ -1632,6 +1685,7 @@ public class IslandService {
         IslandData island = getIsland(playerId).orElse(null);
         if (island == null) return;
         island.setLastActiveAt(System.currentTimeMillis());
+        island.setInactivityWarningStage(0);
     }
 
     public void addPoints(IslandData island, long amount) {
@@ -5660,6 +5714,7 @@ public class IslandService {
                 .put("points", island.getPoints())
                 .put("storedExperience", island.getStoredExperience())
                 .put("lastActiveAt", island.getLastActiveAt())
+                .put("inactivityWarningStage", island.getInactivityWarningStage())
                 .put("spawn", locationDocument(island.getIslandSpawn()))
                 .put("warp", locationDocument(island.getWarpLocation()))
                 .put("core", locationDocument(island.getCoreLocation()))
@@ -5811,6 +5866,7 @@ public class IslandService {
         island.setPoints(longValue(document.get("points")));
         island.setStoredExperience(longValue(document.get("storedExperience")));
         island.setLastActiveAt(longValue(document.get("lastActiveAt")));
+        island.setInactivityWarningStage(intValue(document.get("inactivityWarningStage")));
         island.setIslandSpawn(locationFromDocument(document.get("spawn", Document.class)));
         island.setWarpLocation(locationFromDocument(document.get("warp", Document.class)));
         island.setCoreLocation(locationFromDocument(document.get("core", Document.class)));

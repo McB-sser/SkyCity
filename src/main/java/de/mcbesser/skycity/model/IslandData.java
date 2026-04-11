@@ -44,6 +44,7 @@ public class IslandData {
     private long points = 0L;
     private long storedExperience = 0L;
     private long lastActiveAt = 0L;
+    private int inactivityWarningStage = 0;
 
     public IslandData(UUID owner) {
         this.owner = owner;
@@ -118,6 +119,8 @@ public class IslandData {
     }
     public long getLastActiveAt() { return lastActiveAt; }
     public void setLastActiveAt(long lastActiveAt) { this.lastActiveAt = lastActiveAt; }
+    public int getInactivityWarningStage() { return inactivityWarningStage; }
+    public void setInactivityWarningStage(int inactivityWarningStage) { this.inactivityWarningStage = Math.max(0, inactivityWarningStage); }
 
     public void addProgress(Material material, int amount) {
         progress.merge(material.name(), amount, Integer::sum);

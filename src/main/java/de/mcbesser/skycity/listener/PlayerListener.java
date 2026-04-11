@@ -36,6 +36,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -46,8 +47,11 @@ import org.bukkit.util.Vector;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
@@ -75,6 +79,8 @@ public class PlayerListener implements Listener {
     private static final long CHECKPOINT_CACHE_TTL_MS = 60_000L;
     private static final long COMBAT_SCOREBOARD_REFRESH_MS = 1_000L;
     private static final long TEAM_SCORE_CACHE_TTL_MS = 1_000L;
+    private static final int SKYCITY_NIGHT_VISION_DURATION_TICKS = Integer.MAX_VALUE;
+    private static final int SKYCITY_NIGHT_VISION_MIN_DURATION_TICKS = 1_000_000;
     private static final String CHECKPOINT_HOLO_PREFIX = "skycity_checkpoint_holo_";
     private static final String JUMP_PAD_HOLO_PREFIX = "skycity_jump_pad_holo_";
     private static final String PVP_TEAM_WOOL_METADATA = "skycity_pvp_team_wool";
@@ -310,6 +316,14 @@ public class PlayerListener implements Listener {
             event.getPlayer().teleport(islandService.getSpawnLocation());
             event.getPlayer().sendMessage(ChatColor.RED + "Du bist dort gebannt.");
         }
+    }
+
+    @EventHandler
+    public void onConsume(PlayerItemConsumeEvent event) {
+        if (!consumedItemGrantsNightVision(event.getItem())) return;
+        Player player = event.getPlayer();
+        if (!Boolean.TRUE.equals(skyCityNightVisionApplied.get(player.getUniqueId()))) return;
+        clearSkyCityNightVision(player);
     }
 
     @EventHandler
@@ -2128,8 +2142,17 @@ public class PlayerListener implements Listener {
             shouldHaveNightVision = islandService.hasNightVision(island, relChunkX, relChunkZ);
         }
         if (shouldHaveNightVision) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 220, 0, false, false, false));
-            skyCityNightVisionApplied.put(player.getUniqueId(), true);
+            PotionEffect active = player.getPotionEffect(PotionEffectType.NIGHT_VISION);
+            if (active == null) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, SKYCITY_NIGHT_VISION_DURATION_TICKS, 0, false, false, false));
+                skyCityNightVisionApplied.put(player.getUniqueId(), true);
+                return;
+            }
+            if (isSkyCityNightVisionEffect(active)) {
+                skyCityNightVisionApplied.put(player.getUniqueId(), true);
+            } else {
+                skyCityNightVisionApplied.remove(player.getUniqueId());
+            }
             return;
         }
         clearSkyCityNightVision(player);
@@ -2139,9 +2162,38 @@ public class PlayerListener implements Listener {
         if (player == null) return;
         if (!Boolean.TRUE.equals(skyCityNightVisionApplied.remove(player.getUniqueId()))) return;
         PotionEffect active = player.getPotionEffect(PotionEffectType.NIGHT_VISION);
-        if (active != null && active.getAmplifier() == 0 && active.getDuration() <= 260) {
+        if (isSkyCityNightVisionEffect(active)) {
             player.removePotionEffect(PotionEffectType.NIGHT_VISION);
         }
+    }
+
+    private boolean isSkyCityNightVisionEffect(PotionEffect effect) {
+        return effect != null
+                && effect.getType().equals(PotionEffectType.NIGHT_VISION)
+                && effect.getAmplifier() == 0
+                && effect.getDuration() >= SKYCITY_NIGHT_VISION_MIN_DURATION_TICKS;
+    }
+
+    private boolean consumedItemGrantsNightVision(ItemStack item) {
+        if (item == null) return false;
+        if (item.getItemMeta() instanceof PotionMeta potionMeta) {
+            if (potionMeta.getBasePotionType() == PotionType.NIGHT_VISION) {
+                return true;
+            }
+            for (PotionEffect effect : potionMeta.getCustomEffects()) {
+                if (effect.getType().equals(PotionEffectType.NIGHT_VISION)) {
+                    return true;
+                }
+            }
+        }
+        if (item.getItemMeta() instanceof SuspiciousStewMeta stewMeta) {
+            for (PotionEffect effect : stewMeta.getCustomEffects()) {
+                if (effect.getType().equals(PotionEffectType.NIGHT_VISION)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void removeChunkEffectBossBar(Player player) {

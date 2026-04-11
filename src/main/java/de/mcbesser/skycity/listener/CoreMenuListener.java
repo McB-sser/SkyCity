@@ -31,6 +31,7 @@ import java.util.UUID;
 
 public class CoreMenuListener implements Listener {
     private static final Set<Integer> CORE_INPUT_SLOTS = Set.of(27, 28, 29, 30, 31, 32, 33, 34, 35);
+    private static final String ISLAND_SHOP_PERMISSION_MESSAGE = ChatColor.RED + "Als Member kannst du im Insel-Shop nichts kaufen. Nur Master oder Owner.";
 
     private final IslandService islandService;
     private final CoreService coreService;
@@ -672,11 +673,10 @@ public class CoreMenuListener implements Listener {
             int index = holder.page() * 45 + raw;
             if (index < coreService.getBiomeOptions().size()) {
                 Biome biome = coreService.getBiomeOptions().get(index);
-                if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+                if (!canUseIslandShop(player, island)) {
                     return;
                 }
-                if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) {
+                if (event.getClick() == ClickType.SHIFT_RIGHT) {
                     long cost = islandService.getBiomeChangeCost(true);
                     if (island.getStoredExperience() < cost) {
                         player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
@@ -732,18 +732,23 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 10) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
             player.openInventory(coreService.createBiomeMenu(player, island, 0, holder.relChunkX(), holder.relChunkZ(), 0));
             return;
         }
         if (raw == 12) {
-            if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+            if (!canUseIslandShop(player, island)) {
                 return;
             }
             player.openInventory(coreService.createTimeModeShopMenu(island, "shop"));
             return;
         }
         if (raw == 14) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
             int tier = event.getClick() == ClickType.SHIFT_RIGHT ? 3 : (event.isRightClick() ? 2 : 1);
             if (!islandService.buyGrowthBoost(island, holder.relChunkX(), holder.relChunkZ(), tier)) {
                 player.sendMessage(ChatColor.RED + "Wachstumsboost konnte nicht gekauft werden.");
@@ -754,12 +759,18 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 16) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
             int amount = event.isShiftClick() ? 16 : 1;
             coreService.fillExperienceBottles(player, island, amount);
             player.openInventory(coreService.createIslandShopMenu(player, island));
             return;
         }
         if (raw == 30) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
             player.openInventory(coreService.createNightVisionShopMenu(player, island));
         }
     }
@@ -768,8 +779,7 @@ public class CoreMenuListener implements Listener {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
-        if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-            player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+        if (!canUseIslandShop(player, island)) {
             return;
         }
         int raw = event.getRawSlot();
@@ -811,6 +821,9 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 11) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
             long cost = islandService.getNightVisionCost(false);
             if (!islandService.buyChunkNightVision(island, holder.relChunkX(), holder.relChunkZ())) {
                 player.sendMessage(ChatColor.RED + "Chunk-Nachtsicht konnte nicht gekauft werden.");
@@ -821,8 +834,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 15) {
-            if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+            if (!canUseIslandShop(player, island)) {
                 return;
             }
             long cost = islandService.getNightVisionCost(true);
@@ -835,6 +847,9 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 29) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
             if (!islandService.disableChunkNightVision(island, holder.relChunkX(), holder.relChunkZ())) {
                 player.sendMessage(ChatColor.RED + "Chunk-Nachtsicht war nicht aktiv.");
                 return;
@@ -844,8 +859,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 33) {
-            if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+            if (!canUseIslandShop(player, island)) {
                 return;
             }
             if (!islandService.disableIslandNightVision(island)) {
@@ -855,6 +869,15 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.YELLOW + "Inselweite Nachtsicht deaktiviert.");
             player.openInventory(coreService.createNightVisionShopMenu(player, island));
         }
+    }
+
+    private boolean canUseIslandShop(Player player, IslandData island) {
+        if (player == null || island == null) return false;
+        if (player.isOp() || islandService.isIslandOwner(island, player.getUniqueId())) {
+            return true;
+        }
+        player.sendMessage(ISLAND_SHOP_PERMISSION_MESSAGE);
+        return false;
     }
 
     private void handleVisitorSettingsClick(InventoryClickEvent event, Player player, UUID islandOwner) {

@@ -109,33 +109,10 @@ public class CoreService {
    private static final int ISLAND_CHUNK_SIDE = 64;
    private static final int TOTAL_CHUNKS = ISLAND_CHUNK_SIDE * ISLAND_CHUNK_SIDE;
    private static final List<int[]> CHUNK_SPIRAL_ORDER = buildChunkSpiralOrder();
-   private static final List<Biome> BIOME_OPTIONS = Arrays.asList(
-      Biome.PLAINS,
-      Biome.FOREST,
-      Biome.BIRCH_FOREST,
-      Biome.DARK_FOREST,
-      Biome.JUNGLE,
-      Biome.SPARSE_JUNGLE,
-      Biome.BAMBOO_JUNGLE,
-      Biome.TAIGA,
-      Biome.SNOWY_PLAINS,
-      Biome.ICE_SPIKES,
-      Biome.DESERT,
-      Biome.SAVANNA,
-      Biome.SAVANNA_PLATEAU,
-      Biome.BADLANDS,
-      Biome.WOODED_BADLANDS,
-      Biome.MUSHROOM_FIELDS,
-      Biome.SWAMP,
-      Biome.MANGROVE_SWAMP,
-      Biome.MEADOW,
-      Biome.GROVE,
-      Biome.CHERRY_GROVE,
-      Biome.WINDSWEPT_HILLS,
-      Biome.WINDSWEPT_FOREST,
-      Biome.STONY_PEAKS,
-      Biome.JAGGED_PEAKS
-   );
+   private static final List<Biome> BIOME_OPTIONS = Arrays.stream(Biome.values())
+      .filter(biome -> biome != Biome.CUSTOM)
+      .sorted(java.util.Comparator.comparing(biome -> biome.name()))
+      .toList();
    private static final Map<Material, String> DE_MATERIAL_NAMES = new HashMap<>();
    private static final Map<Biome, String> DE_BIOME_NAMES = new HashMap<>();
    private static final Map<Material, Double> BLOCK_VALUE_MAP = new LinkedHashMap<>();
@@ -1284,11 +1261,13 @@ public class CoreService {
 
          int displayX = this.islandService.displayChunkX(relX);
          int displayZ = this.islandService.displayChunkZ(relZ);
+         Biome chunkBiome = this.islandService.getBiomeForChunk(island, relX, relZ);
          List<String> lore = new ArrayList<>();
          lore.add(ChatColor.GRAY + "Chunk: " + displayX + ":" + displayZ);
          lore.add(ChatColor.GRAY + "Status: " + (unlocked ? "frei" : "gesperrt"));
          lore.add(ChatColor.GRAY + "GS: " + (parcel == null ? "nicht geclaimt" : "geclaimt"));
-         lore.add(ChatColor.GRAY + "Biom: " + this.biomeDisplayNameDe(this.islandService.getBiomeForChunk(island, relX, relZ)));
+         lore.add(ChatColor.GRAY + "Biom: " + ChatColor.WHITE + this.biomeDisplayNameDe(chunkBiome));
+         lore.add(ChatColor.DARK_GRAY + "Original: " + this.biomeOriginalName(chunkBiome));
          if (!unlocked) {
             lore.add(ChatColor.YELLOW + "Linksklick = freischalten");
          }
@@ -1358,6 +1337,26 @@ public class CoreService {
                icon = Material.ACACIA_LOG;
             } else if (biome == Biome.TAIGA) {
                icon = Material.SPRUCE_LOG;
+            } else if (biome == Biome.NETHER_WASTES) {
+               icon = Material.NETHERRACK;
+            } else if (biome == Biome.CRIMSON_FOREST) {
+               icon = Material.CRIMSON_STEM;
+            } else if (biome == Biome.WARPED_FOREST) {
+               icon = Material.WARPED_STEM;
+            } else if (biome == Biome.SOUL_SAND_VALLEY) {
+               icon = Material.SOUL_SAND;
+            } else if (biome == Biome.BASALT_DELTAS) {
+               icon = Material.BASALT;
+            } else if (biome == Biome.THE_END) {
+               icon = Material.END_STONE;
+            } else if (biome == Biome.END_HIGHLANDS || biome == Biome.END_MIDLANDS) {
+               icon = Material.END_STONE_BRICKS;
+            } else if (biome == Biome.SMALL_END_ISLANDS) {
+               icon = Material.ENDER_PEARL;
+            } else if (biome == Biome.END_BARRENS) {
+               icon = Material.CHORUS_FLOWER;
+            } else if (biome == Biome.THE_VOID) {
+               icon = Material.OBSIDIAN;
             } else {
                icon = Material.GRASS_BLOCK;
             }
@@ -1368,10 +1367,12 @@ public class CoreService {
                   (selected ? ChatColor.GREEN : ChatColor.AQUA) + this.biomeDisplayNameDe(biome),
                   List.of(
                      ChatColor.GRAY + "Ziel-Chunk: " + displayX + ":" + displayZ,
+                     ChatColor.DARK_GRAY + "Original: " + this.biomeOriginalName(biome),
                      ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + biomeChunkCost,
                      ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + biomeIslandCost,
+                     ChatColor.GRAY + "Nur Master oder Owner",
                      ChatColor.YELLOW + "Linksklick = f\u00fcr Chunk setzen",
-                     ChatColor.GOLD + "Rechtsklick = auf Insel anwenden"
+                     ChatColor.GOLD + "Shift-Rechtsklick = auf Insel anwenden"
                   )
                )
             );
@@ -1386,7 +1387,7 @@ public class CoreService {
          inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Aktueller Chunk " + displayX + ":" + displayZ, List.of(ChatColor.GRAY + "Rechtsklick auf ein Biom = inselweit")));
+      inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Aktueller Chunk " + displayX + ":" + displayZ, List.of(ChatColor.GRAY + "Shift-Rechtsklick auf ein Biom = inselweit")));
       return inv;
    }
 
@@ -1576,6 +1577,7 @@ public class CoreService {
             List.of(
                ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + biomeChunkCost,
                ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + biomeIslandCost,
+               ChatColor.GRAY + "Nur Master oder Owner",
                ChatColor.YELLOW + "Klick = Biom-Men\u00fc \u00f6ffnen"
             )
          )
@@ -1603,6 +1605,7 @@ public class CoreService {
                ChatColor.GRAY + "Wachstum Stufe 1: 30m, " + this.islandService.getGrowthBoostCost(1) + " XP",
                ChatColor.GRAY + "Wachstum Stufe 2: 30m, " + this.islandService.getGrowthBoostCost(2) + " XP",
                ChatColor.GRAY + "Wachstum Stufe 3: 30m, " + this.islandService.getGrowthBoostCost(3) + " XP",
+               ChatColor.GRAY + "Nur Master oder Owner",
                ChatColor.YELLOW + "Linksklick: Wachstum Stufe 1",
                ChatColor.YELLOW + "Rechtsklick: Wachstum Stufe 2",
                ChatColor.YELLOW + "Shift-Rechtsklick: Wachstum Stufe 3"
@@ -1617,6 +1620,7 @@ public class CoreService {
             List.of(
                ChatColor.GRAY + "Pro Flasche: " + ChatColor.WHITE + this.islandService.getXpBottlePointsPerBottle() + " XP",
                ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getXpBottleCostPerBottle() + " XP (10% Verlust)",
+               ChatColor.GRAY + "Nur Master oder Owner",
                ChatColor.YELLOW + "Linksklick: 1 Flasche",
                ChatColor.YELLOW + "Shift-Klick: 16 Flaschen"
             )
@@ -1636,6 +1640,7 @@ public class CoreService {
                ChatColor.GRAY + "Inselweit: " + ChatColor.WHITE + (islandNightVision ? "AN" : "AUS"),
                ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + nightVisionChunkCost,
                ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + nightVisionIslandCost,
+               ChatColor.GRAY + "Nur Master oder Owner",
                ChatColor.YELLOW + "Klick = Nachtsicht-Shop \u00f6ffnen"
             )
          )
@@ -1684,6 +1689,7 @@ public class CoreService {
          ChatColor.GRAY + "Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
          ChatColor.GRAY + "Status: " + ChatColor.WHITE + (chunkEnabled ? "bereits aktiv" : "aus"),
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + chunkCost + " Erfahrung",
+         ChatColor.GRAY + "Nur Master oder Owner",
          ChatColor.YELLOW + "Klick = f\u00fcr diesen Chunk kaufen"
       )));
       inv.setItem(15, this.named(islandEnabled ? Material.LIME_DYE : Material.YELLOW_DYE, (islandEnabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Inselweite Nachtsicht aktivieren", List.of(
@@ -1695,6 +1701,7 @@ public class CoreService {
       inv.setItem(29, this.named(chunkEnabled ? Material.BARRIER : Material.GRAY_DYE, (chunkEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Chunk-Nachtsicht deaktivieren", List.of(
          ChatColor.GRAY + "Chunk: " + ChatColor.WHITE + displayX + ":" + displayZ,
          ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0",
+         ChatColor.GRAY + "Nur Master oder Owner",
          ChatColor.YELLOW + "Klick = f\u00fcr diesen Chunk ausschalten"
       )));
       inv.setItem(33, this.named(islandEnabled ? Material.BARRIER : Material.GRAY_DYE, (islandEnabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Inselweite Nachtsicht deaktivieren", List.of(
@@ -2509,21 +2516,29 @@ public class CoreService {
       if (mapped != null) {
          return mapped;
       } else {
-         String[] parts = biome.name().toLowerCase(Locale.ROOT).split("_");
-         StringBuilder sb = new StringBuilder();
-
-         for (String part : parts) {
-            if (!part.isBlank()) {
-               if (!sb.isEmpty()) {
-                  sb.append(' ');
-               }
-
-               sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
-            }
-         }
-
-         return sb.toString();
+         return biomeOriginalName(biome);
       }
+   }
+
+   public String biomeOriginalName(Biome biome) {
+      if (biome == null) {
+         return "Unbekannt";
+      }
+
+      String[] parts = biome.name().toLowerCase(Locale.ROOT).split("_");
+      StringBuilder sb = new StringBuilder();
+
+      for (String part : parts) {
+         if (!part.isBlank()) {
+            if (!sb.isEmpty()) {
+               sb.append(' ');
+            }
+
+            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+         }
+      }
+
+      return sb.isEmpty() ? biome.name() : sb.toString();
    }
 
    public void beginIslandTitleInput(Player player, IslandData island) {
@@ -3683,29 +3698,69 @@ public class CoreService {
       DE_MATERIAL_NAMES.put(Material.RAW_GOLD, "Rohgold");
       DE_BIOME_NAMES.put(Biome.PLAINS, "Ebene");
       DE_BIOME_NAMES.put(Biome.FOREST, "Wald");
+      DE_BIOME_NAMES.put(Biome.FLOWER_FOREST, "Blumenwald");
       DE_BIOME_NAMES.put(Biome.BIRCH_FOREST, "Birkenwald");
       DE_BIOME_NAMES.put(Biome.DARK_FOREST, "Dunkelwald");
       DE_BIOME_NAMES.put(Biome.JUNGLE, "Dschungel");
       DE_BIOME_NAMES.put(Biome.SPARSE_JUNGLE, "Lichter Dschungel");
       DE_BIOME_NAMES.put(Biome.BAMBOO_JUNGLE, "Bambusdschungel");
       DE_BIOME_NAMES.put(Biome.TAIGA, "Taiga");
+      DE_BIOME_NAMES.put(Biome.SNOWY_TAIGA, "Schnee-Taiga");
       DE_BIOME_NAMES.put(Biome.SNOWY_PLAINS, "Schneebene");
+      DE_BIOME_NAMES.put(Biome.SUNFLOWER_PLAINS, "Sonnenblumenebene");
       DE_BIOME_NAMES.put(Biome.ICE_SPIKES, "Eiszapfen");
       DE_BIOME_NAMES.put(Biome.DESERT, "W\u00fcste");
       DE_BIOME_NAMES.put(Biome.SAVANNA, "Savanne");
       DE_BIOME_NAMES.put(Biome.SAVANNA_PLATEAU, "Savannenplateau");
       DE_BIOME_NAMES.put(Biome.BADLANDS, "Badlands");
       DE_BIOME_NAMES.put(Biome.WOODED_BADLANDS, "Bewaldete Badlands");
-      DE_BIOME_NAMES.put(Biome.MUSHROOM_FIELDS, "Pilzinsel");
+      DE_BIOME_NAMES.put(Biome.ERODED_BADLANDS, "Erodierte Badlands");
+      DE_BIOME_NAMES.put(Biome.MUSHROOM_FIELDS, "Pilzfelder");
       DE_BIOME_NAMES.put(Biome.SWAMP, "Sumpf");
       DE_BIOME_NAMES.put(Biome.MANGROVE_SWAMP, "Mangrovensumpf");
       DE_BIOME_NAMES.put(Biome.MEADOW, "Blumenwiese");
       DE_BIOME_NAMES.put(Biome.GROVE, "Schneehain");
       DE_BIOME_NAMES.put(Biome.CHERRY_GROVE, "Kirschhain");
+      DE_BIOME_NAMES.put(Biome.BEACH, "Strand");
+      DE_BIOME_NAMES.put(Biome.SNOWY_BEACH, "Verschneiter Strand");
+      DE_BIOME_NAMES.put(Biome.STONY_SHORE, "Felsufer");
+      DE_BIOME_NAMES.put(Biome.RIVER, "Fluss");
+      DE_BIOME_NAMES.put(Biome.FROZEN_RIVER, "Gefrorener Fluss");
+      DE_BIOME_NAMES.put(Biome.OCEAN, "Ozean");
+      DE_BIOME_NAMES.put(Biome.DEEP_OCEAN, "Tiefer Ozean");
+      DE_BIOME_NAMES.put(Biome.COLD_OCEAN, "Kalter Ozean");
+      DE_BIOME_NAMES.put(Biome.DEEP_COLD_OCEAN, "Tiefer kalter Ozean");
+      DE_BIOME_NAMES.put(Biome.LUKEWARM_OCEAN, "Lauwarmer Ozean");
+      DE_BIOME_NAMES.put(Biome.DEEP_LUKEWARM_OCEAN, "Tiefer lauwarmer Ozean");
+      DE_BIOME_NAMES.put(Biome.WARM_OCEAN, "Warmer Ozean");
+      DE_BIOME_NAMES.put(Biome.FROZEN_OCEAN, "Gefrorener Ozean");
+      DE_BIOME_NAMES.put(Biome.DEEP_FROZEN_OCEAN, "Tiefer gefrorener Ozean");
       DE_BIOME_NAMES.put(Biome.WINDSWEPT_HILLS, "Windige H\u00fcgel");
       DE_BIOME_NAMES.put(Biome.WINDSWEPT_FOREST, "Windiger Wald");
+      DE_BIOME_NAMES.put(Biome.WINDSWEPT_GRAVELLY_HILLS, "Windige Schotterh\u00fcgel");
+      DE_BIOME_NAMES.put(Biome.WINDSWEPT_SAVANNA, "Windige Savanne");
+      DE_BIOME_NAMES.put(Biome.OLD_GROWTH_BIRCH_FOREST, "Alter Birkenwald");
+      DE_BIOME_NAMES.put(Biome.OLD_GROWTH_PINE_TAIGA, "Alte Kiefern-Taiga");
+      DE_BIOME_NAMES.put(Biome.OLD_GROWTH_SPRUCE_TAIGA, "Alte Fichten-Taiga");
       DE_BIOME_NAMES.put(Biome.STONY_PEAKS, "Steingipfel");
       DE_BIOME_NAMES.put(Biome.JAGGED_PEAKS, "Zackige Gipfel");
+      DE_BIOME_NAMES.put(Biome.FROZEN_PEAKS, "Gefrorene Gipfel");
+      DE_BIOME_NAMES.put(Biome.SNOWY_SLOPES, "Schneeh\u00e4nge");
+      DE_BIOME_NAMES.put(Biome.LUSH_CAVES, "\u00dcppige H\u00f6hlen");
+      DE_BIOME_NAMES.put(Biome.DRIPSTONE_CAVES, "Tropfsteinh\u00f6hlen");
+      DE_BIOME_NAMES.put(Biome.DEEP_DARK, "Tiefe Dunkelheit");
+      DE_BIOME_NAMES.put(Biome.PALE_GARDEN, "Blasser Garten");
+      DE_BIOME_NAMES.put(Biome.NETHER_WASTES, "Nether\u00f6dland");
+      DE_BIOME_NAMES.put(Biome.CRIMSON_FOREST, "Karmesinwald");
+      DE_BIOME_NAMES.put(Biome.WARPED_FOREST, "Wirrwald");
+      DE_BIOME_NAMES.put(Biome.SOUL_SAND_VALLEY, "Seelensandtal");
+      DE_BIOME_NAMES.put(Biome.BASALT_DELTAS, "Basaltdeltas");
+      DE_BIOME_NAMES.put(Biome.THE_END, "Das Ende");
+      DE_BIOME_NAMES.put(Biome.END_HIGHLANDS, "Endhochland");
+      DE_BIOME_NAMES.put(Biome.END_MIDLANDS, "Endmittelland");
+      DE_BIOME_NAMES.put(Biome.SMALL_END_ISLANDS, "Kleine Endinseln");
+      DE_BIOME_NAMES.put(Biome.END_BARRENS, "End\u00f6dland");
+      DE_BIOME_NAMES.put(Biome.THE_VOID, "Leere");
       BLOCK_VALUE_BLACKLIST.add(Material.BEDROCK);
       BLOCK_VALUE_BLACKLIST.add(Material.EXPERIENCE_BOTTLE);
       BLOCK_VALUE_BLACKLIST.add(Material.BARRIER);
