@@ -4,6 +4,8 @@ SkyCity ist ein umfangreiches Minecraft-Plugin fuer Paper/Spigot 1.20, das ein e
 
 Das Plugin ist nicht nur ein einfaches `/is create`, sondern ein komplettes Insel-Management-System. Es erstellt beim Start eine eigene SkyCity-Welt, teleportiert neue Spieler zum Spawn, fuehrt sie zur Inselerstellung und verwaltet danach Schutz, Fortschritt, Upgrades, Besucherrechte, Warps, PvP-Zonen und viele Detailregeln automatisch im Hintergrund.
 
+Zum aktuellen Stand gehoeren ausserdem ein vollstaendiger deutscher Biom-Shop, Insel- und Parcel-Spielmechaniken wie PvP, PvE, Checkpoints und Capture The Flag, automatische Inaktivitaetswarnungen fuer Inseln sowie ein deutlich verfeinertes Schutz- und Rechtesystem fuer Interaktionen, Container, Entities und Technik.
+
 ## Was das Plugin macht
 
 SkyCity erzeugt eine eigene Void-Welt namens `skycity_world`. In dieser Welt besitzt jeder Spieler eine grosse Insel-Flaeche, die intern aus vielen Chunks besteht. Die Insel wird nicht blind komplett auf einmal erzeugt, sondern vorbereitet, vorgeneriert und nach Bedarf weiter aufgebaut. Dadurch koennen Spieler schnell starten, waehrend weitere Chunks im Hintergrund verarbeitet werden.
@@ -148,6 +150,8 @@ So funktioniert es:
 
 Das System verhindert unkontrollierte Ueberschneidungen und schuetzt benachbarte Inseln.
 
+Zusatzlich stoppen technische Verschiebungen wie Pistons oder Flying Machines nicht nur an Insel- und Chunk-Grenzen, sondern auch an Parcel-Grenzen. Dadurch koennen Spiel- oder Farmmechaniken nicht in fremde oder gesperrte Bereiche hineinschieben.
+
 ## 7. Inselrechte und Rollen
 
 SkyCity trennt die Inselrechte sauber in mehrere Stufen.
@@ -175,6 +179,8 @@ Mit:
 
 koennen weitere Owner hinzugefuegt oder entfernt werden.
 
+Owner werden im System an allen relevanten Verwaltungsstellen wie Master behandelt, etwa bei Shop-Funktionen und Inselverwaltung. Gleichzeitig koennen Owner sich selbst sauber von einer Insel austragen, ohne dass sie andere Owner entfernen duerfen.
+
 ### Member-Rechte
 
 Mit:
@@ -194,6 +200,8 @@ Dabei lassen sich getrennt steuern:
 - alle Rechte zusammen
 
 Das ist besonders nuetzlich, wenn ein Spieler zwar Kisten oeffnen, aber nichts abbauen duerfen soll.
+
+Member koennen sich ausserdem selbst wieder aus ihren Member-Rechten austragen. Befehle wie Owner- oder Member-Verwaltung beziehen sich dabei auf die Insel, auf der der Spieler gerade steht, damit Mehrfach-Insel-Konstellationen klarer und logischer funktionieren.
 
 ## 8. Inselschutz und Besucheroptionen
 
@@ -217,6 +225,21 @@ Gleichzeitig gibt es Besucher-Einstellungen fuer Inseln und Grundstuecke. Master
 - Farmen bedienen
 - reiten
 - teleportieren
+
+Der Schutz deckt inzwischen auch viele erweiterte Interaktionen ab, darunter:
+
+- Buckets und Fluessigkeiten
+- Doppelkisten und Entity-Inventare
+- Enderchests
+- Item Frames, Glow Item Frames und Gemaelde
+- ArmorStands
+- Villager-Interaktionen
+- Leashes
+- Lectern-Buecher
+- Fahrzeug-Zerstoerung
+- Hopper-Transfers nur innerhalb desselben Insel-/Parcel-Kontexts
+
+Dadurch ist das Verhalten deutlich naeher an einem vollstaendigen Regionschutz und fuer Inseln, Parcels und Spielzonen konsistent.
 
 So kann eine Insel komplett privat oder bewusst offen gestaltet werden.
 
@@ -269,6 +292,8 @@ Typischer Ablauf:
 
 Damit koennen innerhalb derselben Insel unterschiedliche Zonen mit eigenen Rechten entstehen.
 
+Parcels besitzen dabei nicht nur eigene Owner-, Member- und Besucherrechte, sondern koennen auch als eigenstaendige Spielzonen mit PvP, PvE, Games, CTF, Checkpoints und Countdown-BossBars genutzt werden.
+
 ## 11. Moderation auf Inseln und Grundstuecken
 
 Fuer stoerende Spieler gibt es Moderationsbefehle.
@@ -305,6 +330,10 @@ Wenn PvP auf einem Grundstueck aktiv ist:
 - es gibt ein PvP-Scoreboard mit Kills auf diesem Grundstueck
 
 Das unterscheidet SkyCity deutlich von einfachen Inselplugins.
+
+Neben klassischem PvP gibt es auch einen `Games`-Modus fuer Parcels. Dieser arbeitet aehnlich wie PvP-Zonen, aber ohne normalen Spielerschaden, und ist fuer Event- oder Minigame-Flaechen gedacht.
+
+Im Parcel-Menue lassen sich zusaetzlich ein konfigurierbarer Countdown mit BossBar sowie ein Start-Countdown per Title einblenden. Die Zeit kann direkt im Menue angepasst, gestartet und wieder gestoppt werden.
 
 ## 13. Checkpoints, Woll-Logik und Teleport-Platten
 
@@ -364,7 +393,30 @@ Fallbacks und Sicherheit:
 - wenn kein gueltiges Woll-/Platten-Ziel gefunden wird, faellt das System auf Plotspawn, Inselspawn und zuletzt `/spawn` zurueck
 - abgebaute oder geaenderte Zielplatten werden vor dem Teleport geprueft und automatisch verworfen
 
-## 14. Insel-Zeitmodus
+Die Teamfarbenlogik fuer Parcel-Spiele ist absichtlich streng: Eine Teamfarbe wird nur erkannt, wenn ein Spieler direkt auf Wolle steht oder genau ein normaler, solider Block ueber passender Wolle liegt. Druckplatten, Wasser, Lava, Banner, Redstone-Komponenten, Schalter und aehnliche Mechaniken zaehlen bewusst nicht als gueltiger Zwischenblock.
+
+Fuer spielerische Parcels gibt es ausserdem gezielte Sonderrechte wie Laub-, Leiter-, Schnee- und Banner-Nutzung, damit Spleef-, Parkour- oder Capture-Mechaniken moeglich sind, ohne normales Bauen komplett zu oeffnen.
+
+## 14. Capture The Flag auf Parcels
+
+SkyCity unterstuetzt Capture The Flag direkt auf Parcels im Games-Modus.
+
+So funktioniert das System:
+
+- `Target Block + Banner` bildet eine Flaggenbasis
+- gegnerische Flaggen koennen per Linksklick aufgenommen werden
+- die Flagge wird sichtbar am Spieler getragen
+- `Wolle + Shelf` oder `Chiseled Bookshelf` bildet einen Capture-Checkpoint
+- mehrere Shelfs innerhalb eines Parcels werden gemeinsam beruecksichtigt
+- normale Shelfs koennen bis zu 3 Flaggen aufnehmen
+- Chiseled Bookshelves koennen bis zu 6 Flaggen aufnehmen
+- wird ein Flaggentraeger geschlagen, geht die Flagge sofort an ihre Basis zurueck
+- auch Logout, Tod oder Verlassen des Parcels setzen eine getragene Flagge zurueck
+- Parcel-Owner koennen CTF im Menue aktivieren und resetten
+
+Gewonnen hat der Spieler oder das Team, wenn alle verfuegbaren Flaggen in gueltige Capture-Regale eingesetzt wurden.
+
+## 15. Insel-Zeitmodus
 
 Inseln koennen eine eigene Zeitdarstellung fuer Spieler haben. Das Plugin unterstuetzt verschiedene Modi wie:
 
@@ -375,13 +427,15 @@ Inseln koennen eine eigene Zeitdarstellung fuer Spieler haben. Das Plugin unters
 
 Dadurch kann eine Insel atmosphaerisch angepasst werden, ohne dass die Weltzeit fuer alle Spieler gleich aussehen muss.
 
-## 15. Biome und Inselanpassung
+## 16. Biome und Inselanpassung
 
 Ueber die Menues koennen Spieler Biome fuer Inselbereiche bzw. Chunks verwalten. Das erlaubt gestalterische Anpassungen fuer verschiedene Themenbereiche, Farmen oder Bauten.
 
+Der Biom-Shop bietet die vollstaendige verfuegbare Biomliste an, inklusive Nether- und End-Biomen. Die Anzeige ist durchgehend deutsch, zeigt aber zusaetzlich immer den Originalnamen an. Inselweite Aenderungen sind absichtlich nur per `Shift-Rechtsklick` moeglich, damit man sich im Menue nicht verklickt.
+
 Zusammen mit dem Chunk-System und den Insel-Templates entsteht so eine flexible Inselgestaltung.
 
-## 16. Automatische Limits und Performance-Schutz
+## 17. Automatische Limits und Performance-Schutz
 
 SkyCity begrenzt bestimmte technisch intensive Elemente aktiv, um die Inselwelt stabil zu halten.
 
@@ -397,7 +451,32 @@ Beispiele:
 
 Diese Grenzen orientieren sich am Insel-Level und helfen, Lag und Missbrauch einzudaemmen.
 
-## 17. Chat- und GUI-gestuetzte Verwaltung
+## 18. Shops, Nachtsicht und Komfortfunktionen
+
+SkyCity enthaelt mehrere Komfort- und Shop-Funktionen fuer Inseln und Chunks.
+
+Dazu gehoeren unter anderem:
+
+- Wachstumsschub pro Chunk mit BossBar-Anzeige
+- Zeitmodus-Kauf fuer Inseln
+- Chunk- und inselweite Nachtsicht
+- zentraler Insel-Shop mit Rechtepruefung fuer Master und Owner
+
+Die Nachtsicht ist so umgesetzt, dass SkyCity nur seinen eigenen Effekt setzt und fremde Traenkeffekte nicht ueberschreibt oder entfernt. Dadurch gibt es weniger Flackern und saubereres Zusammenspiel mit normalen Minecraft-Effekten.
+
+## 19. Inaktivitaet und automatische Warnungen
+
+Inseln koennen bei sehr langer Inaktivitaet automatisch bereinigt werden. Vor einer solchen Loeschung werden online befindliche Owner, Master und Member jetzt vorab informiert.
+
+Aktuell gibt es Warnstufen bei:
+
+- 30 Tagen Restzeit
+- 7 Tagen Restzeit
+- 1 Tag Restzeit
+
+So bekommen auch Mitspieler einer Insel rechtzeitig mit, wenn Handlungsbedarf besteht.
+
+## 20. Chat- und GUI-gestuetzte Verwaltung
 
 Viele Einstellungen werden nicht nur ueber Befehle, sondern ueber Menues im Core verwaltet. Dazu gehoeren unter anderem:
 
