@@ -517,12 +517,8 @@ public class PlayerListener implements Listener {
 
     private Location locationForTouchedWool(Location location, Material woolType) {
         if (location == null || location.getWorld() == null || woolType == null) return location;
-        Block feet = location.getBlock();
-        if (feet.getType() == woolType) return feet.getLocation();
-        Block below = feet.getRelative(0, -1, 0);
-        if (below.getType() == woolType) return below.getLocation();
-        Block belowTwo = feet.getRelative(0, -2, 0);
-        if (belowTwo.getType() == woolType) return belowTwo.getLocation();
+        Block woolBlock = findTouchedWoolBlock(location);
+        if (woolBlock != null && woolBlock.getType() == woolType) return woolBlock.getLocation();
         return location;
     }
 
@@ -857,18 +853,61 @@ public class PlayerListener implements Listener {
     }
 
     private Material findWoolMarker(Location location) {
-        if (location == null || location.getWorld() == null) return null;
-        Block feet = location.getBlock();
-        Material wool = woolFromBlock(feet);
-        if (wool != null) return wool;
-        wool = woolFromBlock(feet.getRelative(0, -1, 0));
-        if (wool != null) return wool;
-        return woolFromBlock(feet.getRelative(0, -2, 0));
+        Block woolBlock = findTouchedWoolBlock(location);
+        return woolBlock == null ? null : woolBlock.getType();
     }
 
     private Material woolFromBlock(Block block) {
         if (block == null) return null;
         return isWool(block.getType()) ? block.getType() : null;
+    }
+
+    private Block findTouchedWoolBlock(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        Block feet = location.getBlock();
+        if (isWool(feet.getType())) return feet;
+        Block below = feet.getRelative(0, -1, 0);
+        if (isWool(below.getType())) return below;
+        Block belowTwo = feet.getRelative(0, -2, 0);
+        if (isSolidWoolBridgeBlock(below) && isWool(belowTwo.getType())) return belowTwo;
+        return null;
+    }
+
+    private boolean isSolidWoolBridgeBlock(Block block) {
+        if (block == null) return false;
+        Material type = block.getType();
+        if (!type.isSolid() || block.isPassable()) return false;
+        return !isForbiddenWoolBridgeType(type);
+    }
+
+    private boolean isForbiddenWoolBridgeType(Material type) {
+        if (type == null) return true;
+        if (type == Material.WATER || type == Material.LAVA) return true;
+        String name = type.name();
+        return name.endsWith("_PRESSURE_PLATE")
+                || name.endsWith("_BUTTON")
+                || name.endsWith("_TRAPDOOR")
+                || name.endsWith("_DOOR")
+                || name.endsWith("_FENCE_GATE")
+                || name.endsWith("_WALL_SIGN")
+                || name.endsWith("_SIGN")
+                || name.endsWith("_RAIL")
+                || name.endsWith("_BANNER")
+                || type == Material.LEVER
+                || type == Material.REPEATER
+                || type == Material.COMPARATOR
+                || type == Material.REDSTONE_WIRE
+                || type == Material.REDSTONE_TORCH
+                || type == Material.REDSTONE_WALL_TORCH
+                || type == Material.DAYLIGHT_DETECTOR
+                || type == Material.TARGET
+                || type == Material.TRIPWIRE_HOOK
+                || type == Material.NOTE_BLOCK
+                || type == Material.SCULK_SENSOR
+                || type == Material.CALIBRATED_SCULK_SENSOR
+                || type == Material.OBSERVER
+                || type == Material.PISTON
+                || type == Material.STICKY_PISTON;
     }
 
     private Location getValidLastCheckpoint(UUID playerId) {

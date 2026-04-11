@@ -2139,6 +2139,10 @@ public class CoreService {
       inv.setItem(30, this.toggleItem(Material.ITEM_FRAME, "Deko/Frames", settings.isDecorations()));
       inv.setItem(31, this.toggleItem(Material.EMERALD, "Villager", settings.isVillagers()));
       inv.setItem(32, this.toggleItem(Material.CHEST_MINECART, "Fahrzeuge zerst\u00f6ren", settings.isVehicleDestroy()));
+      inv.setItem(33, this.toggleItem(Material.SNOW_BLOCK, "Schnee setzen", settings.isSnowPlace()));
+      inv.setItem(34, this.toggleItem(Material.IRON_SHOVEL, "Schnee abbauen", settings.isSnowBreak()));
+      inv.setItem(35, this.toggleItem(Material.WHITE_BANNER, "Banner setzen", settings.isBannerPlace()));
+      inv.setItem(36, this.toggleItem(Material.STONE_AXE, "Banner abbauen", settings.isBannerBreak()));
    }
 
    public Inventory createParcelModerationMenu(Player viewer, IslandData island, int relX, int relZ, CoreService.ParcelModerationAction action, int page) {

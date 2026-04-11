@@ -1874,6 +1874,10 @@ public class IslandService {
         dst.setDecorations(src.isDecorations());
         dst.setVillagers(src.isVillagers());
         dst.setVehicleDestroy(src.isVehicleDestroy());
+        dst.setSnowPlace(src.isSnowPlace());
+        dst.setSnowBreak(src.isSnowBreak());
+        dst.setBannerPlace(src.isBannerPlace());
+        dst.setBannerBreak(src.isBannerBreak());
         dst.setTeleport(src.isTeleport());
     }
 
@@ -6112,6 +6116,10 @@ public class IslandService {
                 .put("decorations", settings.isDecorations())
                 .put("villagers", settings.isVillagers())
                 .put("vehicleDestroy", settings.isVehicleDestroy())
+                .put("snowPlace", settings.isSnowPlace())
+                .put("snowBreak", settings.isSnowBreak())
+                .put("bannerPlace", settings.isBannerPlace())
+                .put("bannerBreak", settings.isBannerBreak())
                 .put("teleport", settings.isTeleport());
     }
 
@@ -6135,6 +6143,10 @@ public class IslandService {
         settings.setDecorations(Boolean.TRUE.equals(document.get("decorations", Boolean.class)));
         settings.setVillagers(Boolean.TRUE.equals(document.get("villagers", Boolean.class)));
         settings.setVehicleDestroy(Boolean.TRUE.equals(document.get("vehicleDestroy", Boolean.class)));
+        settings.setSnowPlace(Boolean.TRUE.equals(document.get("snowPlace", Boolean.class)));
+        settings.setSnowBreak(Boolean.TRUE.equals(document.get("snowBreak", Boolean.class)));
+        settings.setBannerPlace(Boolean.TRUE.equals(document.get("bannerPlace", Boolean.class)));
+        settings.setBannerBreak(Boolean.TRUE.equals(document.get("bannerBreak", Boolean.class)));
         Boolean teleport = document.get("teleport", Boolean.class);
         settings.setTeleport(teleport == null || teleport);
     }
@@ -6248,6 +6260,10 @@ public class IslandService {
         yaml.set(path + ".decorations", settings.isDecorations());
         yaml.set(path + ".villagers", settings.isVillagers());
         yaml.set(path + ".vehicleDestroy", settings.isVehicleDestroy());
+        yaml.set(path + ".snowPlace", settings.isSnowPlace());
+        yaml.set(path + ".snowBreak", settings.isSnowBreak());
+        yaml.set(path + ".bannerPlace", settings.isBannerPlace());
+        yaml.set(path + ".bannerBreak", settings.isBannerBreak());
         yaml.set(path + ".teleport", settings.isTeleport());
     }
 
@@ -6272,6 +6288,10 @@ public class IslandService {
         settings.setDecorations(sec.getBoolean("decorations", settings.isDecorations()));
         settings.setVillagers(sec.getBoolean("villagers", settings.isVillagers()));
         settings.setVehicleDestroy(sec.getBoolean("vehicleDestroy", settings.isVehicleDestroy()));
+        settings.setSnowPlace(sec.getBoolean("snowPlace", settings.isSnowPlace()));
+        settings.setSnowBreak(sec.getBoolean("snowBreak", settings.isSnowBreak()));
+        settings.setBannerPlace(sec.getBoolean("bannerPlace", sec.getBoolean("woolPlace", settings.isBannerPlace())));
+        settings.setBannerBreak(sec.getBoolean("bannerBreak", sec.getBoolean("woolBreak", settings.isBannerBreak())));
         settings.setTeleport(sec.getBoolean("teleport", settings.isTeleport()));
     }
 

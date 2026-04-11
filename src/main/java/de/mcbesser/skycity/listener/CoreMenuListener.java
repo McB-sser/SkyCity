@@ -904,6 +904,10 @@ public class CoreMenuListener implements Listener {
             case 30 -> island.getIslandVisitorSettings().setDecorations(!island.getIslandVisitorSettings().isDecorations());
             case 31 -> island.getIslandVisitorSettings().setVillagers(!island.getIslandVisitorSettings().isVillagers());
             case 32 -> island.getIslandVisitorSettings().setVehicleDestroy(!island.getIslandVisitorSettings().isVehicleDestroy());
+            case 33 -> island.getIslandVisitorSettings().setSnowPlace(!island.getIslandVisitorSettings().isSnowPlace());
+            case 34 -> island.getIslandVisitorSettings().setSnowBreak(!island.getIslandVisitorSettings().isSnowBreak());
+            case 35 -> island.getIslandVisitorSettings().setBannerPlace(!island.getIslandVisitorSettings().isBannerPlace());
+            case 36 -> island.getIslandVisitorSettings().setBannerBreak(!island.getIslandVisitorSettings().isBannerBreak());
             case 40 -> {
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return;
@@ -1207,6 +1211,10 @@ public class CoreMenuListener implements Listener {
             case 30 -> parcel.getVisitorSettings().setDecorations(!parcel.getVisitorSettings().isDecorations());
             case 31 -> parcel.getVisitorSettings().setVillagers(!parcel.getVisitorSettings().isVillagers());
             case 32 -> parcel.getVisitorSettings().setVehicleDestroy(!parcel.getVisitorSettings().isVehicleDestroy());
+            case 33 -> parcel.getVisitorSettings().setSnowPlace(!parcel.getVisitorSettings().isSnowPlace());
+            case 34 -> parcel.getVisitorSettings().setSnowBreak(!parcel.getVisitorSettings().isSnowBreak());
+            case 35 -> parcel.getVisitorSettings().setBannerPlace(!parcel.getVisitorSettings().isBannerPlace());
+            case 36 -> parcel.getVisitorSettings().setBannerBreak(!parcel.getVisitorSettings().isBannerBreak());
             case 40 -> {
                 openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
                 return;
@@ -1243,6 +1251,10 @@ public class CoreMenuListener implements Listener {
             case 30 -> parcel.getMemberSettings().setDecorations(!parcel.getMemberSettings().isDecorations());
             case 31 -> parcel.getMemberSettings().setVillagers(!parcel.getMemberSettings().isVillagers());
             case 32 -> parcel.getMemberSettings().setVehicleDestroy(!parcel.getMemberSettings().isVehicleDestroy());
+            case 33 -> parcel.getMemberSettings().setSnowPlace(!parcel.getMemberSettings().isSnowPlace());
+            case 34 -> parcel.getMemberSettings().setSnowBreak(!parcel.getMemberSettings().isSnowBreak());
+            case 35 -> parcel.getMemberSettings().setBannerPlace(!parcel.getMemberSettings().isBannerPlace());
+            case 36 -> parcel.getMemberSettings().setBannerBreak(!parcel.getMemberSettings().isBannerBreak());
             case 37 -> parcel.setMemberAnimalBreed(!parcel.isMemberAnimalBreed());
             case 38 -> parcel.setMemberAnimalKill(!parcel.isMemberAnimalKill());
             case 39 -> parcel.setMemberAnimalKeepTwo(!parcel.isMemberAnimalKeepTwo());

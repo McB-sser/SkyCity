@@ -173,7 +173,9 @@ public class ProtectionListener implements Listener {
         boolean bypassParcelRights = false;
         if (parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled())) {
             boolean bypassAllowed = (block.getType() == Material.LADDER && parcel.getVisitorSettings().isLadderPlace())
-                    || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesPlace());
+                    || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesPlace())
+                    || (isSnowGameBlock(block.getType()) && parcel.getVisitorSettings().isSnowPlace())
+                    || (isBannerGameBlock(block.getType()) && parcel.getVisitorSettings().isBannerPlace());
             if (!bypassAllowed) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "In einer aktiven PvP-/Games-Zone ist Bauen deaktiviert.");
@@ -284,7 +286,9 @@ public class ProtectionListener implements Listener {
         boolean pveParticipant = parcel != null && parcel.isPveEnabled() && islandService.isPlayerInParcelPve(player.getUniqueId(), island, parcel);
         if (parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled())) {
             boolean bypassAllowed = (block.getType() == Material.LADDER && parcel.getVisitorSettings().isLadderBreak())
-                    || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesBreak());
+                    || (Tag.LEAVES.isTagged(block.getType()) && parcel.getVisitorSettings().isLeavesBreak())
+                    || (isSnowGameBlock(block.getType()) && parcel.getVisitorSettings().isSnowBreak())
+                    || (isBannerGameBlock(block.getType()) && parcel.getVisitorSettings().isBannerBreak());
             if (!bypassAllowed) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "In einer aktiven PvP-/Games-Zone ist Abbauen deaktiviert.");
@@ -1180,6 +1184,7 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityInteract(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         Player player = event.getPlayer();
         if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
         if (event.getRightClicked() instanceof Hanging) {
@@ -1649,12 +1654,12 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onShear(PlayerInteractEntityEvent event) {
-        if (!SHEARABLE_TYPES.contains(event.getRightClicked().getType())
-                || !(event.getPlayer().getInventory().getItemInMainHand().getType() == Material.SHEARS
-                || event.getPlayer().getInventory().getItemInOffHand().getType() == Material.SHEARS)) {
+        if (event.getHand() == null || !SHEARABLE_TYPES.contains(event.getRightClicked().getType())) {
             return;
         }
         Player player = event.getPlayer();
+        ItemStack usedItem = player.getInventory().getItem(event.getHand());
+        if (usedItem == null || usedItem.getType() != Material.SHEARS) return;
         if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
         IslandData island = islandService.getIslandAt(event.getRightClicked().getLocation());
         if (island == null) return;
@@ -1676,6 +1681,7 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onAnimalInteract(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         if (!(event.getRightClicked() instanceof Animals animal)) return;
         Player player = event.getPlayer();
         if (player.isOp() || !skyWorldService.isSkyCityWorld(animal.getWorld())) return;
@@ -1821,6 +1827,14 @@ public class ProtectionListener implements Listener {
                     RESPAWN_ANCHOR, DECORATED_POT, CRAFTER, BIG_DRIPLEAF -> true;
             default -> false;
         };
+    }
+
+    private boolean isSnowGameBlock(Material type) {
+        return type == Material.SNOW || type == Material.SNOW_BLOCK;
+    }
+
+    private boolean isBannerGameBlock(Material type) {
+        return type != null && type.name().endsWith("_BANNER");
     }
 
     private boolean canUseLeash(Player player, Location location, boolean villagerTarget) {

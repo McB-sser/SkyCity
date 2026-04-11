@@ -19,6 +19,10 @@ public class AccessSettings {
     private boolean decorations = false;
     private boolean villagers = false;
     private boolean vehicleDestroy = false;
+    private boolean snowPlace = false;
+    private boolean snowBreak = false;
+    private boolean bannerPlace = false;
+    private boolean bannerBreak = false;
     private boolean teleport = true;
 
     public boolean isDoors() { return doors; }
@@ -57,6 +61,14 @@ public class AccessSettings {
     public void setVillagers(boolean villagers) { this.villagers = villagers; }
     public boolean isVehicleDestroy() { return vehicleDestroy; }
     public void setVehicleDestroy(boolean vehicleDestroy) { this.vehicleDestroy = vehicleDestroy; }
+    public boolean isSnowPlace() { return snowPlace; }
+    public void setSnowPlace(boolean snowPlace) { this.snowPlace = snowPlace; }
+    public boolean isSnowBreak() { return snowBreak; }
+    public void setSnowBreak(boolean snowBreak) { this.snowBreak = snowBreak; }
+    public boolean isBannerPlace() { return bannerPlace; }
+    public void setBannerPlace(boolean bannerPlace) { this.bannerPlace = bannerPlace; }
+    public boolean isBannerBreak() { return bannerBreak; }
+    public void setBannerBreak(boolean bannerBreak) { this.bannerBreak = bannerBreak; }
     public boolean isTeleport() { return teleport; }
     public void setTeleport(boolean teleport) { this.teleport = teleport; }
 }
