@@ -15,6 +15,10 @@ public class AccessSettings {
     private boolean ladderBreak = false;
     private boolean leavesPlace = false;
     private boolean leavesBreak = false;
+    private boolean buckets = false;
+    private boolean decorations = false;
+    private boolean villagers = false;
+    private boolean vehicleDestroy = false;
     private boolean teleport = true;
 
     public boolean isDoors() { return doors; }
@@ -45,6 +49,14 @@ public class AccessSettings {
     public void setLeavesPlace(boolean leavesPlace) { this.leavesPlace = leavesPlace; }
     public boolean isLeavesBreak() { return leavesBreak; }
     public void setLeavesBreak(boolean leavesBreak) { this.leavesBreak = leavesBreak; }
+    public boolean isBuckets() { return buckets; }
+    public void setBuckets(boolean buckets) { this.buckets = buckets; }
+    public boolean isDecorations() { return decorations; }
+    public void setDecorations(boolean decorations) { this.decorations = decorations; }
+    public boolean isVillagers() { return villagers; }
+    public void setVillagers(boolean villagers) { this.villagers = villagers; }
+    public boolean isVehicleDestroy() { return vehicleDestroy; }
+    public void setVehicleDestroy(boolean vehicleDestroy) { this.vehicleDestroy = vehicleDestroy; }
     public boolean isTeleport() { return teleport; }
     public void setTeleport(boolean teleport) { this.teleport = teleport; }
 }

@@ -70,6 +70,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -1869,6 +1870,10 @@ public class IslandService {
         dst.setLadderBreak(src.isLadderBreak());
         dst.setLeavesPlace(src.isLeavesPlace());
         dst.setLeavesBreak(src.isLeavesBreak());
+        dst.setBuckets(src.isBuckets());
+        dst.setDecorations(src.isDecorations());
+        dst.setVillagers(src.isVillagers());
+        dst.setVehicleDestroy(src.isVehicleDestroy());
         dst.setTeleport(src.isTeleport());
     }
 
@@ -1913,6 +1918,34 @@ public class IslandService {
     public boolean hasRedstoneAccess(UUID playerId, IslandData island) {
         return island != null && (isIslandOwner(island, playerId)
                 || island.getMemberBuildAccess().contains(playerId) || island.getMemberRedstoneAccess().contains(playerId));
+    }
+
+    public boolean hasSettingAccess(UUID playerId, IslandData island, ParcelData parcel, Location location,
+                                    Predicate<AccessSettings> predicate,
+                                    BiFunction<UUID, IslandData, Boolean> baseAccess) {
+        if (playerId == null || island == null || location == null || predicate == null || baseAccess == null) return false;
+        return baseAccess.apply(playerId, island)
+                || (parcel != null && isParcelOwner(island, parcel, playerId))
+                || hasParcelMemberSetting(island, parcel, playerId, predicate)
+                || predicate.test(getEffectiveVisitorSettings(island, location));
+    }
+
+    public boolean canUseBuildSetting(UUID playerId, Location location, Predicate<AccessSettings> predicate) {
+        IslandData island = getIslandAt(location);
+        if (island == null) return false;
+        return hasSettingAccess(playerId, island, getParcelAt(island, location), location, predicate, this::hasBuildAccess);
+    }
+
+    public boolean canUseContainerSetting(UUID playerId, Location location, Predicate<AccessSettings> predicate) {
+        IslandData island = getIslandAt(location);
+        if (island == null) return false;
+        return hasSettingAccess(playerId, island, getParcelAt(island, location), location, predicate, this::hasContainerAccess);
+    }
+
+    public boolean canUseRedstoneSetting(UUID playerId, Location location, Predicate<AccessSettings> predicate) {
+        IslandData island = getIslandAt(location);
+        if (island == null) return false;
+        return hasSettingAccess(playerId, island, getParcelAt(island, location), location, predicate, this::hasRedstoneAccess);
     }
 
     public boolean hasAccess(UUID playerId, IslandData island) { return hasBuildAccess(playerId, island); }
@@ -6075,6 +6108,10 @@ public class IslandService {
                 .put("ladderBreak", settings.isLadderBreak())
                 .put("leavesPlace", settings.isLeavesPlace())
                 .put("leavesBreak", settings.isLeavesBreak())
+                .put("buckets", settings.isBuckets())
+                .put("decorations", settings.isDecorations())
+                .put("villagers", settings.isVillagers())
+                .put("vehicleDestroy", settings.isVehicleDestroy())
                 .put("teleport", settings.isTeleport());
     }
 
@@ -6094,6 +6131,10 @@ public class IslandService {
         settings.setLadderBreak(Boolean.TRUE.equals(document.get("ladderBreak", Boolean.class)));
         settings.setLeavesPlace(Boolean.TRUE.equals(document.get("leavesPlace", Boolean.class)));
         settings.setLeavesBreak(Boolean.TRUE.equals(document.get("leavesBreak", Boolean.class)));
+        settings.setBuckets(Boolean.TRUE.equals(document.get("buckets", Boolean.class)));
+        settings.setDecorations(Boolean.TRUE.equals(document.get("decorations", Boolean.class)));
+        settings.setVillagers(Boolean.TRUE.equals(document.get("villagers", Boolean.class)));
+        settings.setVehicleDestroy(Boolean.TRUE.equals(document.get("vehicleDestroy", Boolean.class)));
         Boolean teleport = document.get("teleport", Boolean.class);
         settings.setTeleport(teleport == null || teleport);
     }
@@ -6203,6 +6244,10 @@ public class IslandService {
         yaml.set(path + ".ladderBreak", settings.isLadderBreak());
         yaml.set(path + ".leavesPlace", settings.isLeavesPlace());
         yaml.set(path + ".leavesBreak", settings.isLeavesBreak());
+        yaml.set(path + ".buckets", settings.isBuckets());
+        yaml.set(path + ".decorations", settings.isDecorations());
+        yaml.set(path + ".villagers", settings.isVillagers());
+        yaml.set(path + ".vehicleDestroy", settings.isVehicleDestroy());
         yaml.set(path + ".teleport", settings.isTeleport());
     }
 
@@ -6223,6 +6268,10 @@ public class IslandService {
         settings.setLadderBreak(sec.getBoolean("ladderBreak", settings.isLadderBreak()));
         settings.setLeavesPlace(sec.getBoolean("leavesPlace", settings.isLeavesPlace()));
         settings.setLeavesBreak(sec.getBoolean("leavesBreak", settings.isLeavesBreak()));
+        settings.setBuckets(sec.getBoolean("buckets", settings.isBuckets()));
+        settings.setDecorations(sec.getBoolean("decorations", settings.isDecorations()));
+        settings.setVillagers(sec.getBoolean("villagers", settings.isVillagers()));
+        settings.setVehicleDestroy(sec.getBoolean("vehicleDestroy", settings.isVehicleDestroy()));
         settings.setTeleport(sec.getBoolean("teleport", settings.isTeleport()));
     }
 

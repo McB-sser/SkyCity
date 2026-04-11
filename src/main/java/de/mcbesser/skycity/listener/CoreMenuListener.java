@@ -899,7 +899,12 @@ public class CoreMenuListener implements Listener {
             case 23 -> island.getIslandVisitorSettings().setLadderBreak(!island.getIslandVisitorSettings().isLadderBreak());
             case 24 -> island.getIslandVisitorSettings().setLeavesPlace(!island.getIslandVisitorSettings().isLeavesPlace());
             case 25 -> island.getIslandVisitorSettings().setLeavesBreak(!island.getIslandVisitorSettings().isLeavesBreak());
-            case 35 -> {
+            case 28 -> island.getIslandVisitorSettings().setRedstoneUse(!island.getIslandVisitorSettings().isRedstoneUse());
+            case 29 -> island.getIslandVisitorSettings().setBuckets(!island.getIslandVisitorSettings().isBuckets());
+            case 30 -> island.getIslandVisitorSettings().setDecorations(!island.getIslandVisitorSettings().isDecorations());
+            case 31 -> island.getIslandVisitorSettings().setVillagers(!island.getIslandVisitorSettings().isVillagers());
+            case 32 -> island.getIslandVisitorSettings().setVehicleDestroy(!island.getIslandVisitorSettings().isVehicleDestroy());
+            case 40 -> {
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return;
             }
@@ -1197,7 +1202,12 @@ public class CoreMenuListener implements Listener {
             case 23 -> parcel.getVisitorSettings().setLadderBreak(!parcel.getVisitorSettings().isLadderBreak());
             case 24 -> parcel.getVisitorSettings().setLeavesPlace(!parcel.getVisitorSettings().isLeavesPlace());
             case 25 -> parcel.getVisitorSettings().setLeavesBreak(!parcel.getVisitorSettings().isLeavesBreak());
-            case 35 -> {
+            case 28 -> parcel.getVisitorSettings().setRedstoneUse(!parcel.getVisitorSettings().isRedstoneUse());
+            case 29 -> parcel.getVisitorSettings().setBuckets(!parcel.getVisitorSettings().isBuckets());
+            case 30 -> parcel.getVisitorSettings().setDecorations(!parcel.getVisitorSettings().isDecorations());
+            case 31 -> parcel.getVisitorSettings().setVillagers(!parcel.getVisitorSettings().isVillagers());
+            case 32 -> parcel.getVisitorSettings().setVehicleDestroy(!parcel.getVisitorSettings().isVehicleDestroy());
+            case 40 -> {
                 openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
                 return;
             }
@@ -1228,11 +1238,16 @@ public class CoreMenuListener implements Listener {
             case 23 -> parcel.getMemberSettings().setLadderBreak(!parcel.getMemberSettings().isLadderBreak());
             case 24 -> parcel.getMemberSettings().setLeavesPlace(!parcel.getMemberSettings().isLeavesPlace());
             case 25 -> parcel.getMemberSettings().setLeavesBreak(!parcel.getMemberSettings().isLeavesBreak());
-            case 28 -> parcel.setMemberAnimalBreed(!parcel.isMemberAnimalBreed());
-            case 29 -> parcel.setMemberAnimalKill(!parcel.isMemberAnimalKill());
-            case 30 -> parcel.setMemberAnimalKeepTwo(!parcel.isMemberAnimalKeepTwo());
-            case 31 -> parcel.setMemberAnimalShear(!parcel.isMemberAnimalShear());
-            case 40 -> {
+            case 28 -> parcel.getMemberSettings().setRedstoneUse(!parcel.getMemberSettings().isRedstoneUse());
+            case 29 -> parcel.getMemberSettings().setBuckets(!parcel.getMemberSettings().isBuckets());
+            case 30 -> parcel.getMemberSettings().setDecorations(!parcel.getMemberSettings().isDecorations());
+            case 31 -> parcel.getMemberSettings().setVillagers(!parcel.getMemberSettings().isVillagers());
+            case 32 -> parcel.getMemberSettings().setVehicleDestroy(!parcel.getMemberSettings().isVehicleDestroy());
+            case 37 -> parcel.setMemberAnimalBreed(!parcel.isMemberAnimalBreed());
+            case 38 -> parcel.setMemberAnimalKill(!parcel.isMemberAnimalKill());
+            case 39 -> parcel.setMemberAnimalKeepTwo(!parcel.isMemberAnimalKeepTwo());
+            case 40 -> parcel.setMemberAnimalShear(!parcel.isMemberAnimalShear());
+            case 44 -> {
                 openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
                 return;
             }

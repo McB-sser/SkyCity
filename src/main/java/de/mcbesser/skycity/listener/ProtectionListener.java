@@ -2,6 +2,7 @@ package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.listener.PlayerListener;
+import de.mcbesser.skycity.model.AccessSettings;
 import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.CoreService;
@@ -22,9 +23,12 @@ import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Bamboo;
+import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Animals;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Hanging;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
@@ -48,12 +52,22 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityMountEvent;
+import org.bukkit.event.entity.PlayerLeashEntityEvent;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerBedEnterEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerTakeLecternBookEvent;
+import org.bukkit.event.player.PlayerUnleashEntityEvent;
 import org.bukkit.event.vehicle.VehicleCreateEvent;
+import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -67,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Predicate;
 
 public class ProtectionListener implements Listener {
     private static final long GROWTH_BOOST_INTERVAL_TICKS = 20L;
@@ -1025,11 +1040,164 @@ public class ProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        Player player = event.getPlayer();
+        Block target = event.getBlockClicked().getRelative(event.getBlockFace());
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(target.getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), target.getLocation(), AccessSettings::isBuckets)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Buckets sind hier gesperrt.");
+            return;
+        }
+        IslandData island = islandService.getIslandAt(target.getLocation());
+        if (island == null || !islandService.isChunkUnlocked(island, target.getLocation())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Chunk gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBucketFill(PlayerBucketFillEvent event) {
+        Player player = event.getPlayer();
+        Block source = event.getBlockClicked();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(source.getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), source.getLocation(), AccessSettings::isBuckets)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Buckets sind hier gesperrt.");
+            return;
+        }
+        IslandData island = islandService.getIslandAt(source.getLocation());
+        if (island == null || !islandService.isChunkUnlocked(island, source.getLocation())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Chunk gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onHangingPlace(HangingPlaceEvent event) {
+        Player player = event.getPlayer();
+        if (player == null || player.isOp()) return;
+        if (!skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
+        Location location = event.getEntity().getLocation();
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), location, AccessSettings::isDecorations)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Deko/Frames sind hier gesperrt.");
+            return;
+        }
+        IslandData island = islandService.getIslandAt(location);
+        if (island == null || !islandService.isChunkUnlocked(island, location)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Chunk gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onHangingBreak(HangingBreakByEntityEvent event) {
+        if (!(event.getRemover() instanceof Player player) || player.isOp()) return;
+        if (!skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getEntity().getLocation(), AccessSettings::isDecorations)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Deko/Frames sind hier gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+        Player player = event.getPlayer();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getRightClicked().getLocation(), AccessSettings::isDecorations)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Deko/Frames sind hier gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBedEnter(PlayerBedEnterEvent event) {
+        Player player = event.getPlayer();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getBed().getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getBed().getLocation(), AccessSettings::isFarmUse)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Betten sind hier gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onTakeLecternBook(PlayerTakeLecternBookEvent event) {
+        Player player = event.getPlayer();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getLectern().getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getLectern().getLocation(), AccessSettings::isFarmUse)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Lecterns sind hier gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onLeash(PlayerLeashEntityEvent event) {
+        Player player = event.getPlayer();
+        if (player == null || player.isOp() || !skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
+        if (!canUseLeash(player, event.getEntity().getLocation(), event.getEntity() instanceof AbstractVillager)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Anleinen ist hier gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onUnleash(PlayerUnleashEntityEvent event) {
+        Player player = event.getPlayer();
+        if (player == null || player.isOp() || !skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
+        if (!canUseLeash(player, event.getEntity().getLocation(), event.getEntity() instanceof AbstractVillager)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Anleinen ist hier gesperrt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDisplayInteract(PlayerInteractAtEntityEvent event) {
         if (!(event.getRightClicked() instanceof ArmorStand stand)) return;
         if (!skyWorldService.isSkyCityWorld(stand.getWorld())) return;
         if (coreService.handleDisplayInteraction(event.getPlayer(), stand)) {
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEntityInteract(PlayerInteractEntityEvent event) {
+        Player player = event.getPlayer();
+        if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
+        if (event.getRightClicked() instanceof Hanging) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getRightClicked().getLocation(), AccessSettings::isDecorations)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Deko/Frames sind hier gesperrt.");
+                return;
+            }
+            islandService.markIslandActivity(player.getUniqueId());
+            return;
+        }
+        if (event.getRightClicked() instanceof AbstractVillager) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getRightClicked().getLocation(), AccessSettings::isVillagers)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Villager sind hier gesperrt.");
+                return;
+            }
+            islandService.markIslandActivity(player.getUniqueId());
         }
     }
 
@@ -1040,6 +1208,39 @@ public class ProtectionListener implements Listener {
             if (pveAttacker != null) {
                 islandService.recordPveMobPlayerHit(pveAttacker, victim);
             }
+        }
+        if (event.getEntity() instanceof ArmorStand stand) {
+            Player attacker = resolveDamagingPlayer(event);
+            if (attacker == null || attacker.isOp() || !skyWorldService.isSkyCityWorld(stand.getWorld())) return;
+            if (!islandService.canUseBuildSetting(attacker.getUniqueId(), stand.getLocation(), AccessSettings::isDecorations)) {
+                event.setCancelled(true);
+                attacker.sendMessage(ChatColor.RED + "Deko/Frames sind hier gesperrt.");
+                return;
+            }
+            islandService.markIslandActivity(attacker.getUniqueId());
+            return;
+        }
+        if (event.getEntity() instanceof Hanging hanging) {
+            Player attacker = resolveDamagingPlayer(event);
+            if (attacker == null || attacker.isOp() || !skyWorldService.isSkyCityWorld(hanging.getWorld())) return;
+            if (!islandService.canUseBuildSetting(attacker.getUniqueId(), hanging.getLocation(), AccessSettings::isDecorations)) {
+                event.setCancelled(true);
+                attacker.sendMessage(ChatColor.RED + "Deko/Frames sind hier gesperrt.");
+                return;
+            }
+            islandService.markIslandActivity(attacker.getUniqueId());
+            return;
+        }
+        if (event.getEntity() instanceof Vehicle vehicle) {
+            Player attacker = resolveDamagingPlayer(event);
+            if (attacker == null || attacker.isOp() || !skyWorldService.isSkyCityWorld(vehicle.getWorld())) return;
+            if (!islandService.canUseBuildSetting(attacker.getUniqueId(), vehicle.getLocation(), AccessSettings::isVehicleDestroy)) {
+                event.setCancelled(true);
+                attacker.sendMessage(ChatColor.RED + "Fahrzeuge sind hier gesch\u00fctzt.");
+                return;
+            }
+            islandService.markIslandActivity(attacker.getUniqueId());
+            return;
         }
         if (event.getEntity() instanceof Animals animals) {
             Player attacker = resolveDamagingPlayer(event);
@@ -1078,6 +1279,18 @@ public class ProtectionListener implements Listener {
         if (!attacker.getUniqueId().equals(victim.getUniqueId())) {
             attacker.sendMessage(ChatColor.RED + "PvP ist in SkyCity nur auf aktiven GS-PvP-Zonen erlaubt.");
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onVehicleDestroy(VehicleDestroyEvent event) {
+        if (!(event.getAttacker() instanceof Player player) || player.isOp()) return;
+        if (!skyWorldService.isSkyCityWorld(event.getVehicle().getWorld())) return;
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getVehicle().getLocation(), AccessSettings::isVehicleDestroy)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Fahrzeuge sind hier gesch\u00fctzt.");
+            return;
+        }
+        islandService.markIslandActivity(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1231,91 +1444,64 @@ public class ProtectionListener implements Listener {
         IslandData island = islandService.getIslandAt(block.getLocation());
         if (island == null) return;
 
-        ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
-        boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
+        if (block.getType() == Material.ENDER_CHEST) {
+            if (!islandService.canUseContainerSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isContainers)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Keine Container-Rechte.");
+                return;
+            }
+        }
         if (isDoor(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isDoors())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isDoors();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isDoors)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "T\u00fcren sind hier gesperrt.");
                 return;
             }
         }
         if (isTrapdoor(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isTrapdoors())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isTrapdoors();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isTrapdoors)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Trapdoors sind hier gesperrt.");
                 return;
             }
         }
         if (isFenceGate(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isFenceGates())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isFenceGates();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isFenceGates)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Zauntore sind hier gesperrt.");
                 return;
             }
         }
         if (isButton(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isButtons())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isButtons();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isButtons)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Buttons sind hier gesperrt.");
                 return;
             }
         }
         if (isLever(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isLevers())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isLevers();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isLevers)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Hebel sind hier gesperrt.");
                 return;
             }
         }
         if (isPressurePlate(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isPressurePlates())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isPressurePlates();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isPressurePlates)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Druckplatten sind hier gesperrt.");
                 return;
             }
         }
         if (isFarmUseBlock(block.getType())) {
-            boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isFarmUse())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isFarmUse();
-            if (!allowed) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isFarmUse)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Nutzbl\u00f6cke/Farmaktionen sind hier gesperrt.");
                 return;
             }
         }
         if (isRedstoneControl(block.getType())) {
-            boolean allowed = islandService.hasRedstoneAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isRedstoneUse())
-                    || islandService.getEffectiveVisitorSettings(island, block.getLocation()).isRedstoneUse();
-            if (!allowed) {
+            if (!islandService.canUseRedstoneSetting(player.getUniqueId(), block.getLocation(), AccessSettings::isRedstoneUse)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Keine Redstone-Rechte.");
             }
@@ -1330,16 +1516,30 @@ public class ProtectionListener implements Listener {
         if (!(event.getPlayer() instanceof Player player)) return;
         if (player.isOp()) return;
         if (event.getInventory().getLocation() == null) return;
-        IslandData island = islandService.getIslandAt(event.getInventory().getLocation());
+        Location location = event.getInventory().getLocation();
+        IslandData island = islandService.getIslandAt(location);
         if (island == null) return;
-        if (event.getInventory().getHolder() instanceof Container || event.getInventory().getHolder() instanceof DoubleChest) {
-            ParcelData parcel = islandService.getParcelAt(island, event.getInventory().getLocation());
-            boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
-            boolean allowed = islandService.hasContainerAccess(player.getUniqueId(), island)
-                    || parcelOwner
-                    || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isContainers())
-                    || islandService.getEffectiveVisitorSettings(island, event.getInventory().getLocation()).isContainers();
-            if (!allowed) {
+        Object holder = event.getInventory().getHolder();
+        if (holder instanceof Container || holder instanceof DoubleChest) {
+            if (!islandService.canUseContainerSetting(player.getUniqueId(), event.getInventory().getLocation(), AccessSettings::isContainers)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Keine Container-Rechte.");
+                return;
+            }
+            islandService.markIslandActivity(player.getUniqueId());
+            return;
+        }
+        if (holder instanceof AbstractVillager) {
+            if (!islandService.canUseBuildSetting(player.getUniqueId(), location, AccessSettings::isVillagers)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Villager sind hier gesperrt.");
+                return;
+            }
+            islandService.markIslandActivity(player.getUniqueId());
+            return;
+        }
+        if (holder instanceof Entity entity && !(holder instanceof Player)) {
+            if (!islandService.canUseContainerSetting(player.getUniqueId(), entity.getLocation(), AccessSettings::isContainers)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Keine Container-Rechte.");
                 return;
@@ -1353,14 +1553,7 @@ public class ProtectionListener implements Listener {
         if (!(event.getEntity() instanceof Player player)) return;
         if (player.isOp()) return;
         if (!(event.getMount() instanceof Vehicle) && !(event.getMount() instanceof org.bukkit.entity.LivingEntity)) return;
-        IslandData island = islandService.getIslandAt(event.getMount().getLocation());
-        if (island == null) return;
-        ParcelData parcel = islandService.getParcelAt(island, event.getMount().getLocation());
-        boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
-        boolean allowed = islandService.hasBuildAccess(player.getUniqueId(), island) || parcelOwner
-                || islandService.hasParcelMemberSetting(island, parcel, player.getUniqueId(), s -> s.isRide())
-                || islandService.getEffectiveVisitorSettings(island, event.getMount().getLocation()).isRide();
-        if (!allowed) {
+        if (!islandService.canUseBuildSetting(player.getUniqueId(), event.getMount().getLocation(), AccessSettings::isRide)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Reiten ist hier gesperrt.");
             return;
@@ -1519,9 +1712,27 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onHopperMove(InventoryMoveItemEvent event) {
-        if (event.getSource().getLocation() == null) return;
-        if (!skyWorldService.isSkyCityWorld(event.getSource().getLocation().getWorld())) return;
-        if (islandService.getIslandAt(event.getSource().getLocation()) == null) event.setCancelled(true);
+        Location sourceLocation = event.getSource().getLocation();
+        Location destinationLocation = event.getDestination().getLocation();
+        if (sourceLocation == null || destinationLocation == null) return;
+        if (!skyWorldService.isSkyCityWorld(sourceLocation.getWorld()) && !skyWorldService.isSkyCityWorld(destinationLocation.getWorld())) return;
+
+        IslandData sourceIsland = islandService.getIslandAt(sourceLocation);
+        IslandData destinationIsland = islandService.getIslandAt(destinationLocation);
+        if (sourceIsland == null || destinationIsland == null) {
+            event.setCancelled(true);
+            return;
+        }
+        if (!sourceIsland.getOwner().equals(destinationIsland.getOwner())) {
+            event.setCancelled(true);
+            return;
+        }
+
+        ParcelData sourceParcel = islandService.getParcelAt(sourceIsland, sourceLocation);
+        ParcelData destinationParcel = islandService.getParcelAt(destinationIsland, destinationLocation);
+        if (!isSameParcelContext(sourceParcel, destinationParcel)) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1599,9 +1810,24 @@ public class ProtectionListener implements Listener {
             case COMPOSTER, CAULDRON, WATER_CAULDRON, LAVA_CAULDRON, POWDER_SNOW_CAULDRON,
                     ANVIL, CHIPPED_ANVIL, DAMAGED_ANVIL,
                     STONECUTTER, LOOM, CARTOGRAPHY_TABLE, SMITHING_TABLE,
-                    GRINDSTONE, FLETCHING_TABLE -> true;
+                    GRINDSTONE, FLETCHING_TABLE, CRAFTING_TABLE, ENCHANTING_TABLE,
+                    BREWING_STAND, BEACON, LECTERN, JUKEBOX, BELL,
+                    RESPAWN_ANCHOR, DECORATED_POT, CRAFTER, BIG_DRIPLEAF -> true;
             default -> false;
         };
+    }
+
+    private boolean canUseLeash(Player player, Location location, boolean villagerTarget) {
+        if (player == null || location == null) return false;
+        Predicate<AccessSettings> predicate = villagerTarget ? AccessSettings::isVillagers : AccessSettings::isRide;
+        return islandService.canUseBuildSetting(player.getUniqueId(), location, predicate);
+    }
+
+    private boolean isSameParcelContext(ParcelData sourceParcel, ParcelData destinationParcel) {
+        if (sourceParcel == null || destinationParcel == null) {
+            return sourceParcel == null && destinationParcel == null;
+        }
+        return sourceParcel.getChunkKey().equals(destinationParcel.getChunkKey());
     }
 
     private Player resolveDamagingPlayer(EntityDamageByEntityEvent event) {
