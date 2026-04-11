@@ -19,6 +19,7 @@ import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.TileState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.AnaloguePowerable;
 import org.bukkit.entity.ArmorStand;
@@ -2165,13 +2166,14 @@ public class PlayerListener implements Listener {
         Material type = clicked.getType();
         String name = type.name();
         if (!(name.endsWith("_BUTTON") || type == Material.LEVER)) return false;
-        IslandData island = islandService.getIslandAt(clicked.getLocation());
-        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, clicked.getLocation());
-        if (parcel == null || !parcel.isCtfEnabled()) return false;
-        if (!islandService.isParcelOwner(island, parcel, player.getUniqueId())) return false;
         for (BlockFace face : List.of(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST, BlockFace.UP, BlockFace.DOWN)) {
             Block adjacent = clicked.getRelative(face);
-            if (findCtfFlagAt(parcel, adjacent.getLocation()) != null) {
+            if (adjacent.getType() != Material.TARGET) continue;
+            IslandData island = islandService.getIslandAt(adjacent.getLocation());
+            ParcelData parcel = island == null ? null : islandService.getParcelAt(island, adjacent.getLocation());
+            if (parcel == null || !parcel.isCtfEnabled()) continue;
+            if (!islandService.isParcelOwner(island, parcel, player.getUniqueId())) continue;
+            if (findCtfFlagAt(parcel, adjacent.getLocation()) != null || adjacent.getType() == Material.TARGET) {
                 resetParcelCtf(island, parcel);
                 player.sendMessage(ChatColor.YELLOW + "CTF wurde zur\u00fcckgesetzt.");
                 return true;
@@ -2444,7 +2446,7 @@ public class PlayerListener implements Listener {
 
     private void syncParcelCtfShelfVisuals(ParcelData parcel, CtfRuntime runtime) {
         if (parcel == null) return;
-        clearParcelCtfShelfVisuals(parcel);
+        clearParcelCtfShelfContents(parcel);
         if (runtime == null) return;
         Map<String, CtfFlagDefinition> flagsById = collectCtfFlagsById(parcel, runtime);
         for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
@@ -2452,7 +2454,7 @@ public class PlayerListener implements Listener {
             BlockState state = block.getState();
             Inventory inventory = ctfShelfInventory(state);
             if (inventory == null) continue;
-            inventory.clear();
+            clearCtfShelfInventory(inventory);
             int slot = 0;
             for (Map.Entry<String, String> entry : runtime.shelfByFlag().entrySet()) {
                 if (!shelf.id().equals(entry.getValue())) continue;
@@ -2464,13 +2466,59 @@ public class PlayerListener implements Listener {
         }
     }
 
-    private void clearParcelCtfShelfVisuals(ParcelData parcel) {
+    private void clearParcelCtfShelfContents(ParcelData parcel) {
         if (parcel == null) return;
         for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
             BlockState state = shelf.shelfLocation().getBlock().getState();
             Inventory inventory = ctfShelfInventory(state);
             if (inventory == null) continue;
-            inventory.clear();
+            clearCtfShelfInventory(inventory);
+        }
+    }
+
+    private void clearParcelCtfShelfVisuals(ParcelData parcel) {
+        if (parcel == null) return;
+        for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
+            Block block = shelf.shelfLocation().getBlock();
+            resetCtfShelfBlock(block);
+            pushCtfShelfResetUpdate(block);
+        }
+    }
+
+    private void clearCtfShelfInventory(Inventory inventory) {
+        if (inventory == null) return;
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, null);
+        }
+    }
+
+    private void resetCtfShelfBlock(Block block) {
+        if (block == null) return;
+        Material type = block.getType();
+        if (!isCtfShelfBlock(type)) return;
+        BlockData data = block.getBlockData().clone();
+        block.setType(Material.AIR, false);
+        block.setType(type, false);
+        block.setBlockData(data, false);
+        BlockState freshState = block.getState();
+        Inventory freshInventory = ctfShelfInventory(freshState);
+        if (freshInventory != null) {
+            clearCtfShelfInventory(freshInventory);
+        }
+    }
+
+    private void pushCtfShelfResetUpdate(Block block) {
+        if (block == null || block.getWorld() == null) return;
+        BlockState freshState = block.getState();
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online == null || !online.isOnline()) continue;
+            if (!online.getWorld().equals(block.getWorld())) continue;
+            if (online.getLocation().distanceSquared(block.getLocation().add(0.5, 0.5, 0.5)) > 128 * 128) continue;
+            if (freshState instanceof TileState tileState) {
+                online.sendBlockUpdate(block.getLocation(), tileState);
+            } else {
+                online.sendBlockChange(block.getLocation(), block.getBlockData());
+            }
         }
     }
 

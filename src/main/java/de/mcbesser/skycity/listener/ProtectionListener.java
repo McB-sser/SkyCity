@@ -1423,6 +1423,13 @@ public class ProtectionListener implements Listener {
         Block block = event.getClickedBlock();
         Player player = event.getPlayer();
         if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
+        if (playerListener.isActiveCtfShelfLocation(block.getLocation())) {
+            event.setCancelled(true);
+            event.setUseInteractedBlock(Result.DENY);
+            event.setUseItemInHand(Result.DENY);
+            player.sendMessage(ChatColor.RED + "CTF-Regale sind gesperrt.");
+            return;
+        }
         ItemStack item = event.getItem();
 
         if (item != null && item.getType() == Material.ARMOR_STAND) {
