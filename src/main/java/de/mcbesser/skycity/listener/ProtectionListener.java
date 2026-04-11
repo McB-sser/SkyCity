@@ -1515,13 +1515,16 @@ public class ProtectionListener implements Listener {
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         if (player.isOp()) return;
-        if (event.getInventory().getLocation() == null) return;
+        Object holder = event.getInventory().getHolder();
         Location location = event.getInventory().getLocation();
+        if (location == null && holder instanceof Entity entity) {
+            location = entity.getLocation();
+        }
+        if (location == null) return;
         IslandData island = islandService.getIslandAt(location);
         if (island == null) return;
-        Object holder = event.getInventory().getHolder();
         if (holder instanceof Container || holder instanceof DoubleChest) {
-            if (!islandService.canUseContainerSetting(player.getUniqueId(), event.getInventory().getLocation(), AccessSettings::isContainers)) {
+            if (!islandService.canUseContainerSetting(player.getUniqueId(), location, AccessSettings::isContainers)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Keine Container-Rechte.");
                 return;
@@ -1759,10 +1762,13 @@ public class ProtectionListener implements Listener {
             Block destination = moved.getRelative(moveDirection);
             if (coreService.isCoreBlock(destination)) return false;
 
+            ParcelData sourceParcel = islandService.getParcelAt(sourceIsland, moved.getLocation());
             IslandData destinationIsland = islandService.getIslandAt(destination.getLocation());
             if (destinationIsland == null) return false;
             if (!destinationIsland.getOwner().equals(sourceIsland.getOwner())) return false;
             if (!islandService.isChunkUnlocked(sourceIsland, destination.getLocation())) return false;
+            ParcelData destinationParcel = islandService.getParcelAt(destinationIsland, destination.getLocation());
+            if (!isSameParcelContext(sourceParcel, destinationParcel)) return false;
         }
         return true;
     }
