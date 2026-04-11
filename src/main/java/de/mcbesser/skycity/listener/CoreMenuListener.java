@@ -3,6 +3,7 @@ package de.mcbesser.skycity.listener;
 import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.IslandPlot;
 import de.mcbesser.skycity.model.ParcelData;
+import de.mcbesser.skycity.listener.PlayerListener;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.ParticlePreviewService;
@@ -36,12 +37,14 @@ public class CoreMenuListener implements Listener {
     private final IslandService islandService;
     private final CoreService coreService;
     private final ParticlePreviewService particlePreviewService;
+    private final PlayerListener playerListener;
     private final Map<UUID, Integer> claimStatusTasks = new HashMap<>();
 
-    public CoreMenuListener(IslandService islandService, CoreService coreService, ParticlePreviewService particlePreviewService) {
+    public CoreMenuListener(IslandService islandService, CoreService coreService, ParticlePreviewService particlePreviewService, PlayerListener playerListener) {
         this.islandService = islandService;
         this.coreService = coreService;
         this.particlePreviewService = particlePreviewService;
+        this.playerListener = playerListener;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1063,6 +1066,65 @@ public class CoreMenuListener implements Listener {
                     }
                 }
             }
+            case 41 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    boolean enabled = !parcel.isCtfEnabled();
+                    if (enabled && !parcel.isGamesEnabled()) {
+                        player.sendMessage(ChatColor.RED + "CTF ben\u00f6tigt zuerst GS-Games.");
+                        return;
+                    }
+                    if (islandService.setParcelCtfEnabled(island, parcel, player.getUniqueId(), enabled)) {
+                        playerListener.resetParcelCtf(island, parcel);
+                        player.sendMessage((enabled ? ChatColor.GOLD : ChatColor.GREEN) + "Capture The Flag " + (enabled ? "aktiviert." : "deaktiviert."));
+                    }
+                }
+            }
+            case 42 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    playerListener.resetParcelCtf(island, parcel);
+                    player.sendMessage(ChatColor.YELLOW + "CTF wurde zur\u00fcckgesetzt.");
+                }
+            }
+            case 44 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    int delta = event.isShiftClick() ? -300 : -30;
+                    int targetSeconds = parcel.getCountdownDurationSeconds() + delta;
+                    if (islandService.setParcelCountdownDurationSeconds(island, parcel, player.getUniqueId(), targetSeconds)) {
+                        player.sendMessage(ChatColor.YELLOW + "Countdown-Zeit: " + ChatColor.WHITE + formatParcelCountdownSeconds(parcel.getCountdownDurationSeconds()));
+                    }
+                }
+            }
+            case 45 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    int delta = event.isShiftClick() ? 300 : 30;
+                    int targetSeconds = parcel.getCountdownDurationSeconds() + delta;
+                    if (islandService.setParcelCountdownDurationSeconds(island, parcel, player.getUniqueId(), targetSeconds)) {
+                        player.sendMessage(ChatColor.YELLOW + "Countdown-Zeit: " + ChatColor.WHITE + formatParcelCountdownSeconds(parcel.getCountdownDurationSeconds()));
+                    }
+                }
+            }
+            case 46 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    if (islandService.startParcelCountdown(island, parcel, player.getUniqueId())) {
+                        playerListener.startParcelCountdown(island, parcel);
+                        player.sendMessage(ChatColor.GOLD + "Parcel-Countdown gestartet.");
+                    }
+                }
+            }
+            case 47 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    if (islandService.stopParcelCountdown(island, parcel, player.getUniqueId())) {
+                        playerListener.stopParcelCountdown(island, parcel);
+                        player.sendMessage(ChatColor.RED + "Parcel-Countdown gestoppt.");
+                    }
+                }
+            }
             case 49 -> {
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return;
@@ -1076,6 +1138,16 @@ public class CoreMenuListener implements Listener {
     private ParcelData resolveHolderParcel(IslandData island, String parcelKey, int relChunkX, int relChunkZ) {
         ParcelData parcel = islandService.getParcelByKey(island, parcelKey);
         return parcel != null ? parcel : islandService.getParcel(island, relChunkX, relChunkZ);
+    }
+
+    private String formatParcelCountdownSeconds(int totalSeconds) {
+        int seconds = Math.max(0, totalSeconds);
+        int hours = seconds / 3600;
+        int minutes = (seconds % 3600) / 60;
+        int restSeconds = seconds % 60;
+        if (hours > 0) return hours + "h " + minutes + "m";
+        if (minutes > 0) return minutes + "m " + restSeconds + "s";
+        return restSeconds + "s";
     }
 
     private void handleParcelMarketMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelMarketInventoryHolder holder) {

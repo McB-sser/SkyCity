@@ -37,6 +37,10 @@ public class ParcelData {
     private final AccessSettings memberSettings = new AccessSettings();
     private boolean pvpEnabled;
     private boolean gamesEnabled;
+    private boolean ctfEnabled;
+    private int countdownDurationSeconds = 300;
+    private long countdownStartAt;
+    private long countdownEndsAt;
     private String combatMode = CombatMode.NONE.name();
     private boolean pvpCompassEnabled = true;
     private boolean pveEnabled;
@@ -123,6 +127,14 @@ public class ParcelData {
         }
         this.gamesEnabled = false;
     }
+    public boolean isCtfEnabled() { return ctfEnabled; }
+    public void setCtfEnabled(boolean ctfEnabled) { this.ctfEnabled = ctfEnabled; }
+    public int getCountdownDurationSeconds() { return countdownDurationSeconds; }
+    public void setCountdownDurationSeconds(int countdownDurationSeconds) { this.countdownDurationSeconds = Math.max(30, countdownDurationSeconds); }
+    public long getCountdownStartAt() { return countdownStartAt; }
+    public void setCountdownStartAt(long countdownStartAt) { this.countdownStartAt = Math.max(0L, countdownStartAt); }
+    public long getCountdownEndsAt() { return countdownEndsAt; }
+    public void setCountdownEndsAt(long countdownEndsAt) { this.countdownEndsAt = Math.max(0L, countdownEndsAt); }
     public boolean isPvpCompassEnabled() { return pvpCompassEnabled; }
     public void setPvpCompassEnabled(boolean pvpCompassEnabled) { this.pvpCompassEnabled = pvpCompassEnabled; }
     public boolean isPveEnabled() { return pveEnabled; }

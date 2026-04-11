@@ -523,10 +523,14 @@ public class IslandService {
                         applyParcelCombatMode(
                                 parcel,
                                 psec.getString("combatMode", null),
-                                psec.getBoolean("pvpEnabled", false),
-                                psec.getBoolean("gamesEnabled", false)
-                        );
-                        parcel.setPvpCompassEnabled(psec.getBoolean("pvpCompassEnabled", true));
+                psec.getBoolean("pvpEnabled", false),
+                psec.getBoolean("gamesEnabled", false)
+        );
+        parcel.setCtfEnabled(psec.getBoolean("ctfEnabled", false));
+        parcel.setCountdownDurationSeconds(psec.getInt("countdownDurationSeconds", 300));
+        parcel.setCountdownStartAt(psec.getLong("countdownStartAt", 0L));
+        parcel.setCountdownEndsAt(psec.getLong("countdownEndsAt", 0L));
+        parcel.setPvpCompassEnabled(psec.getBoolean("pvpCompassEnabled", true));
                         parcel.setPveEnabled(psec.getBoolean("pveEnabled", false));
                         ConfigurationSection pvpKills = psec.getConfigurationSection("pvpKills");
                         if (pvpKills != null) {
@@ -1811,6 +1815,10 @@ public class IslandService {
             dst.getPvpKills().putAll(srcParcel.getPvpKills());
             dst.setPvpEnabled(srcParcel.isPvpEnabled());
             dst.setGamesEnabled(srcParcel.isGamesEnabled());
+            dst.setCtfEnabled(srcParcel.isCtfEnabled());
+            dst.setCountdownDurationSeconds(srcParcel.getCountdownDurationSeconds());
+            dst.setCountdownStartAt(srcParcel.getCountdownStartAt());
+            dst.setCountdownEndsAt(srcParcel.getCountdownEndsAt());
             dst.setPveEnabled(srcParcel.isPveEnabled());
             dst.setSaleOfferEnabled(srcParcel.isSaleOfferEnabled());
             dst.setSalePrice(srcParcel.getSalePrice());
@@ -3924,9 +3932,65 @@ public class IslandService {
         if (!isParcelOwner(island, parcel, actor)) return false;
         if (parcel.isGamesEnabled() == enabled) return false;
         parcel.setCombatMode(enabled ? ParcelData.CombatMode.GAMES : ParcelData.CombatMode.NONE);
+        if (!enabled) parcel.setCtfEnabled(false);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
+    }
+
+    public boolean setParcelCtfEnabled(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        if (enabled && !parcel.isGamesEnabled()) return false;
+        if (parcel.isCtfEnabled() == enabled) return false;
+        parcel.setCtfEnabled(enabled);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean setParcelCountdownDurationSeconds(IslandData island, ParcelData parcel, UUID actor, int seconds) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        int clamped = Math.max(30, Math.min(7200, seconds));
+        if (parcel.getCountdownDurationSeconds() == clamped) return false;
+        parcel.setCountdownDurationSeconds(clamped);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean startParcelCountdown(IslandData island, ParcelData parcel, UUID actor) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        long now = System.currentTimeMillis();
+        long startAt = now + 3000L;
+        long endsAt = startAt + parcel.getCountdownDurationSeconds() * 1000L;
+        parcel.setCountdownStartAt(startAt);
+        parcel.setCountdownEndsAt(endsAt);
+        island.setLastActiveAt(now);
+        save();
+        return true;
+    }
+
+    public boolean stopParcelCountdown(IslandData island, ParcelData parcel, UUID actor) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        if (parcel.getCountdownStartAt() <= 0L && parcel.getCountdownEndsAt() <= 0L) return false;
+        clearParcelCountdown(parcel);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean finishParcelCountdown(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return false;
+        if (parcel.getCountdownStartAt() <= 0L && parcel.getCountdownEndsAt() <= 0L) return false;
+        clearParcelCountdown(parcel);
+        save();
+        return true;
+    }
+
+    private void clearParcelCountdown(ParcelData parcel) {
+        if (parcel == null) return;
+        parcel.setCountdownStartAt(0L);
+        parcel.setCountdownEndsAt(0L);
     }
 
     public boolean setParcelPvpCompassEnabled(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
@@ -5950,6 +6014,10 @@ public class IslandService {
                 .put("combatMode", parcel.getCombatMode().name())
                 .put("pvpEnabled", parcel.isPvpEnabled())
                 .put("gamesEnabled", parcel.isGamesEnabled())
+                .put("ctfEnabled", parcel.isCtfEnabled())
+                .put("countdownDurationSeconds", parcel.getCountdownDurationSeconds())
+                .put("countdownStartAt", parcel.getCountdownStartAt())
+                .put("countdownEndsAt", parcel.getCountdownEndsAt())
                 .put("pvpCompassEnabled", parcel.isPvpCompassEnabled())
                 .put("pveEnabled", parcel.isPveEnabled())
                 .put("saleOfferEnabled", parcel.isSaleOfferEnabled())
@@ -6003,6 +6071,11 @@ public class IslandService {
                 Boolean.TRUE.equals(document.get("pvpEnabled", Boolean.class)),
                 Boolean.TRUE.equals(document.get("gamesEnabled", Boolean.class))
         );
+        parcel.setCtfEnabled(Boolean.TRUE.equals(document.get("ctfEnabled", Boolean.class)));
+        int countdownDurationSeconds = intValue(document.get("countdownDurationSeconds"));
+        parcel.setCountdownDurationSeconds(countdownDurationSeconds > 0 ? countdownDurationSeconds : 300);
+        parcel.setCountdownStartAt(longValue(document.get("countdownStartAt")));
+        parcel.setCountdownEndsAt(longValue(document.get("countdownEndsAt")));
         parcel.setPvpCompassEnabled(!Boolean.FALSE.equals(document.get("pvpCompassEnabled", Boolean.class)));
         parcel.setPveEnabled(Boolean.TRUE.equals(document.get("pveEnabled", Boolean.class)));
         parcel.setSaleOfferEnabled(Boolean.TRUE.equals(document.get("saleOfferEnabled", Boolean.class)));

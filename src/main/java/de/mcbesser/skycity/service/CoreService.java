@@ -1818,6 +1818,14 @@ public class CoreService {
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       } else {
+         long now = System.currentTimeMillis();
+         boolean countdownActive = parcel.getCountdownEndsAt() > now;
+         boolean countdownPrestart = countdownActive && parcel.getCountdownStartAt() > now;
+         String countdownStatus = countdownActive
+            ? (countdownPrestart
+               ? ChatColor.GOLD + "Start in " + formatSecondsShort((int)Math.max(1L, (parcel.getCountdownStartAt() - now + 999L) / 1000L))
+               : ChatColor.AQUA + "läuft: " + formatSecondsShort((int)Math.max(0L, (parcel.getCountdownEndsAt() - now + 999L) / 1000L)))
+            : ChatColor.GREEN + "bereit";
          inv.setItem(10, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "GS-Spawn setzen", List.of(ChatColor.GRAY + "Setzt Spawn auf deine Position")));
          inv.setItem(11, this.named(Material.BOOK, ChatColor.YELLOW + "Memberrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Plot-Member")));
          inv.setItem(12, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Fremde")));
@@ -1829,8 +1837,18 @@ public class CoreService {
          inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(33, this.named(parcel.isGamesEnabled() ? Material.TOTEM_OF_UNDYING : Material.GRAY_DYE, (parcel.isGamesEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "GS-Games", List.of(ChatColor.GRAY + "Zone wie PvP, aber ohne Spielerschaden", ChatColor.GRAY + "Status: " + (parcel.isGamesEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(34, this.named(parcel.isPvpEnabled() ? Material.DIAMOND_SWORD : Material.WOODEN_SWORD, (parcel.isPvpEnabled() ? ChatColor.RED : ChatColor.GRAY) + "GS-PvP", List.of(ChatColor.GRAY + "PvP mit Zustimmung / Whitelist", ChatColor.GRAY + "Status: " + (parcel.isPvpEnabled() ? ChatColor.RED + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
          inv.setItem(35, this.named(parcel.isPveEnabled() ? Material.NETHER_STAR : Material.GRAY_WOOL, (parcel.isPveEnabled() ? ChatColor.DARK_GREEN : ChatColor.GRAY) + "GS-PvE", List.of(ChatColor.GRAY + "Aktiviert Wellenkampf auf diesem GS", ChatColor.GRAY + "Skaliert mit Grundfl\u00e4che und Spielerzahl", ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(36, this.named(Material.GOLD_NUGGET, ChatColor.YELLOW + "PvP-Rangliste resetten", List.of(ChatColor.GRAY + "Kills auf diesem GS zur\u00fccksetzen", ChatColor.YELLOW + "Klick = resetten")));
          inv.setItem(39, this.named(parcel.isPvpCompassEnabled() ? Material.COMPASS : Material.RECOVERY_COMPASS, (parcel.isPvpCompassEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "PvP-Kompass", List.of(ChatColor.GRAY + "Ortung anderer Spieler in PvP", ChatColor.GRAY + "Status: " + (parcel.isPvpCompassEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.RED + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(38, this.named(Material.PLAYER_HEAD, ChatColor.RED + "PvP-Whitelist", List.of(ChatColor.GRAY + "Erlaubte PvP-Spieler verwalten", ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+         inv.setItem(41, this.named(parcel.isCtfEnabled() ? Material.WHITE_BANNER : Material.GRAY_BANNER, (parcel.isCtfEnabled() ? ChatColor.GOLD : ChatColor.GRAY) + "Capture The Flag", List.of(ChatColor.GRAY + "Target + Banner = Flaggenbasis", ChatColor.GRAY + "Wolle + Shelf = Capture-Checkpoint", ChatColor.GRAY + "Status: " + (parcel.isCtfEnabled() ? ChatColor.GOLD + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(42, this.named(Material.TARGET, ChatColor.YELLOW + "CTF resetten", List.of(ChatColor.GRAY + "Alle getragenen / gesetzten Flaggen zur\u00fccksetzen", ChatColor.YELLOW + "Klick = resetten")));
+         inv.setItem(43, this.named(Material.CLOCK, ChatColor.AQUA + "Countdown-BossBar", List.of(ChatColor.GRAY + "Dauer: " + ChatColor.WHITE + formatSecondsShort(parcel.getCountdownDurationSeconds()), ChatColor.GRAY + "Status: " + countdownStatus, ChatColor.GRAY + "Beim Start kommt 3-2-1-Los als Title")));
+         inv.setItem(44, this.named(Material.RED_CONCRETE, ChatColor.RED + "Zeit verringern", List.of(ChatColor.GRAY + "Links: -30 Sekunden", ChatColor.GRAY + "Shift: -5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
+         inv.setItem(45, this.named(Material.LIME_CONCRETE, ChatColor.GREEN + "Zeit erh\u00f6hen", List.of(ChatColor.GRAY + "Links: +30 Sekunden", ChatColor.GRAY + "Shift: +5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
+         inv.setItem(46, this.named(Material.BELL, ChatColor.GOLD + "Countdown starten", List.of(ChatColor.GRAY + "Zeigt BossBar im Parcel", ChatColor.GRAY + "Startet mit Title-Countdown", ChatColor.YELLOW + "Klick = starten")));
+         inv.setItem(47, this.named(Material.BARRIER, ChatColor.RED + "Countdown stoppen", List.of(ChatColor.GRAY + "Laufenden Countdown abbrechen", ChatColor.GRAY + "BossBar sofort ausblenden", ChatColor.YELLOW + "Klick = stoppen")));
          inv.setItem(37, this.named(Material.BOOK, ChatColor.GOLD + "PvE-Anleitung", List.of(
             ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone (max 5x5)",
             ChatColor.GRAY + "Bis zu 1 Loch 2x2 in der Startzone erlaubt",
@@ -1857,6 +1875,20 @@ public class CoreService {
          return exact;
       }
       return this.islandService.getParcel(island, relX, relZ);
+   }
+
+   private String formatSecondsShort(int totalSeconds) {
+      int seconds = Math.max(0, totalSeconds);
+      int hours = seconds / 3600;
+      int minutes = (seconds % 3600) / 60;
+      int restSeconds = seconds % 60;
+      if (hours > 0) {
+         return hours + "h " + minutes + "m";
+      }
+      if (minutes > 0) {
+         return minutes + "m " + restSeconds + "s";
+      }
+      return restSeconds + "s";
    }
 
    private boolean parcelCoversChunk(IslandData island, ParcelData parcel, int relX, int relZ) {

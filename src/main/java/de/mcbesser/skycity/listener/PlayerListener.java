@@ -17,6 +17,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.AnaloguePowerable;
 import org.bukkit.entity.ArmorStand;
@@ -33,8 +34,10 @@ import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -47,6 +50,7 @@ import org.bukkit.util.Vector;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
@@ -104,6 +108,8 @@ public class PlayerListener implements Listener {
     private final Map<UUID, String> islandPresenceState = new HashMap<>();
     private final Map<UUID, BossBar> islandBossBars = new HashMap<>();
     private final Map<UUID, BossBar> chunkEffectBossBars = new HashMap<>();
+    private final Map<UUID, BossBar> parcelCountdownBossBars = new HashMap<>();
+    private final Map<UUID, String> parcelCountdownTitleStates = new HashMap<>();
     private final Map<UUID, Boolean> skyCityNightVisionApplied = new HashMap<>();
     private final Map<UUID, Long> lavaRescueProtectionUntil = new HashMap<>();
     private final Map<UUID, Map<String, Location>> checkpointLocations = new HashMap<>();
@@ -123,6 +129,9 @@ public class PlayerListener implements Listener {
     private final Map<UUID, Location> pendingParcelPvpRespawns = new HashMap<>();
     private final Map<UUID, Boolean> parcelPvpCompassSuppressed = new HashMap<>();
     private final Map<UUID, CombatScoreboardState> combatScoreboardStates = new HashMap<>();
+    private final Map<String, CtfRuntime> parcelCtfRuntime = new HashMap<>();
+    private final Map<UUID, CtfCarrierState> ctfCarrierStates = new HashMap<>();
+    private final Map<UUID, UUID> ctfCarryDisplaysByPlayer = new HashMap<>();
     private final int islandActionbarTaskId;
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
@@ -131,6 +140,10 @@ public class PlayerListener implements Listener {
     private record TeamScoreCache(long builtAt, List<TeamScoreEntry> entries) { }
     private record TeamScoreEntry(Material wool, int points) { }
     private record CombatScoreboardState(String zoneKey, long refreshedAt) { }
+    private record CtfFlagDefinition(String id, Material teamWool, Material bannerMaterial, Location targetLocation, Location bannerLocation) { }
+    private record CtfShelfDefinition(String id, Material teamWool, Location shelfLocation, int capacity) { }
+    private record CtfCarrierState(String parcelKey, String flagId, Material teamWool, Material bannerMaterial, Location baseTargetLocation, Location bannerLocation) { }
+    private record CtfRuntime(Map<String, UUID> carrierByFlag, Map<String, String> shelfByFlag) { }
     public PlayerListener(SkyCityPlugin plugin, IslandService islandService, SkyWorldService skyWorldService, CoreService coreService) {
         this.plugin = plugin;
         this.islandService = islandService;
@@ -173,6 +186,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        returnCtfFlagToBase(event.getPlayer().getUniqueId(), false);
         stopPreparationStatusMessages(event.getPlayer().getUniqueId());
         stopIslandCreateHintMessages(event.getPlayer().getUniqueId());
         stopParcelBanCountdown(event.getPlayer().getUniqueId());
@@ -184,6 +198,8 @@ public class PlayerListener implements Listener {
         clearSkyCityNightVision(event.getPlayer());
         removeIslandBossBar(event.getPlayer());
         removeChunkEffectBossBar(event.getPlayer());
+        removeParcelCountdownBossBar(event.getPlayer());
+        parcelCountdownTitleStates.remove(event.getPlayer().getUniqueId());
         checkpointLocations.remove(event.getPlayer().getUniqueId());
         checkpointLocationsByWool.remove(event.getPlayer().getUniqueId());
         lastCheckpointLocations.remove(event.getPlayer().getUniqueId());
@@ -199,6 +215,7 @@ public class PlayerListener implements Listener {
         pendingParcelPvpRespawns.remove(event.getPlayer().getUniqueId());
         parcelPvpCompassSuppressed.remove(event.getPlayer().getUniqueId());
         combatScoreboardStates.remove(event.getPlayer().getUniqueId());
+        removeCtfCarryDisplay(event.getPlayer().getUniqueId());
         event.getPlayer().removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
     }
 
@@ -245,6 +262,7 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
         if (!skyWorldService.isSkyCityWorld(event.getPlayer().getWorld())) {
+            returnCtfFlagToBase(event.getPlayer().getUniqueId(), false);
             stopParcelBanCountdown(event.getPlayer().getUniqueId());
             stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
             clearParcelPvpState(event.getPlayer().getUniqueId());
@@ -253,9 +271,13 @@ public class PlayerListener implements Listener {
             islandPresenceState.remove(event.getPlayer().getUniqueId());
             removeIslandBossBar(event.getPlayer());
             removeChunkEffectBossBar(event.getPlayer());
+            removeParcelCountdownBossBar(event.getPlayer());
+            parcelCountdownTitleStates.remove(event.getPlayer().getUniqueId());
         } else {
             updateParcelPvpState(event.getPlayer(), event.getPlayer().getLocation());
             updateParcelPveState(event.getPlayer(), event.getPlayer().getLocation());
+            updateParcelCtfState(event.getPlayer(), event.getPlayer().getLocation());
+            updateParcelCountdownState(event.getPlayer(), event.getPlayer().getLocation());
             updateIslandPresenceMessage(event.getPlayer(), true);
         }
         if (!skyWorldService.isSkyCityWorld(event.getPlayer().getWorld())
@@ -286,6 +308,8 @@ public class PlayerListener implements Listener {
             clearParcelPvpState(event.getPlayer().getUniqueId());
             clearParcelGamesState(event.getPlayer().getUniqueId());
             clearParcelPveState(event.getPlayer().getUniqueId());
+            removeParcelCountdownBossBar(event.getPlayer());
+            parcelCountdownTitleStates.remove(event.getPlayer().getUniqueId());
             return;
         }
         boolean changedBlock = event.getFrom().getBlockX() != event.getTo().getBlockX()
@@ -301,6 +325,8 @@ public class PlayerListener implements Listener {
         updateParcelPvpState(event.getPlayer(), event.getTo());
         updateParcelPvpCompass(event.getPlayer(), event.getTo());
         updateParcelPvpTeam(event.getPlayer(), event.getTo());
+        updateParcelCtfState(event.getPlayer(), event.getTo());
+        updateParcelCountdownState(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
 
         if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
@@ -329,6 +355,7 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onTeleport(PlayerTeleportEvent event) {
         if (event.getTo() == null || !skyWorldService.isSkyCityWorld(event.getTo().getWorld())) {
+            returnCtfFlagToBase(event.getPlayer().getUniqueId(), false);
             clearParcelPvpState(event.getPlayer().getUniqueId());
             clearParcelGamesState(event.getPlayer().getUniqueId());
             clearParcelPveState(event.getPlayer().getUniqueId());
@@ -338,7 +365,29 @@ public class PlayerListener implements Listener {
         updateParcelPvpState(event.getPlayer(), event.getTo());
         updateParcelPvpCompass(event.getPlayer(), event.getTo());
         updateParcelPvpTeam(event.getPlayer(), event.getTo());
+        updateParcelCtfState(event.getPlayer(), event.getTo());
+        updateParcelCountdownState(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.getClickedBlock() == null || event.getPlayer().isOp()) return;
+        if (!skyWorldService.isSkyCityWorld(event.getClickedBlock().getWorld())) return;
+        if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (tryPickupCtfFlag(event.getPlayer(), event.getClickedBlock())) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (tryResetCtfViaButton(event.getPlayer(), event.getClickedBlock())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (tryCaptureCtfFlag(event.getPlayer(), event.getClickedBlock())) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -374,6 +423,25 @@ public class PlayerListener implements Listener {
         clearLavaEffects(player);
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onCtfHit(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player victim)) return;
+        Player attacker = resolveDamagingPlayer(event.getDamager());
+        if (attacker == null || attacker.getUniqueId().equals(victim.getUniqueId())) return;
+        if (!skyWorldService.isSkyCityWorld(victim.getWorld())) return;
+        IslandData island = islandService.getIslandAt(victim.getLocation());
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, victim.getLocation());
+        if (parcel == null || !parcel.isGamesEnabled() || !parcel.isCtfEnabled()) return;
+        CtfCarrierState carrier = ctfCarrierStates.get(victim.getUniqueId());
+        if (carrier == null) return;
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        if (parcelKey == null || !parcelKey.equals(carrier.parcelKey())) return;
+        event.setCancelled(true);
+        returnCtfFlagToBase(victim.getUniqueId(), true);
+        attacker.sendMessage(ChatColor.GREEN + "Du hast die Flagge zur\u00fcckerobert.");
+        victim.sendMessage(ChatColor.RED + "Deine getragene Flagge wurde zur Basis zur\u00fcckgeschickt.");
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPvpDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player victim)) return;
@@ -391,6 +459,7 @@ public class PlayerListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
+        returnCtfFlagToBase(victim.getUniqueId(), false);
         if (!skyWorldService.isSkyCityWorld(victim.getWorld())) return;
         IslandData island = islandService.getIslandAt(victim.getLocation());
         ParcelData parcel = island == null ? null : islandService.getParcelAt(island, victim.getLocation());
@@ -1739,6 +1808,280 @@ public class PlayerListener implements Listener {
         parcelGamesStates.remove(playerId);
     }
 
+    public void resetParcelCtf(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return;
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        if (parcelKey == null) return;
+        List<UUID> carriers = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, CtfCarrierState> entry : ctfCarrierStates.entrySet()) {
+            if (parcelKey.equals(entry.getValue().parcelKey())) {
+                carriers.add(entry.getKey());
+            }
+        }
+        for (UUID carrierId : carriers) {
+            returnCtfFlagToBase(carrierId, false);
+        }
+        parcelCtfRuntime.remove(parcelKey);
+        clearParcelCtfShelfVisuals(parcel);
+        refreshParcelPvpScoreboards(island, parcel);
+    }
+
+    public void startParcelCountdown(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return;
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        if (parcelKey == null) return;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (!isPlayerInsideParcel(online, island, parcel)) continue;
+            sendParcelCountdownTitle(online, parcelKey, 3);
+            updateParcelCountdownState(online, online.getLocation());
+        }
+    }
+
+    public void stopParcelCountdown(IslandData island, ParcelData parcel) {
+        if (island == null || parcel == null) return;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (!isPlayerInsideParcel(online, island, parcel)) continue;
+            removeParcelCountdownBossBar(online);
+            parcelCountdownTitleStates.remove(online.getUniqueId());
+        }
+    }
+
+    private void updateParcelCtfState(Player player, Location location) {
+        if (player == null) return;
+        UUID playerId = player.getUniqueId();
+        CtfCarrierState carrier = ctfCarrierStates.get(playerId);
+        if (carrier == null) {
+            removeCtfCarryDisplay(playerId);
+            return;
+        }
+        IslandData island = location == null ? null : islandService.getIslandAt(location);
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, location);
+        String parcelKey = parcel == null ? null : islandService.getParcelPvpKey(island, parcel);
+        if (parcel == null || !parcel.isGamesEnabled() || !parcel.isCtfEnabled() || !carrier.parcelKey().equals(parcelKey)) {
+            returnCtfFlagToBase(playerId, false);
+            return;
+        }
+        ensureCtfCarryDisplay(player, carrier);
+    }
+
+    private void updateParcelCountdownState(Player player, Location location) {
+        if (player == null || location == null || !skyWorldService.isSkyCityWorld(location.getWorld())) {
+            if (player != null) {
+                removeParcelCountdownBossBar(player);
+                parcelCountdownTitleStates.remove(player.getUniqueId());
+            }
+            return;
+        }
+        IslandData island = islandService.getIslandAt(location);
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, location);
+        if (island == null || parcel == null) {
+            removeParcelCountdownBossBar(player);
+            parcelCountdownTitleStates.remove(player.getUniqueId());
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (parcel.getCountdownEndsAt() <= 0L) {
+            removeParcelCountdownBossBar(player);
+            parcelCountdownTitleStates.remove(player.getUniqueId());
+            return;
+        }
+        if (parcel.getCountdownEndsAt() <= now) {
+            finishParcelCountdown(island, parcel, true);
+            removeParcelCountdownBossBar(player);
+            parcelCountdownTitleStates.remove(player.getUniqueId());
+            return;
+        }
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        if (parcelKey == null) {
+            removeParcelCountdownBossBar(player);
+            parcelCountdownTitleStates.remove(player.getUniqueId());
+            return;
+        }
+
+        long countdownStartAt = parcel.getCountdownStartAt();
+        long countdownEndsAt = parcel.getCountdownEndsAt();
+        long durationMs = Math.max(1L, parcel.getCountdownDurationSeconds() * 1000L);
+        if (countdownStartAt > now) {
+            int countdownNumber = (int)Math.max(1L, Math.min(3L, (countdownStartAt - now + 999L) / 1000L));
+            sendParcelCountdownTitle(player, parcelKey, countdownNumber);
+            double progress = Math.max(0.0, Math.min(1.0, (double)(countdownStartAt - now) / 3000.0));
+            showParcelCountdownBossBar(
+                player,
+                ChatColor.GOLD + "Start in "
+                    + ChatColor.WHITE + countdownNumber
+                    + ChatColor.DARK_GRAY + " | "
+                    + ChatColor.WHITE + islandService.getParcelDisplayName(parcel),
+                BarColor.YELLOW,
+                progress <= 0.0 ? 0.01 : progress
+            );
+            return;
+        }
+
+        sendParcelCountdownTitle(player, parcelKey, 0);
+        long remainingMs = Math.max(0L, countdownEndsAt - now);
+        double progress = Math.max(0.0, Math.min(1.0, (double)remainingMs / (double)durationMs));
+        showParcelCountdownBossBar(
+            player,
+            ChatColor.AQUA + "Countdown"
+                + ChatColor.DARK_GRAY + " | "
+                + ChatColor.WHITE + islandService.getParcelDisplayName(parcel)
+                + ChatColor.DARK_GRAY + " | "
+                + ChatColor.WHITE + formatMillisShort(remainingMs),
+            BarColor.BLUE,
+            progress <= 0.0 ? 0.01 : progress
+        );
+    }
+
+    private void finishParcelCountdown(IslandData island, ParcelData parcel, boolean notifyPlayers) {
+        if (island == null || parcel == null) return;
+        if (notifyPlayers) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (!isPlayerInsideParcel(online, island, parcel)) continue;
+                removeParcelCountdownBossBar(online);
+                parcelCountdownTitleStates.remove(online.getUniqueId());
+                online.sendTitle(ChatColor.RED + "Zeit abgelaufen", ChatColor.GRAY + islandService.getParcelDisplayName(parcel), 0, 30, 10);
+            }
+        }
+        islandService.finishParcelCountdown(island, parcel);
+    }
+
+    private boolean isPlayerInsideParcel(Player player, IslandData island, ParcelData parcel) {
+        if (player == null || island == null || parcel == null || !player.isOnline()) return false;
+        if (!skyWorldService.isSkyCityWorld(player.getWorld())) return false;
+        IslandData currentIsland = islandService.getIslandAt(player.getLocation());
+        if (currentIsland == null || !island.getOwner().equals(currentIsland.getOwner())) return false;
+        ParcelData currentParcel = islandService.getParcelAt(island, player.getLocation());
+        return currentParcel != null && parcel.getChunkKey().equals(currentParcel.getChunkKey());
+    }
+
+    private void sendParcelCountdownTitle(Player player, String parcelKey, int countdownNumber) {
+        if (player == null || parcelKey == null) return;
+        String stateKey = parcelKey + ":" + countdownNumber;
+        if (stateKey.equals(parcelCountdownTitleStates.get(player.getUniqueId()))) return;
+        parcelCountdownTitleStates.put(player.getUniqueId(), stateKey);
+        if (countdownNumber > 0) {
+            player.sendTitle(ChatColor.GOLD.toString() + countdownNumber, ChatColor.GRAY + "Startet gleich", 0, 15, 5);
+            return;
+        }
+        player.sendTitle(ChatColor.GREEN + "Los!", ChatColor.GRAY + "Der Countdown l\u00e4uft", 0, 20, 8);
+    }
+
+    private boolean tryPickupCtfFlag(Player player, Block clicked) {
+        if (player == null || clicked == null || clicked.getType() != Material.TARGET) return false;
+        IslandData island = islandService.getIslandAt(clicked.getLocation());
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, clicked.getLocation());
+        if (parcel == null || !parcel.isGamesEnabled() || !parcel.isCtfEnabled()) return false;
+        Material playerTeam = parcelPvpTeamWool.get(player.getUniqueId());
+        if (!isWool(playerTeam)) {
+            player.sendMessage(ChatColor.RED + "Du brauchst zuerst eine Teamfarbe auf Wolle.");
+            return true;
+        }
+        CtfFlagDefinition flag = findCtfFlagAt(parcel, clicked.getLocation());
+        if (flag == null) return false;
+        if (flag.teamWool() == playerTeam) {
+            player.sendMessage(ChatColor.RED + "Du kannst deine eigene Flagge nicht tragen.");
+            return true;
+        }
+        if (ctfCarrierStates.containsKey(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Du tr\u00e4gst bereits eine Flagge.");
+            return true;
+        }
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        if (parcelKey == null) return true;
+        CtfRuntime runtime = ctfRuntime(parcelKey);
+        if (runtime.shelfByFlag().containsKey(flag.id())) {
+            player.sendMessage(ChatColor.RED + "Diese Flagge wurde bereits abgegeben.");
+            return true;
+        }
+        if (runtime.carrierByFlag().containsKey(flag.id())) {
+            player.sendMessage(ChatColor.RED + "Diese Flagge wird bereits getragen.");
+            return true;
+        }
+        CtfCarrierState carrier = new CtfCarrierState(parcelKey, flag.id(), flag.teamWool(), flag.bannerMaterial(), flag.targetLocation(), flag.bannerLocation());
+        ctfCarrierStates.put(player.getUniqueId(), carrier);
+        runtime.carrierByFlag().put(flag.id(), player.getUniqueId());
+        ensureCtfCarryDisplay(player, carrier);
+        player.sendMessage(ChatColor.GOLD + "Du tr\u00e4gst jetzt die " + woolLabel(flag.teamWool()) + ChatColor.GOLD + "-Flagge.");
+        refreshParcelPvpScoreboards(island, parcel);
+        return true;
+    }
+
+    private boolean tryCaptureCtfFlag(Player player, Block clicked) {
+        if (player == null || clicked == null) return false;
+        CtfCarrierState carrier = ctfCarrierStates.get(player.getUniqueId());
+        if (carrier == null) return false;
+        IslandData island = islandService.getIslandAt(clicked.getLocation());
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, clicked.getLocation());
+        if (parcel == null || !parcel.isGamesEnabled() || !parcel.isCtfEnabled()) return false;
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        if (parcelKey == null || !parcelKey.equals(carrier.parcelKey())) return false;
+        CtfShelfDefinition shelf = findCtfShelfAt(parcel, clicked.getLocation());
+        if (shelf == null) return false;
+        Material playerTeam = parcelPvpTeamWool.get(player.getUniqueId());
+        if (!isWool(playerTeam) || shelf.teamWool() != playerTeam) {
+            player.sendMessage(ChatColor.RED + "Du musst die Flagge an deinem Team-Checkpoint abgeben.");
+            return true;
+        }
+        CtfRuntime runtime = ctfRuntime(parcelKey);
+        long usedSlots = runtime.shelfByFlag().values().stream().filter(shelf.id()::equals).count();
+        if (usedSlots >= shelf.capacity()) {
+            player.sendMessage(ChatColor.RED + "Dieses Shelf ist bereits voll.");
+            return true;
+        }
+        runtime.carrierByFlag().remove(carrier.flagId());
+        runtime.shelfByFlag().put(carrier.flagId(), shelf.id());
+        ctfCarrierStates.remove(player.getUniqueId());
+        removeCtfCarryDisplay(player.getUniqueId());
+        syncParcelCtfShelfVisuals(parcel, runtime);
+        player.sendMessage(ChatColor.GREEN + "Flagge abgegeben.");
+        if (areAllCtfFlagsCaptured(parcel, runtime)) {
+            Material winner = determineCtfWinningTeam(parcel, runtime);
+            broadcastParcelPvpMessage(ChatColor.GOLD + player.getName() + ChatColor.GRAY + " hat CTF auf " + islandService.getParcelDisplayName(parcel) + " abgeschlossen"
+                    + (isWool(winner) ? ChatColor.GRAY + " f\u00fcr Team " + woolChatColor(winner) + woolLabel(winner) : "")
+                    + ChatColor.GRAY + ".");
+        }
+        refreshParcelPvpScoreboards(island, parcel);
+        return true;
+    }
+
+    private boolean tryResetCtfViaButton(Player player, Block clicked) {
+        if (player == null || clicked == null) return false;
+        Material type = clicked.getType();
+        String name = type.name();
+        if (!(name.endsWith("_BUTTON") || type == Material.LEVER)) return false;
+        IslandData island = islandService.getIslandAt(clicked.getLocation());
+        ParcelData parcel = island == null ? null : islandService.getParcelAt(island, clicked.getLocation());
+        if (parcel == null || !parcel.isCtfEnabled()) return false;
+        if (!islandService.isParcelOwner(island, parcel, player.getUniqueId())) return false;
+        for (BlockFace face : List.of(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST, BlockFace.UP, BlockFace.DOWN)) {
+            Block adjacent = clicked.getRelative(face);
+            if (findCtfFlagAt(parcel, adjacent.getLocation()) != null) {
+                resetParcelCtf(island, parcel);
+                player.sendMessage(ChatColor.YELLOW + "CTF wurde zur\u00fcckgesetzt.");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void returnCtfFlagToBase(UUID playerId, boolean announce) {
+        CtfCarrierState carrier = ctfCarrierStates.remove(playerId);
+        if (carrier == null) return;
+        removeCtfCarryDisplay(playerId);
+        CtfRuntime runtime = parcelCtfRuntime.get(carrier.parcelKey());
+        if (runtime != null) {
+            runtime.carrierByFlag().remove(carrier.flagId());
+        }
+        Player player = Bukkit.getPlayer(playerId);
+        if (announce && player != null) {
+            player.sendMessage(ChatColor.RED + "Die Flagge ist zur Basis zur\u00fcckgekehrt.");
+        }
+    }
+
+    private CtfRuntime ctfRuntime(String parcelKey) {
+        return parcelCtfRuntime.computeIfAbsent(parcelKey, ignored -> new CtfRuntime(new HashMap<>(), new LinkedHashMap<>()));
+    }
+
     private void showParcelGamesScoreboard(Player player, IslandData island, ParcelData parcel) {
         Scoreboard scoreboard = Bukkit.getScoreboardManager() == null ? null : Bukkit.getScoreboardManager().getNewScoreboard();
         if (scoreboard == null) return;
@@ -1749,9 +2092,26 @@ public class PlayerListener implements Listener {
         Material teamWool = parcelPvpTeamWool.get(player.getUniqueId());
         objective.getScore(ChatColor.WHITE + "Team: " + formatPvpTeamLabel(teamWool)).setScore(score--);
         score = appendParcelTeamPoints(objective, score, island, parcel);
+        if (parcel.isCtfEnabled()) {
+            score = appendParcelCtfStatus(objective, score, island, parcel, player);
+        }
         objective.getScore(ChatColor.WHITE + "Modus: " + ChatColor.AQUA + "Games").setScore(score--);
         objective.getScore(ChatColor.GRAY + "Kein Spielerschaden").setScore(score--);
         player.setScoreboard(scoreboard);
+    }
+
+    private int appendParcelCtfStatus(Objective objective, int score, IslandData island, ParcelData parcel, Player player) {
+        if (objective == null || island == null || parcel == null || player == null || score <= 0) return score;
+        List<CtfFlagDefinition> flags = findCtfFlags(parcel);
+        String parcelKey = islandService.getParcelPvpKey(island, parcel);
+        CtfRuntime runtime = parcelKey == null ? null : parcelCtfRuntime.get(parcelKey);
+        int placed = runtime == null ? 0 : runtime.shelfByFlag().size();
+        objective.getScore(ChatColor.GOLD + "CTF: " + ChatColor.WHITE + placed + "/" + flags.size()).setScore(score--);
+        CtfCarrierState carrier = ctfCarrierStates.get(player.getUniqueId());
+        if (carrier != null && score > 0) {
+            objective.getScore(ChatColor.YELLOW + "Flagge: " + woolChatColor(carrier.teamWool()) + woolLabel(carrier.teamWool())).setScore(score--);
+        }
+        return score;
     }
 
     private int appendParcelTeamPoints(Objective objective, int score, IslandData island, ParcelData parcel) {
@@ -1764,6 +2124,183 @@ public class PlayerListener implements Listener {
             objective.getScore(formatTeamScoreLine(entry)).setScore(score--);
         }
         return score;
+    }
+
+    private CtfFlagDefinition findCtfFlagAt(ParcelData parcel, Location location) {
+        if (parcel == null || location == null) return null;
+        for (CtfFlagDefinition flag : findCtfFlags(parcel)) {
+            if (sameBlock(flag.targetLocation(), location)) return flag;
+        }
+        return null;
+    }
+
+    private CtfShelfDefinition findCtfShelfAt(ParcelData parcel, Location location) {
+        if (parcel == null || location == null) return null;
+        for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
+            if (sameBlock(shelf.shelfLocation(), location)) return shelf;
+        }
+        return null;
+    }
+
+    private List<CtfFlagDefinition> findCtfFlags(ParcelData parcel) {
+        java.util.ArrayList<CtfFlagDefinition> flags = new java.util.ArrayList<>();
+        if (parcel == null || skyWorldService.getWorld() == null) return flags;
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
+                    Block target = skyWorldService.getWorld().getBlockAt(x, y, z);
+                    if (target.getType() != Material.TARGET) continue;
+                    Block banner = findFlagBannerBlock(target);
+                    if (banner == null) continue;
+                    Material teamWool = bannerMaterialToWool(banner.getType());
+                    if (!isWool(teamWool)) continue;
+                    String id = target.getX() + ":" + target.getY() + ":" + target.getZ();
+                    flags.add(new CtfFlagDefinition(id, teamWool, banner.getType(), target.getLocation(), banner.getLocation()));
+                }
+            }
+        }
+        return flags;
+    }
+
+    private List<CtfShelfDefinition> findCtfShelves(ParcelData parcel) {
+        java.util.ArrayList<CtfShelfDefinition> shelves = new java.util.ArrayList<>();
+        if (parcel == null || skyWorldService.getWorld() == null) return shelves;
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
+                    Block shelf = skyWorldService.getWorld().getBlockAt(x, y, z);
+                    if (!isCtfShelfBlock(shelf.getType())) continue;
+                    Material wool = shelf.getRelative(0, -1, 0).getType();
+                    if (!isWool(wool)) continue;
+                    String id = shelf.getX() + ":" + shelf.getY() + ":" + shelf.getZ();
+                    int capacity = shelf.getType() == Material.CHISELED_BOOKSHELF ? 6 : 3;
+                    shelves.add(new CtfShelfDefinition(id, wool, shelf.getLocation(), capacity));
+                }
+            }
+        }
+        return shelves;
+    }
+
+    private Block findFlagBannerBlock(Block target) {
+        if (target == null) return null;
+        Block above = target.getRelative(0, 1, 0);
+        if (isBanner(above.getType())) return above;
+        for (BlockFace face : List.of(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)) {
+            Block adjacent = target.getRelative(face);
+            if (isBanner(adjacent.getType())) return adjacent;
+        }
+        return null;
+    }
+
+    private boolean isBanner(Material material) {
+        return material != null && material.name().endsWith("_BANNER");
+    }
+
+    private boolean isCtfShelfBlock(Material material) {
+        if (material == null) return false;
+        return material == Material.CHISELED_BOOKSHELF || material.name().endsWith("_SHELF");
+    }
+
+    private Material bannerMaterialToWool(Material bannerMaterial) {
+        if (!isBanner(bannerMaterial)) return null;
+        String woolName = bannerMaterial.name().replace("_WALL_BANNER", "_WOOL").replace("_BANNER", "_WOOL");
+        try {
+            return Material.valueOf(woolName);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private void ensureCtfCarryDisplay(Player player, CtfCarrierState carrier) {
+        if (player == null || carrier == null || player.getWorld() == null) return;
+        Location displayLocation = player.getLocation().clone().add(0.0, 2.2, 0.0);
+        UUID existingId = ctfCarryDisplaysByPlayer.get(player.getUniqueId());
+        Entity existing = existingId == null ? null : Bukkit.getEntity(existingId);
+        if (existing instanceof ItemDisplay display) {
+            display.teleport(displayLocation);
+            display.setItemStack(new ItemStack(carrier.bannerMaterial()));
+            return;
+        }
+        removeCtfCarryDisplay(player.getUniqueId());
+        ItemDisplay display = (ItemDisplay) player.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
+        display.setItemStack(new ItemStack(carrier.bannerMaterial()));
+        display.setBillboard(Display.Billboard.VERTICAL);
+        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.65F, 0.65F, 0.65F), new AxisAngle4f()));
+        display.addScoreboardTag("skycity_ctf_carry_" + player.getUniqueId());
+        ctfCarryDisplaysByPlayer.put(player.getUniqueId(), display.getUniqueId());
+    }
+
+    private void removeCtfCarryDisplay(UUID playerId) {
+        if (playerId == null) return;
+        UUID displayId = ctfCarryDisplaysByPlayer.remove(playerId);
+        if (displayId == null) return;
+        Entity entity = Bukkit.getEntity(displayId);
+        if (entity != null) entity.remove();
+    }
+
+    private void syncParcelCtfShelfVisuals(ParcelData parcel, CtfRuntime runtime) {
+        if (parcel == null) return;
+        clearParcelCtfShelfVisuals(parcel);
+        if (runtime == null) return;
+        Map<String, CtfFlagDefinition> flagsById = new HashMap<>();
+        for (CtfFlagDefinition flag : findCtfFlags(parcel)) {
+            flagsById.put(flag.id(), flag);
+        }
+        for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
+            BlockState state = shelf.shelfLocation().getBlock().getState();
+            if (!(state instanceof org.bukkit.block.ChiseledBookshelf shelfState)) continue;
+            shelfState.getInventory().clear();
+            int slot = 0;
+            for (Map.Entry<String, String> entry : runtime.shelfByFlag().entrySet()) {
+                if (!shelf.id().equals(entry.getValue())) continue;
+                CtfFlagDefinition flag = flagsById.get(entry.getKey());
+                if (flag == null || slot >= shelfState.getInventory().getSize()) continue;
+                ItemStack book = new ItemStack(Material.WRITABLE_BOOK);
+                ItemMeta meta = book.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName(woolChatColor(flag.teamWool()) + woolLabel(flag.teamWool()) + ChatColor.WHITE + "-Flagge");
+                    book.setItemMeta(meta);
+                }
+                shelfState.getInventory().setItem(slot++, book);
+            }
+            shelfState.update(true, false);
+        }
+    }
+
+    private void clearParcelCtfShelfVisuals(ParcelData parcel) {
+        if (parcel == null) return;
+        for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
+            BlockState state = shelf.shelfLocation().getBlock().getState();
+            if (state instanceof org.bukkit.block.ChiseledBookshelf shelfState) {
+                shelfState.getInventory().clear();
+                shelfState.update(true, false);
+            }
+        }
+    }
+
+    private boolean areAllCtfFlagsCaptured(ParcelData parcel, CtfRuntime runtime) {
+        if (parcel == null || runtime == null) return false;
+        return !findCtfFlags(parcel).isEmpty() && runtime.shelfByFlag().size() >= findCtfFlags(parcel).size();
+    }
+
+    private Material determineCtfWinningTeam(ParcelData parcel, CtfRuntime runtime) {
+        if (parcel == null || runtime == null) return null;
+        Map<String, CtfShelfDefinition> shelvesById = new HashMap<>();
+        for (CtfShelfDefinition shelf : findCtfShelves(parcel)) {
+            shelvesById.put(shelf.id(), shelf);
+        }
+        Material winner = null;
+        for (String shelfId : runtime.shelfByFlag().values()) {
+            CtfShelfDefinition shelf = shelvesById.get(shelfId);
+            if (shelf == null) return null;
+            if (winner == null) {
+                winner = shelf.teamWool();
+                continue;
+            }
+            if (winner != shelf.teamWool()) return null;
+        }
+        return winner;
     }
 
     private List<TeamScoreEntry> collectParcelTeamScores(IslandData island, ParcelData parcel) {
@@ -2024,11 +2561,14 @@ public class PlayerListener implements Listener {
                 applyIslandNightVision(player, null);
                 removeIslandBossBar(player);
                 removeChunkEffectBossBar(player);
+                removeParcelCountdownBossBar(player);
+                parcelCountdownTitleStates.remove(player.getUniqueId());
                 continue;
             }
             updateParcelPvpState(player, player.getLocation());
             updateParcelPvpCompass(player, player.getLocation());
             updateParcelPvpTeam(player, player.getLocation());
+            updateParcelCountdownState(player, player.getLocation());
             updateParcelPveState(player, player.getLocation());
             if (islandService.isInSpawnPlot(player.getLocation())) {
                 applyIslandTimeMode(player, null);
@@ -2152,6 +2692,24 @@ public class PlayerListener implements Listener {
         bar.setVisible(true);
     }
 
+    private void showParcelCountdownBossBar(Player player, String title, BarColor color, double progress) {
+        BossBar bar = parcelCountdownBossBars.computeIfAbsent(player.getUniqueId(), id -> {
+            BossBar created = Bukkit.createBossBar("", BarColor.BLUE, BarStyle.SOLID);
+            created.setProgress(1.0);
+            created.addPlayer(player);
+            created.setVisible(true);
+            return created;
+        });
+        if (!bar.getPlayers().contains(player)) {
+            bar.addPlayer(player);
+        }
+        bar.setTitle(title);
+        bar.setColor(color == null ? BarColor.BLUE : color);
+        bar.setStyle(BarStyle.SOLID);
+        bar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
+        bar.setVisible(true);
+    }
+
     private String formatMillisShort(long ms) {
         if (ms <= 0L) return "0s";
         long totalSeconds = ms / 1000L;
@@ -2238,6 +2796,15 @@ public class PlayerListener implements Listener {
     private void removeChunkEffectBossBar(Player player) {
         if (player == null) return;
         BossBar bar = chunkEffectBossBars.remove(player.getUniqueId());
+        if (bar != null) {
+            bar.removePlayer(player);
+            bar.setVisible(false);
+        }
+    }
+
+    private void removeParcelCountdownBossBar(Player player) {
+        if (player == null) return;
+        BossBar bar = parcelCountdownBossBars.remove(player.getUniqueId());
         if (bar != null) {
             bar.removePlayer(player);
             bar.setVisible(false);
