@@ -52,11 +52,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         stopGenerationStatusMessages(player.getUniqueId());
-        IslandData island = islandService.getIsland(player.getUniqueId()).orElse(null);
+        IslandData personalIsland = islandService.getIsland(player.getUniqueId()).orElse(null);
+        IslandData island = resolveCommandIsland(player, sub, personalIsland);
         if ("create".equals(sub)) {
-            if (island != null) {
+            if (personalIsland != null) {
                 player.sendMessage(ChatColor.YELLOW + "Du hast bereits eine Insel oder bist Member.");
-                player.openInventory(coreService.createIslandMenu(player, island));
+                player.openInventory(coreService.createIslandMenu(player, personalIsland));
                 return true;
             }
             String creationThrottleMessage = islandService.getIslandCreationThrottleMessage(player.getUniqueId());
@@ -188,6 +189,22 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             default -> player.sendMessage(ChatColor.RED + "Unbekannter Unterbefehl.");
         }
         return true;
+    }
+
+    private IslandData resolveCommandIsland(Player player, String sub, IslandData personalIsland) {
+        if (player == null) return personalIsland;
+        if (!usesCurrentIslandContext(sub)) return personalIsland;
+        IslandData currentIsland = islandService.getIslandAt(player.getLocation());
+        return currentIsland != null ? currentIsland : personalIsland;
+    }
+
+    private boolean usesCurrentIslandContext(String sub) {
+        return switch (sub) {
+            case "setspawn", "showchunks", "hidechunks", "chunkunlock", "title",
+                 "masterinvite", "owner", "member", "unmember",
+                 "kick", "ban", "unban", "pkick", "pban", "punban", "plot" -> true;
+            default -> false;
+        };
     }
 
     private void handleTitleCommand(Player player, IslandData island, String[] args) {
@@ -334,14 +351,22 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             case "remove" -> {
                 boolean selfRemove = target.getUniqueId().equals(player.getUniqueId());
+                if (selfRemove && !island.getOwners().contains(player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Du bist auf dieser Insel nicht als Owner eingetragen.");
+                    return;
+                }
                 if (!selfRemove && !islandService.isIslandMaster(island, player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Nur Master k\u00f6nnen Owner entfernen.");
+                    return;
+                }
+                if (!selfRemove && !island.getOwners().contains(target.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Dieser Spieler ist auf dieser Insel kein Owner.");
                     return;
                 }
                 boolean changed = islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId());
                 player.sendMessage(changed
                         ? (selfRemove ? ChatColor.YELLOW + "Du bist als Owner ausgetragen." : ChatColor.YELLOW + "Owner entfernt.")
-                        : ChatColor.RED + "Owner konnte nicht entfernt werden.");
+                        : ChatColor.RED + "Owner konnte auf dieser Insel nicht entfernt werden.");
             }
             default -> player.sendMessage(ChatColor.RED + "Nutze /is owner <add|remove> <spieler>");
         }
@@ -547,7 +572,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 }
                 boolean changed = islandService.revokeMemberPermission(island, target.getUniqueId(), permission);
                 if (!changed) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Du hast auf dieser Insel dieses Member-Recht nicht.");
                     return;
                 }
                 player.sendMessage(ChatColor.YELLOW + "Du bist als Member ausgetragen: " + permission.name().toLowerCase(Locale.ROOT));
