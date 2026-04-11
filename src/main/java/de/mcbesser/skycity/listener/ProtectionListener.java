@@ -17,6 +17,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
+import org.bukkit.block.DoubleChest;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.BlockData;
@@ -1331,7 +1332,7 @@ public class ProtectionListener implements Listener {
         if (event.getInventory().getLocation() == null) return;
         IslandData island = islandService.getIslandAt(event.getInventory().getLocation());
         if (island == null) return;
-        if (event.getInventory().getHolder() instanceof Container) {
+        if (event.getInventory().getHolder() instanceof Container || event.getInventory().getHolder() instanceof DoubleChest) {
             ParcelData parcel = islandService.getParcelAt(island, event.getInventory().getLocation());
             boolean parcelOwner = parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId());
             boolean allowed = islandService.hasContainerAccess(player.getUniqueId(), island)
