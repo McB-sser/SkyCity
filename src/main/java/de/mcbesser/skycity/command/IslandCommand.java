@@ -319,10 +319,6 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         String action = args[1].toLowerCase(Locale.ROOT);
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
-        if (target.getUniqueId().equals(player.getUniqueId()) && "remove".equals(action)) {
-            player.sendMessage(ChatColor.RED + "Owner k\u00f6nnen sich nicht selbst entfernen.");
-            return;
-        }
         switch (action) {
             case "add" -> {
                 if (!islandService.isIslandOwner(island, player.getUniqueId())) {
@@ -337,12 +333,15 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(changed ? ChatColor.GREEN + "Owner hinzugef\u00fcgt." : ChatColor.YELLOW + "Keine \u00c4nderung.");
             }
             case "remove" -> {
-                if (!islandService.isIslandMaster(island, player.getUniqueId())) {
+                boolean selfRemove = target.getUniqueId().equals(player.getUniqueId());
+                if (!selfRemove && !islandService.isIslandMaster(island, player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Nur Master k\u00f6nnen Owner entfernen.");
                     return;
                 }
                 boolean changed = islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-                player.sendMessage(changed ? ChatColor.YELLOW + "Owner entfernt." : ChatColor.RED + "Owner konnte nicht entfernt werden.");
+                player.sendMessage(changed
+                        ? (selfRemove ? ChatColor.YELLOW + "Du bist als Owner ausgetragen." : ChatColor.YELLOW + "Owner entfernt.")
+                        : ChatColor.RED + "Owner konnte nicht entfernt werden.");
             }
             default -> player.sendMessage(ChatColor.RED + "Nutze /is owner <add|remove> <spieler>");
         }
@@ -534,6 +533,27 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleTrustCommand(Player player, IslandData island, String[] args, boolean grant) {
+        if (!grant && args.length >= 2) {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+            if (target.getUniqueId().equals(player.getUniqueId())) {
+                IslandService.TrustPermission permission = IslandService.TrustPermission.ALL;
+                if (args.length >= 3) {
+                    try {
+                        permission = IslandService.TrustPermission.valueOf(args[2].toUpperCase(Locale.ROOT));
+                    } catch (IllegalArgumentException ex) {
+                        player.sendMessage(ChatColor.RED + "Recht muss build, container, redstone oder all sein.");
+                        return;
+                    }
+                }
+                boolean changed = islandService.revokeMemberPermission(island, target.getUniqueId(), permission);
+                if (!changed) {
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
+                    return;
+                }
+                player.sendMessage(ChatColor.YELLOW + "Du bist als Member ausgetragen: " + permission.name().toLowerCase(Locale.ROOT));
+                return;
+            }
+        }
         if (!islandService.isIslandOwner(island, player.getUniqueId())) {
             player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
             return;

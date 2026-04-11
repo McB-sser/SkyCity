@@ -1937,6 +1937,7 @@ public class IslandService {
     }
 
     public boolean revokeMemberPermission(IslandData island, UUID target, TrustPermission permission) {
+        if (island == null || target == null || permission == null) return false;
         boolean changed = false;
         switch (permission) {
             case BUILD -> changed = island.getMemberBuildAccess().remove(target);
@@ -1987,7 +1988,7 @@ public class IslandService {
 
     public boolean revokeOwnerRole(IslandData island, UUID actor, UUID target) {
         if (island == null || actor == null || target == null) return false;
-        if (!isIslandMaster(island, actor)) return false; // nur Master darf Owner austragen
+        if (!actor.equals(target) && !isIslandMaster(island, actor)) return false; // andere Owner nur als Master entfernen, sich selbst darf man austragen
         boolean changed = island.getOwners().remove(target);
         if (changed) {
             island.setLastActiveAt(System.currentTimeMillis());

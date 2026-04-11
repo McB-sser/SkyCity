@@ -1369,10 +1369,15 @@ public class CoreMenuListener implements Listener {
         var target = player.getServer().getOfflinePlayer(targetName);
         if (target == null || target.getUniqueId() == null) return;
 
+        boolean selfRemove = event.isRightClick() && target.getUniqueId().equals(player.getUniqueId());
         boolean changed = event.isRightClick()
                 ? islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId())
                 : islandService.grantOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
+        if (!changed) {
+            player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
+        } else if (selfRemove) {
+            player.sendMessage(ChatColor.YELLOW + "Du bist als Owner ausgetragen.");
+        }
         player.openInventory(coreService.createIslandOwnersMenu(player, island, holder.page(), holder.filter()));
     }
 
