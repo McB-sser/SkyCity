@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.listener;
+package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
@@ -1313,14 +1313,19 @@ public class PlayerListener implements Listener {
                 stopPreparationStatusMessages(playerId);
                 return;
             }
+            IslandData own = islandService.getPrimaryIsland(playerId).orElse(null);
+            if (own == null && !islandService.isIslandCreationPending(playerId)) {
+                stopPreparationStatusMessages(playerId);
+                return;
+            }
             if (islandService.isIslandReady(playerId)) {
                 stopPreparationStatusMessages(playerId);
                 return;
             }
 
-            int queuePos = islandService.getIslandCreationQueuePosition(playerId);
-            if (queuePos > 0) {
-                live.sendMessage(ChatColor.YELLOW + "Deine Insel wird vorbereitet... Warteschlange Platz " + queuePos + ".");
+            int pregenerationQueuePos = islandService.getIslandPregenerationQueuePosition(playerId);
+            if (pregenerationQueuePos > 1) {
+                live.sendMessage(ChatColor.YELLOW + "Deine Startchunks sind bereit. Weitere Generierung: Pregeneration Platz " + pregenerationQueuePos + ".");
                 return;
             }
 

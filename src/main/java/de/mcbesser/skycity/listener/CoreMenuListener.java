@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.listener;
+package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.model.IslandData;
 import de.mcbesser.skycity.model.IslandPlot;
@@ -271,6 +271,16 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.RED + "Dieser Slot ist nicht mehr frei.");
             return;
         }
+        String creationThrottleMessage = islandService.getIslandCreationThrottleMessage(player.getUniqueId());
+        if (creationThrottleMessage != null) {
+            player.sendMessage(ChatColor.YELLOW + creationThrottleMessage);
+            return;
+        }
+        String recreationWaitMessage = islandService.getRecreationQueueWaitMessage(player.getUniqueId());
+        if (recreationWaitMessage != null) {
+            player.sendMessage(ChatColor.YELLOW + recreationWaitMessage);
+            return;
+        }
         player.closeInventory();
         player.teleport(islandService.getSpawnLocation());
         boolean queued = islandService.queueIslandCreation(player.getUniqueId(), new IslandPlot(gridX, gridZ), created -> {
@@ -278,6 +288,9 @@ public class CoreMenuListener implements Listener {
             coreService.ensureCorePlaced(created);
             islandService.queuePregeneration(created);
             islandService.ensureTemplateAtLocation(created, created.getIslandSpawn());
+            Bukkit.broadcastMessage(ChatColor.GOLD + "Willkommen " + ChatColor.YELLOW + player.getName()
+                    + ChatColor.GOLD + " auf der neuen Insel" + ChatColor.YELLOW + " " + created.getGridX() + ":" + created.getGridZ()
+                    + ChatColor.GOLD + "!");
             Player online = Bukkit.getPlayer(created.getOwner());
             if (online == null || !online.isOnline()) return;
             online.sendMessage(ChatColor.GREEN + "Deine Insel wurde auf Slot " + created.getGridX() + ":" + created.getGridZ() + " geclaimt.");
@@ -289,9 +302,9 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.RED + "Dieser Slot ist nicht mehr frei.");
             return;
         }
-        int queuePos = islandService.getIslandCreationQueuePosition(player.getUniqueId());
-        if (queuePos > 1) {
-            player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + ". Warteschlange Platz " + queuePos + ".");
+        int pregenerationQueuePos = islandService.getIslandPregenerationQueuePosition(player.getUniqueId());
+        if (pregenerationQueuePos > 1) {
+            player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + ". Startchunks sind bereit, Pregeneration Platz " + pregenerationQueuePos + ".");
         } else {
             player.sendMessage(ChatColor.GOLD + "Insel-Claim gestartet f\u00fcr Slot " + gridX + ":" + gridZ + "...");
         }
@@ -315,6 +328,11 @@ public class CoreMenuListener implements Listener {
             if (islandService.isIslandReady(playerId)) {
                 live.sendMessage(ChatColor.GREEN + "Deine Insel ist vollst\u00e4ndig generiert.");
                 stopClaimStatusMessages(playerId);
+                return;
+            }
+            int pregenerationQueuePos = islandService.getIslandPregenerationQueuePosition(playerId);
+            if (pregenerationQueuePos > 1) {
+                live.sendMessage(ChatColor.YELLOW + "Deine Startchunks sind bereit. Weitere Generierung: Pregeneration Platz " + pregenerationQueuePos + ".");
                 return;
             }
             int progress = islandService.getIslandPregenerationProgress(playerId);

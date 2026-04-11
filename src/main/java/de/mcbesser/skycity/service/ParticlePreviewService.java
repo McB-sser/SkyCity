@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.service;
+package de.mcbesser.skycity.service;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
@@ -109,10 +109,10 @@ public class ParticlePreviewService {
 
         // Additional colored border highlight (green = unlocked, red = locked)
         for (int i = 0; i <= 16; i += 2) {
-            player.spawnParticle(Particle.REDSTONE, baseX + i, y + 0.05, baseZ, 1, 0, 0, 0, 0, dust);
-            player.spawnParticle(Particle.REDSTONE, baseX + i, y + 0.05, baseZ + 16, 1, 0, 0, 0, 0, dust);
-            player.spawnParticle(Particle.REDSTONE, baseX, y + 0.05, baseZ + i, 1, 0, 0, 0, 0, dust);
-            player.spawnParticle(Particle.REDSTONE, baseX + 16, y + 0.05, baseZ + i, 1, 0, 0, 0, 0, dust);
+            player.spawnParticle(Particle.DUST, baseX + i, y + 0.05, baseZ, 1, 0, 0, 0, 0, dust);
+            player.spawnParticle(Particle.DUST, baseX + i, y + 0.05, baseZ + 16, 1, 0, 0, 0, 0, dust);
+            player.spawnParticle(Particle.DUST, baseX, y + 0.05, baseZ + i, 1, 0, 0, 0, 0, dust);
+            player.spawnParticle(Particle.DUST, baseX + 16, y + 0.05, baseZ + i, 1, 0, 0, 0, 0, dust);
         }
         drawIslandBoundaryMarkers(player, baseX, baseZ, y, relX, relZ);
 
@@ -124,20 +124,20 @@ public class ParticlePreviewService {
         double yLower = y - 0.8;
         for (int i = 0; i <= 16; i += 2) {
             if (relZ == 0) {
-                player.spawnParticle(Particle.REDSTONE, baseX + i, yUpper, baseZ, 1, 0, 0, 0, 0, orange);
-                player.spawnParticle(Particle.REDSTONE, baseX + i, yLower, baseZ, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX + i, yUpper, baseZ, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX + i, yLower, baseZ, 1, 0, 0, 0, 0, orange);
             }
             if (relZ == 63) {
-                player.spawnParticle(Particle.REDSTONE, baseX + i, yUpper, baseZ + 16, 1, 0, 0, 0, 0, orange);
-                player.spawnParticle(Particle.REDSTONE, baseX + i, yLower, baseZ + 16, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX + i, yUpper, baseZ + 16, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX + i, yLower, baseZ + 16, 1, 0, 0, 0, 0, orange);
             }
             if (relX == 0) {
-                player.spawnParticle(Particle.REDSTONE, baseX, yUpper, baseZ + i, 1, 0, 0, 0, 0, orange);
-                player.spawnParticle(Particle.REDSTONE, baseX, yLower, baseZ + i, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX, yUpper, baseZ + i, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX, yLower, baseZ + i, 1, 0, 0, 0, 0, orange);
             }
             if (relX == 63) {
-                player.spawnParticle(Particle.REDSTONE, baseX + 16, yUpper, baseZ + i, 1, 0, 0, 0, 0, orange);
-                player.spawnParticle(Particle.REDSTONE, baseX + 16, yLower, baseZ + i, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX + 16, yUpper, baseZ + i, 1, 0, 0, 0, 0, orange);
+                player.spawnParticle(Particle.DUST, baseX + 16, yLower, baseZ + i, 1, 0, 0, 0, 0, orange);
             }
         }
     }

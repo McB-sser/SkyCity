@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.service;
+package de.mcbesser.skycity.service;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.AccessSettings;
@@ -557,7 +557,7 @@ public class CoreService {
       ItemStack item = new ItemStack(Material.SHULKER_BOX);
       ItemMeta meta = item.getItemMeta();
       meta.setDisplayName(ChatColor.AQUA + "SkyCity Core");
-      meta.addEnchant(Enchantment.DURABILITY, 1, true);
+      meta.addEnchant(Enchantment.UNBREAKING, 1, true);
       meta.addItemFlags(new ItemFlag[]{ItemFlag.HIDE_ENCHANTS});
       meta.getPersistentDataContainer().set(this.plugin.getCoreItemKey(), PersistentDataType.BYTE, (byte)1);
       item.setItemMeta(meta);
@@ -1339,18 +1339,28 @@ public class CoreService {
          } else {
             Biome biome = BIOME_OPTIONS.get(idx);
             boolean selected = this.islandService.getBiomeForChunk(island, relChunkX, relChunkZ) == biome;
-            Material icon = switch (biome) {
-               case DESERT -> Material.SAND;
-               case BADLANDS, WOODED_BADLANDS -> Material.RED_SAND;
-               case SWAMP, MANGROVE_SWAMP -> Material.MANGROVE_ROOTS;
-               case SNOWY_PLAINS, ICE_SPIKES -> Material.SNOW_BLOCK;
-               case MUSHROOM_FIELDS -> Material.RED_MUSHROOM_BLOCK;
-               case JUNGLE, BAMBOO_JUNGLE, SPARSE_JUNGLE -> Material.JUNGLE_LEAVES;
-               case CHERRY_GROVE -> Material.CHERRY_LEAVES;
-               case SAVANNA, SAVANNA_PLATEAU -> Material.ACACIA_LOG;
-               case TAIGA -> Material.SPRUCE_LOG;
-               default -> Material.GRASS_BLOCK;
-            };
+            Material icon;
+            if (biome == Biome.DESERT) {
+               icon = Material.SAND;
+            } else if (biome == Biome.BADLANDS || biome == Biome.WOODED_BADLANDS) {
+               icon = Material.RED_SAND;
+            } else if (biome == Biome.SWAMP || biome == Biome.MANGROVE_SWAMP) {
+               icon = Material.MANGROVE_ROOTS;
+            } else if (biome == Biome.SNOWY_PLAINS || biome == Biome.ICE_SPIKES) {
+               icon = Material.SNOW_BLOCK;
+            } else if (biome == Biome.MUSHROOM_FIELDS) {
+               icon = Material.RED_MUSHROOM_BLOCK;
+            } else if (biome == Biome.JUNGLE || biome == Biome.BAMBOO_JUNGLE || biome == Biome.SPARSE_JUNGLE) {
+               icon = Material.JUNGLE_LEAVES;
+            } else if (biome == Biome.CHERRY_GROVE) {
+               icon = Material.CHERRY_LEAVES;
+            } else if (biome == Biome.SAVANNA || biome == Biome.SAVANNA_PLATEAU) {
+               icon = Material.ACACIA_LOG;
+            } else if (biome == Biome.TAIGA) {
+               icon = Material.SPRUCE_LOG;
+            } else {
+               icon = Material.GRASS_BLOCK;
+            }
             inv.setItem(
                GRID_SLOTS.get(i),
                this.named(
@@ -1484,6 +1494,10 @@ public class CoreService {
                cleanupLore.add(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ);
                cleanupLore.add(ChatColor.GRAY + "Fortschritt: " + progress + "/4096 Chunks (" + String.format(java.util.Locale.US, "%.1f", percent) + "%)");
                cleanupLore.add(ChatColor.GRAY + "Ca. noch: " + etaSeconds + "s");
+               if (this.islandService.getPregenerationQueueSize() > 0) {
+                  cleanupLore.add(ChatColor.YELLOW + "Generierung hat Vorrang");
+                  cleanupLore.add(ChatColor.GRAY + "L\u00f6schung startet erst nach der Pregeneration-Queue");
+               }
                if (queuePosition > 1) {
                   cleanupLore.add(ChatColor.YELLOW + "L\u00f6sch-Warteschlange: Platz " + queuePosition);
                   cleanupLore.add(ChatColor.GRAY + "Start ca. in: " + queueWaitSeconds + "s");

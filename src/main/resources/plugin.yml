@@ -1,7 +1,7 @@
-﻿name: SkyCity
+name: SkyCity
 version: 1.0-SNAPSHOT
 main: de.mcbesser.skycity.SkyCityPlugin
-api-version: "1.20"
+api-version: "26.1.1"
 load: STARTUP
 author: Codex
 softdepend: [PlaceholderAPI, Vault]

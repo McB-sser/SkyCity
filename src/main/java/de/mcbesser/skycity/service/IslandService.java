@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.service;
+package de.mcbesser.skycity.service;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.AccessSettings;
@@ -297,11 +297,24 @@ public class IslandService {
             this.createdAt = System.currentTimeMillis();
         }
     }
+    private static final class IslandCreationThrottleState {
+        private int requestCount;
+        private long lastRequestAt;
+        private long cooldownUntil;
+
+        private IslandCreationThrottleState(int requestCount, long lastRequestAt, long cooldownUntil) {
+            this.requestCount = requestCount;
+            this.lastRequestAt = lastRequestAt;
+            this.cooldownUntil = cooldownUntil;
+        }
+    }
     private record IslandAreaCleanupTask(UUID islandOwner, int gridX, int gridZ, int nextChunkIndex) { }
 
     private static final int ISLAND_CHUNKS = 64;
     private static final int TOTAL_CHUNKS = 4096;
     private static final long ONE_YEAR_MS = 365L * 24L * 60L * 60L * 1000L;
+    private static final long ONE_DAY_MS = 24L * 60L * 60L * 1000L;
+    private static final long CREATION_REQUEST_RESET_WINDOW_MS = 7L * ONE_DAY_MS;
     private static final long BIOME_CHANGE_COST_CHUNK = 120L;
     private static final long BIOME_CHANGE_COST_ISLAND = 3000L;
     private static final long TIME_MODE_CHANGE_COST = 180L;
@@ -353,7 +366,8 @@ public class IslandService {
     private final Set<UUID> pendingIslandCreations = new HashSet<>();
     private final Map<UUID, IslandPlot> requestedIslandPlots = new HashMap<>();
     private final Set<String> reservedCreationPlots = new HashSet<>();
-    private final Set<UUID> islandsPendingDeletion = new HashSet<>();
+    private final Set<UUID> recreationCooldownOwners = new HashSet<>();
+    private final Map<UUID, IslandCreationThrottleState> islandCreationThrottleStates = new HashMap<>();
     private final Map<UUID, UUID> pendingMasterInvites = new HashMap<>();
     private final Map<UUID, Location> plotSelectionPos1 = new HashMap<>();
     private final Map<UUID, Location> plotSelectionPos2 = new HashMap<>();
@@ -402,8 +416,8 @@ public class IslandService {
         queuedIslandAreaCleanupOwners.clear();
         reservedCleanupPlots.clear();
         cleanupProgressByPlot.clear();
-        islandsPendingDeletion.clear();
         pregenerationProgressByOwner.clear();
+        islandCreationThrottleStates.clear();
         if (islandCollection.size() == 0 && legacyDataFile.exists()) {
             loadLegacyYamlData();
             save();
@@ -542,12 +556,27 @@ public class IslandService {
     private void loadCleanupReservations() {
         for (Document document : cleanupCollection.find()) {
             try {
+                String type = document.get("type", String.class);
+                if ("cooldown".equals(type)) {
+                    UUID blockedOwner = UUID.fromString(document.get("owner", String.class));
+                    recreationCooldownOwners.add(blockedOwner);
+                    continue;
+                }
+                if ("creation_rate_limit".equals(type)) {
+                    UUID playerId = UUID.fromString(document.get("playerId", String.class));
+                    int requestCount = Math.max(0, intValue(document.get("requestCount")));
+                    long lastRequestAt = longValue(document.get("lastRequestAt"));
+                    long cooldownUntil = longValue(document.get("cooldownUntil"));
+                    islandCreationThrottleStates.put(playerId, new IslandCreationThrottleState(requestCount, lastRequestAt, cooldownUntil));
+                    continue;
+                }
                 UUID islandOwner = UUID.fromString(document.get("islandOwner", String.class));
                 int gridX = intValue(document.get("gridX"));
                 int gridZ = intValue(document.get("gridZ"));
                 int nextChunkIndex = Math.max(0, Math.min(TOTAL_CHUNKS, intValue(document.get("nextChunkIndex"))));
                 reservedCleanupPlots.add(plotKey(gridX, gridZ));
                 cleanupProgressByPlot.put(plotKey(gridX, gridZ), nextChunkIndex);
+                recreationCooldownOwners.add(islandOwner);
                 if (queuedIslandAreaCleanupOwners.add(islandOwner)) {
                     islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(islandOwner, gridX, gridZ, nextChunkIndex));
                 }
@@ -609,6 +638,12 @@ public class IslandService {
         for (IslandAreaCleanupTask task : islandAreaCleanupQueue) {
             cleanupCollection.insert(cleanupTaskDocument(task));
         }
+        for (UUID blockedOwner : recreationCooldownOwners) {
+            cleanupCollection.insert(cleanupCooldownDocument(blockedOwner));
+        }
+        for (Map.Entry<UUID, IslandCreationThrottleState> entry : islandCreationThrottleStates.entrySet()) {
+            cleanupCollection.insert(creationRateLimitDocument(entry.getKey(), entry.getValue()));
+        }
         if (commit) {
             database.commit();
         }
@@ -623,7 +658,7 @@ public class IslandService {
         if (pregenerationTaskId != -1) {
             Bukkit.getScheduler().cancelTask(pregenerationTaskId);
         }
-        pregenerationTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickPregeneration, 40L, 1L);
+        pregenerationTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickBackgroundWork, 40L, 1L);
     }
 
     public void stopPregenerationTask() {
@@ -652,15 +687,25 @@ public class IslandService {
             Bukkit.getScheduler().cancelTask(islandCreationTaskId);
             islandCreationTaskId = -1;
         }
+        pendingIslandCreations.clear();
+        islandCreationQueue.clear();
+        islandCreationCallbacks.clear();
+        islandReadyCallbacks.clear();
         if (pveTaskId != -1) {
             Bukkit.getScheduler().cancelTask(pveTaskId);
             pveTaskId = -1;
         }
         resetAllPveZones();
-        pendingIslandCreations.clear();
-        islandCreationQueue.clear();
-        islandCreationCallbacks.clear();
-        islandReadyCallbacks.clear();
+    }
+
+    private void tickBackgroundWork() {
+        if (!pregenerationQueue.isEmpty()) {
+            tickPregeneration();
+            return;
+        }
+        if (!islandAreaCleanupQueue.isEmpty()) {
+            tickIslandAreaCleanupQueue();
+        }
     }
 
     private void tickIslandCreationQueue() {
@@ -730,24 +775,25 @@ public class IslandService {
             }
             return true;
         }
+        if (mustWaitForRecreationQueue(playerId)) {
+            return false;
+        }
         if (requestedPlot != null && !isPlotAvailable(requestedPlot.gridX(), requestedPlot.gridZ())) {
             return false;
         }
+        if (isIslandCreationRateLimited(playerId)) {
+            return false;
+        }
+        registerIslandCreationRequest(playerId);
+        IslandData created = getOrCreateIsland(playerId, requestedPlot);
         if (onReady != null) {
-            islandCreationCallbacks.computeIfAbsent(playerId, id -> new ArrayList<>()).add(onReady);
-        }
-        if (requestedPlot != null) {
-            requestedIslandPlots.put(playerId, requestedPlot);
-            reservedCreationPlots.add(plotKey(requestedPlot.gridX(), requestedPlot.gridZ()));
-        }
-        if (pendingIslandCreations.add(playerId)) {
-            islandCreationQueue.offer(new IslandCreationTask(playerId));
+            onReady.accept(created);
         }
         return true;
     }
 
     private void tickPregeneration() {
-        int budget = 2;
+        int budget = 1;
         int maxPerIslandTask = 1;
         while (budget > 0 && !pregenerationQueue.isEmpty()) {
             PregenerationTask task = pregenerationQueue.poll();
@@ -798,7 +844,7 @@ public class IslandService {
 
     private void deleteIslandData(IslandData island, boolean createReplacementForMasters) {
         if (island == null) return;
-        islandsPendingDeletion.add(island.getOwner());
+        recreationCooldownOwners.add(island.getOwner());
         removeIslandRuntimeState(island);
         evacuateIslandPlayers(island);
         scheduleIslandAreaCleanup(island);
@@ -867,7 +913,7 @@ public class IslandService {
 
     private void tickIslandAreaCleanupQueue() {
         healCleanupReservations(true);
-        int budget = 2;
+        int budget = 1;
         while (budget > 0 && !islandAreaCleanupQueue.isEmpty()) {
             IslandAreaCleanupTask task = islandAreaCleanupQueue.poll();
             try {
@@ -883,7 +929,6 @@ public class IslandService {
                 } else {
                     reservedCleanupPlots.remove(plotKey(task.gridX(), task.gridZ()));
                     cleanupProgressByPlot.remove(plotKey(task.gridX(), task.gridZ()));
-                    islandsPendingDeletion.remove(task.islandOwner());
                     saveCleanupReservations(true);
                 }
             } catch (Exception ex) {
@@ -1034,7 +1079,7 @@ public class IslandService {
 
     private void dispatchIslandReadyCallbacks(IslandData island) {
         if (island == null) return;
-        if (islandsPendingDeletion.contains(island.getOwner())) {
+        if (isIslandPlotPendingDeletion(island)) {
             islandReadyCallbacks.remove(island.getOwner());
             return;
         }
@@ -1051,7 +1096,7 @@ public class IslandService {
 
     public void queuePregeneration(IslandData island) {
         if (island == null) return;
-        if (islandsPendingDeletion.contains(island.getOwner())) return;
+        if (isIslandPlotPendingDeletion(island)) return;
         if (isIslandFullyPregenerated(island)) return;
         pregenerationProgressByOwner.put(island.getOwner(), Math.max(
                 pregenerationProgressByOwner.getOrDefault(island.getOwner(), 0),
@@ -3312,10 +3357,12 @@ public class IslandService {
             return random.nextBoolean() ? Material.RED_MUSHROOM : Material.BROWN_MUSHROOM;
         }
 
-        boolean flowerBiome = switch (biome) {
-            case FLOWER_FOREST, MEADOW, CHERRY_GROVE, PLAINS, SUNFLOWER_PLAINS, FOREST -> true;
-            default -> false;
-        };
+        boolean flowerBiome = biome == Biome.FLOWER_FOREST
+                || biome == Biome.MEADOW
+                || biome == Biome.CHERRY_GROVE
+                || biome == Biome.PLAINS
+                || biome == Biome.SUNFLOWER_PLAINS
+                || biome == Biome.FOREST;
         if (flowerBiome && random.nextDouble() < 0.32) {
             Material[] flowers = {
                     Material.DANDELION, Material.POPPY, Material.AZURE_BLUET, Material.ALLIUM,
@@ -3359,11 +3406,21 @@ public class IslandService {
     private Biome biomeForTemplate(ChunkTemplateDef def) {
         if (def == null) return Biome.PLAINS;
         if (isColdThemeMaterial(def.top()) || isColdThemeMaterial(def.filler()) || isColdThemeMaterial(def.feature())) {
-            return switch (def.biome()) {
-                case FROZEN_OCEAN, DEEP_FROZEN_OCEAN, FROZEN_RIVER, SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA,
-                        SNOWY_BEACH, SNOWY_SLOPES, FROZEN_PEAKS, JAGGED_PEAKS, GROVE -> def.biome();
-                default -> Biome.SNOWY_PLAINS;
-            };
+            Biome biome = def.biome();
+            if (biome == Biome.FROZEN_OCEAN
+                    || biome == Biome.DEEP_FROZEN_OCEAN
+                    || biome == Biome.FROZEN_RIVER
+                    || biome == Biome.SNOWY_PLAINS
+                    || biome == Biome.ICE_SPIKES
+                    || biome == Biome.SNOWY_TAIGA
+                    || biome == Biome.SNOWY_BEACH
+                    || biome == Biome.SNOWY_SLOPES
+                    || biome == Biome.FROZEN_PEAKS
+                    || biome == Biome.JAGGED_PEAKS
+                    || biome == Biome.GROVE) {
+                return biome;
+            }
+            return Biome.SNOWY_PLAINS;
         }
         return def.biome();
     }
@@ -3377,11 +3434,17 @@ public class IslandService {
     }
 
     private boolean isColdBiome(Biome biome) {
-        return switch (biome) {
-            case FROZEN_OCEAN, DEEP_FROZEN_OCEAN, FROZEN_RIVER, SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA,
-                    SNOWY_BEACH, SNOWY_SLOPES, FROZEN_PEAKS, JAGGED_PEAKS, GROVE -> true;
-            default -> false;
-        };
+        return biome == Biome.FROZEN_OCEAN
+                || biome == Biome.DEEP_FROZEN_OCEAN
+                || biome == Biome.FROZEN_RIVER
+                || biome == Biome.SNOWY_PLAINS
+                || biome == Biome.ICE_SPIKES
+                || biome == Biome.SNOWY_TAIGA
+                || biome == Biome.SNOWY_BEACH
+                || biome == Biome.SNOWY_SLOPES
+                || biome == Biome.FROZEN_PEAKS
+                || biome == Biome.JAGGED_PEAKS
+                || biome == Biome.GROVE;
     }
 
     private boolean isStarterSandCore(int plotBlockX, int plotBlockZ) {
@@ -4008,7 +4071,7 @@ public class IslandService {
                 ChatColor.YELLOW + "/is plot delete l\u00f6scht Grundst\u00fcck am Standort"
         ));
         meta.getPersistentDataContainer().set(plotWandKey, PersistentDataType.BYTE, (byte) 1);
-        meta.addEnchant(Enchantment.LUCK, 1, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 1, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         wand.setItemMeta(meta);
         return wand;
@@ -5083,9 +5146,9 @@ public class IslandService {
         double archetypeHealthScale = archetype == null ? 1.0 : archetype.healthMultiplier();
         double archetypeDamageScale = archetype == null ? 1.0 : archetype.damageMultiplier();
         double maxHealth = (10.0 + level * 6.0) * playerScale * areaScale * waveScale * archetypeHealthScale;
-        if (living.getAttribute(Attribute.GENERIC_MAX_HEALTH) != null) {
-            double previousMax = living.getAttribute(Attribute.GENERIC_MAX_HEALTH).getBaseValue();
-            living.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(maxHealth);
+        if (living.getAttribute(Attribute.MAX_HEALTH) != null) {
+            double previousMax = living.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
+            living.getAttribute(Attribute.MAX_HEALTH).setBaseValue(maxHealth);
             if (fillHealth || previousMax <= 0.0) {
                 living.setHealth(Math.min(maxHealth, maxHealth));
             } else {
@@ -5093,9 +5156,9 @@ public class IslandService {
                 living.setHealth(Math.max(1.0, Math.min(maxHealth, scaledHealth)));
             }
         }
-        if (living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE) != null) {
+        if (living.getAttribute(Attribute.ATTACK_DAMAGE) != null) {
             double attackDamage = (2.0 + level * 1.75) * playerScale * areaScale * (1.0 + Math.max(0, runtime.currentWave - 1) * 0.08) * archetypeDamageScale;
-            living.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(attackDamage);
+            living.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(attackDamage);
         }
     }
 
@@ -5136,8 +5199,8 @@ public class IslandService {
     }
 
     private void setMovementSpeed(LivingEntity living, double speed) {
-        if (living == null || living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED) == null) return;
-        living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
+        if (living == null || living.getAttribute(Attribute.MOVEMENT_SPEED) == null) return;
+        living.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(speed);
     }
 
     private boolean isSunArmorMob(EntityType type) {
@@ -5413,6 +5476,77 @@ public class IslandService {
         return (long) Math.ceil(remainingChunksAhead / 40.0D);
     }
 
+    public int getPregenerationQueueSize() {
+        return pregenerationQueue.size();
+    }
+
+    public int getCleanupQueueSize() {
+        return islandAreaCleanupQueue.size();
+    }
+
+    public boolean hasBackgroundQueueWork() {
+        return !pregenerationQueue.isEmpty() || !islandAreaCleanupQueue.isEmpty();
+    }
+
+    public boolean mustWaitForRecreationQueue(UUID playerId) {
+        if (playerId == null || !recreationCooldownOwners.contains(playerId)) {
+            return false;
+        }
+        if (hasBackgroundQueueWork()) {
+            return true;
+        }
+        recreationCooldownOwners.remove(playerId);
+        saveCleanupReservations(true);
+        return false;
+    }
+
+    public String getRecreationQueueWaitMessage(UUID playerId) {
+        if (!mustWaitForRecreationQueue(playerId)) {
+            return null;
+        }
+        return "Du kannst erst wieder eine Insel erstellen, wenn die Warteschlange leer ist. "
+                + "Generierung: " + getPregenerationQueueSize()
+                + ", Löschung: " + getCleanupQueueSize() + ".";
+    }
+
+    public String getIslandCreationThrottleMessage(UUID playerId) {
+        if (playerId == null) {
+            return null;
+        }
+        IslandCreationThrottleState state = islandCreationThrottleStates.get(playerId);
+        if (state == null) {
+            return null;
+        }
+        normalizeIslandCreationThrottleState(playerId, state, true);
+        state = islandCreationThrottleStates.get(playerId);
+        if (state == null) {
+            return null;
+        }
+        if (state.cooldownUntil <= System.currentTimeMillis()) {
+            return null;
+        }
+        long remaining = Math.max(0L, state.cooldownUntil - System.currentTimeMillis());
+        return "Du hast zuletzt zu oft eine Inselerstellung gestartet. Bitte warte noch " + formatDurationShort(remaining) + ".";
+    }
+
+    public int getIslandPregenerationQueuePosition(UUID owner) {
+        if (owner == null) return -1;
+        IslandData island = islands.get(owner);
+        if (island == null || isIslandFullyPregenerated(island)) return -1;
+        int pos = 1;
+        for (PregenerationTask task : pregenerationQueue) {
+            if (task.islandOwner().equals(owner)) {
+                return pos;
+            }
+            pos++;
+        }
+        return queuedPregenerationOwners.contains(owner) ? 1 : -1;
+    }
+
+    private boolean isIslandPlotPendingDeletion(IslandData island) {
+        return island != null && reservedCleanupPlots.contains(plotKey(island.getGridX(), island.getGridZ()));
+    }
+
     private IslandPlot findNextFreePlot() {
         Set<String> used = new HashSet<>();
         used.add("0:0");
@@ -5555,10 +5689,109 @@ public class IslandService {
     }
 
     private Document cleanupTaskDocument(IslandAreaCleanupTask task) {
-        return Document.createDocument("islandOwner", task.islandOwner().toString())
+        return Document.createDocument("type", "task")
+                .put("islandOwner", task.islandOwner().toString())
                 .put("gridX", task.gridX())
                 .put("gridZ", task.gridZ())
                 .put("nextChunkIndex", task.nextChunkIndex());
+    }
+
+    private Document cleanupCooldownDocument(UUID owner) {
+        return Document.createDocument("type", "cooldown")
+                .put("owner", owner.toString());
+    }
+
+    private Document creationRateLimitDocument(UUID playerId, IslandCreationThrottleState state) {
+        return Document.createDocument("type", "creation_rate_limit")
+                .put("playerId", playerId.toString())
+                .put("requestCount", state.requestCount)
+                .put("lastRequestAt", state.lastRequestAt)
+                .put("cooldownUntil", state.cooldownUntil);
+    }
+
+    private boolean isIslandCreationRateLimited(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
+        IslandCreationThrottleState state = islandCreationThrottleStates.get(playerId);
+        if (state == null) {
+            return false;
+        }
+        normalizeIslandCreationThrottleState(playerId, state, true);
+        state = islandCreationThrottleStates.get(playerId);
+        if (state == null) {
+            return false;
+        }
+        return state.cooldownUntil > System.currentTimeMillis();
+    }
+
+    private void registerIslandCreationRequest(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        IslandCreationThrottleState state = islandCreationThrottleStates.get(playerId);
+        if (state == null) {
+            state = new IslandCreationThrottleState(0, 0L, 0L);
+            islandCreationThrottleStates.put(playerId, state);
+        } else {
+            normalizeIslandCreationThrottleState(playerId, state, false);
+            state = islandCreationThrottleStates.get(playerId);
+            if (state == null) {
+                state = new IslandCreationThrottleState(0, 0L, 0L);
+                islandCreationThrottleStates.put(playerId, state);
+            }
+        }
+        state.requestCount++;
+        state.lastRequestAt = now;
+        state.cooldownUntil = now + islandCreationCooldownForRequest(state.requestCount);
+        saveCleanupReservations(true);
+    }
+
+    private void normalizeIslandCreationThrottleState(UUID playerId, IslandCreationThrottleState state, boolean persistIfChanged) {
+        if (playerId == null || state == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        boolean changed = false;
+        if (state.lastRequestAt > 0L && now - state.lastRequestAt >= CREATION_REQUEST_RESET_WINDOW_MS) {
+            islandCreationThrottleStates.remove(playerId);
+            changed = true;
+        } else if (state.cooldownUntil <= now && state.requestCount <= 0) {
+            islandCreationThrottleStates.remove(playerId);
+            changed = true;
+        }
+        if (changed && persistIfChanged) {
+            saveCleanupReservations(true);
+        }
+    }
+
+    private long islandCreationCooldownForRequest(int requestCount) {
+        if (requestCount >= 4) {
+            return 7L * ONE_DAY_MS;
+        }
+        if (requestCount == 3) {
+            return 3L * ONE_DAY_MS;
+        }
+        if (requestCount == 2) {
+            return ONE_DAY_MS;
+        }
+        return 0L;
+    }
+
+    private String formatDurationShort(long millis) {
+        long safeMillis = Math.max(0L, millis);
+        long totalMinutes = (safeMillis + 59_999L) / 60_000L;
+        long days = totalMinutes / (24L * 60L);
+        long hours = (totalMinutes / 60L) % 24L;
+        long minutes = totalMinutes % 60L;
+        if (days > 0L) {
+            return days + "d " + hours + "h";
+        }
+        if (hours > 0L) {
+            return hours + "h " + minutes + "m";
+        }
+        return Math.max(1L, minutes) + "m";
     }
 
     @SuppressWarnings("unchecked")

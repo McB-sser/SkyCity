@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.listener;
+package de.mcbesser.skycity.listener;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.listener.PlayerListener;
@@ -110,8 +110,8 @@ public class ProtectionListener implements Listener {
     );
     private static final Set<EntityType> SHEARABLE_TYPES = EnumSet.of(
             EntityType.SHEEP,
-            EntityType.MUSHROOM_COW,
-            EntityType.SNOWMAN
+            EntityType.MOOSHROOM,
+            EntityType.SNOW_GOLEM
     );
 
     private final SkyCityPlugin plugin;
@@ -365,7 +365,13 @@ public class ProtectionListener implements Listener {
                 var chunk = world.getChunkAt(worldChunkX, worldChunkZ);
                 int attemptsPerSection = islandService.getGrowthBoostExtraRandomTickAttemptsPerSection(tier, randomTickSpeed, (int) GROWTH_BOOST_INTERVAL_TICKS);
                 if (attemptsPerSection <= 0) continue;
-                randomTickBridge.tickChunk(chunk, attemptsPerSection, tier);
+                var tickStats = randomTickBridge.tickChunk(chunk, attemptsPerSection, tier);
+                if (tickStats.bridgeFailures() > 0) {
+                    plugin.getLogger().warning("SkyCity Growth-Boost-Bridge meldet Fehler fuer Chunk "
+                            + worldChunkX + "," + worldChunkZ + " in Welt " + world.getName()
+                            + ". Zielinfos: " + tickStats.targetSummary()
+                            + ", Grund: " + (tickStats.failureReason() == null ? "-" : tickStats.failureReason()));
+                }
             }
         }
     }
@@ -381,12 +387,14 @@ public class ProtectionListener implements Listener {
         }
     }
 
-    private static final class RandomTickBridge {
+    private final class RandomTickBridge {
         private record GrowthTargets(int[] positions, String summary) { }
-        private record TickStats(int attempts, int hits, int bridgeFailures, int targets, String targetSummary) { }
+        private record TickStats(int attempts, int hits, int bridgeFailures, int targets, String targetSummary, String failureReason) { }
 
         private boolean initialized;
         private boolean available;
+        private boolean initializationFailureLogged;
+        private boolean runtimeFailureLogged;
         private Method getWorldHandleMethod;
         private Method getChunkHandleMethod;
         private Object chunkHandleStatusArgument;
@@ -407,10 +415,12 @@ public class ProtectionListener implements Listener {
         private int random = ThreadLocalRandom.current().nextInt();
 
         TickStats tickChunk(org.bukkit.Chunk chunk, int tickSpeed, int tier) {
-            if (chunk == null || tickSpeed <= 0) return new TickStats(0, 0, 0, 0, "-");
+            if (chunk == null || tickSpeed <= 0) return new TickStats(0, 0, 0, 0, "-", null);
             try {
                 ensureInitialized(chunk);
-                if (!available) return new TickStats(0, 0, 1, 0, "-");
+                if (!available) {
+                    return new TickStats(0, 0, 1, 0, "-", "RandomTickBridge initialization incomplete");
+                }
                 Object levelChunk = invokeChunkHandle(chunk);
                 Object level = getWorldHandleMethod.invoke(chunk.getWorld());
                 Object randomSource = getRandomMethod.invoke(level);
@@ -423,7 +433,7 @@ public class ProtectionListener implements Listener {
                 }
                 GrowthTargets growthTargets = collectGrowthTargets(chunk, level);
                 if (growthTargets.positions().length == 0) {
-                    return new TickStats(0, 0, 0, 0, growthTargets.summary());
+                    return new TickStats(0, 0, 0, 0, growthTargets.summary(), null);
                 }
                 int attempts = 0;
                 int hits = 0;
@@ -445,46 +455,51 @@ public class ProtectionListener implements Listener {
                     hits += applyBambooHeadTick(block, level, randomSource);
                 }
 
-                return new TickStats(attempts, hits, 0, growthTargets.positions().length, growthTargets.summary());
-            } catch (Throwable ignored) {
-                return new TickStats(0, 0, 1, 0, "-");
+                return new TickStats(attempts, hits, 0, growthTargets.positions().length, growthTargets.summary(), null);
+            } catch (Throwable throwable) {
+                logRuntimeFailureOnce(chunk, throwable);
+                return new TickStats(0, 0, 1, 0, "-", rootMessage(throwable));
             }
         }
 
         private void ensureInitialized(org.bukkit.Chunk chunk) throws Exception {
             if (initialized) return;
             initialized = true;
+            try {
+                getWorldHandleMethod = chunk.getWorld().getClass().getMethod("getHandle");
+                getChunkHandleMethod = resolveChunkHandleMethod(chunk.getClass());
+                if (getChunkHandleMethod == null) return;
+                Class<?> levelChunkClass = getChunkHandleMethod.getReturnType();
+                getChunkSectionsMethod = levelChunkClass.getMethod("getSections");
 
-            getWorldHandleMethod = chunk.getWorld().getClass().getMethod("getHandle");
-            getChunkHandleMethod = resolveChunkHandleMethod(chunk.getClass());
-            if (getChunkHandleMethod == null) return;
-            Class<?> levelChunkClass = getChunkHandleMethod.getReturnType();
-            getChunkSectionsMethod = levelChunkClass.getMethod("getSections");
+                Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+                blockPosConstructor = blockPosClass.getConstructor(int.class, int.class, int.class);
 
-            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
-            blockPosConstructor = blockPosClass.getConstructor(int.class, int.class, int.class);
+                Class<?> sectionClass = Class.forName("net.minecraft.world.level.chunk.LevelChunkSection");
+                sectionIsRandomlyTickingBlocksMethod = sectionClass.getMethod("isRandomlyTickingBlocks");
+                sectionGetBlockStateMethod = sectionClass.getMethod("getBlockState", int.class, int.class, int.class);
+                sectionTickingListField = resolveField(sectionClass, "tickingList");
+                sectionStatesField = resolveField(sectionClass, "states");
 
-            Class<?> sectionClass = Class.forName("net.minecraft.world.level.chunk.LevelChunkSection");
-            sectionIsRandomlyTickingBlocksMethod = sectionClass.getMethod("isRandomlyTickingBlocks");
-            sectionGetBlockStateMethod = sectionClass.getMethod("getBlockState", int.class, int.class, int.class);
-            sectionTickingListField = resolveField(sectionClass, "tickingList");
-            sectionStatesField = resolveField(sectionClass, "states");
+                Class<?> blockStateClass = sectionGetBlockStateMethod.getReturnType();
+                isRandomlyTickingMethod = blockStateClass.getMethod("isRandomlyTicking");
+                blockStateGetBlockMethod = resolveMethod(blockStateClass, "getBlock");
 
-            Class<?> blockStateClass = sectionGetBlockStateMethod.getReturnType();
-            isRandomlyTickingMethod = blockStateClass.getMethod("isRandomlyTicking");
-            blockStateGetBlockMethod = resolveMethod(blockStateClass, "getBlock");
-
-            Class<?> serverLevelClass = getWorldHandleMethod.getReturnType();
-            Class<?> randomSourceClass = Class.forName("net.minecraft.util.RandomSource");
-            randomTickMethod = resolveMethod(blockStateClass, "randomTick", serverLevelClass, blockPosClass, randomSourceClass);
-            getRandomMethod = resolveMethod(serverLevelClass, "getRandom");
-            if (sectionTickingListField != null) {
-                Class<?> tickingListClass = sectionTickingListField.getType();
-                tickingListSizeMethod = resolveMethod(tickingListClass, "size");
-                tickingListGetRawMethod = resolveMethod(tickingListClass, "getRaw", int.class);
-            }
-            if (sectionStatesField != null) {
-                palettedContainerGetMethod = resolveGetByIndexMethod(sectionStatesField.getType());
+                Class<?> serverLevelClass = getWorldHandleMethod.getReturnType();
+                Class<?> randomSourceClass = Class.forName("net.minecraft.util.RandomSource");
+                randomTickMethod = resolveMethod(blockStateClass, "randomTick", serverLevelClass, blockPosClass, randomSourceClass);
+                getRandomMethod = resolveMethod(serverLevelClass, "getRandom");
+                if (sectionTickingListField != null) {
+                    Class<?> tickingListClass = sectionTickingListField.getType();
+                    tickingListSizeMethod = resolveMethod(tickingListClass, "size");
+                    tickingListGetRawMethod = resolveMethod(tickingListClass, "getRaw", int.class);
+                }
+                if (sectionStatesField != null) {
+                    palettedContainerGetMethod = resolveGetByIndexMethod(sectionStatesField.getType());
+                }
+            } catch (Throwable throwable) {
+                logInitializationFailureOnce(chunk, throwable);
+                return;
             }
 
             if (getChunkSectionsMethod == null
@@ -546,7 +561,41 @@ public class ProtectionListener implements Listener {
                 }
             }
 
-            return new TickStats(attempts, hits, 0, targets, "nms");
+            return new TickStats(attempts, hits, 0, targets, "nms", null);
+        }
+
+        private void logInitializationFailureOnce(org.bukkit.Chunk chunk, Throwable throwable) {
+            if (initializationFailureLogged) return;
+            initializationFailureLogged = true;
+            plugin.getLogger().warning("SkyCity RandomTickBridge konnte fuer " + describeChunk(chunk)
+                    + " nicht initialisiert werden. Growth-Boost nutzt dort keinen stabilen NMS-Pfad: "
+                    + rootMessage(throwable));
+        }
+
+        private void logRuntimeFailureOnce(org.bukkit.Chunk chunk, Throwable throwable) {
+            if (runtimeFailureLogged) return;
+            runtimeFailureLogged = true;
+            plugin.getLogger().warning("SkyCity RandomTickBridge ist fuer " + describeChunk(chunk)
+                    + " zur Laufzeit fehlgeschlagen. Growth-Boost kann dort ausfallen: "
+                    + rootMessage(throwable));
+        }
+
+        private String describeChunk(org.bukkit.Chunk chunk) {
+            if (chunk == null) return "unbekannten Chunk";
+            return chunk.getWorld().getName() + " chunk " + chunk.getX() + "," + chunk.getZ();
+        }
+
+        private String rootMessage(Throwable throwable) {
+            if (throwable == null) return "unbekannter Fehler";
+            Throwable current = throwable;
+            while (current.getCause() != null) {
+                current = current.getCause();
+            }
+            String message = current.getMessage();
+            if (message == null || message.isBlank()) {
+                return current.getClass().getSimpleName();
+            }
+            return current.getClass().getSimpleName() + ": " + message;
         }
 
         private GrowthTargets collectGrowthTargets(org.bukkit.Chunk chunk, Object level) throws Exception {
@@ -839,7 +888,7 @@ public class ProtectionListener implements Listener {
             if (block == null) return;
             World world = block.getWorld();
             world.spawnParticle(
-                    Particle.VILLAGER_HAPPY,
+                    Particle.HAPPY_VILLAGER,
                     block.getX() + 0.5D,
                     block.getY() + 0.65D,
                     block.getZ() + 0.5D,

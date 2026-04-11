@@ -1,4 +1,4 @@
-﻿package de.mcbesser.skycity.command;
+package de.mcbesser.skycity.command;
 
 import de.mcbesser.skycity.SkyCityPlugin;
 import de.mcbesser.skycity.model.IslandData;
@@ -59,11 +59,24 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return true;
             }
+            String creationThrottleMessage = islandService.getIslandCreationThrottleMessage(player.getUniqueId());
+            if (creationThrottleMessage != null) {
+                player.sendMessage(ChatColor.YELLOW + creationThrottleMessage);
+                return true;
+            }
+            String recreationWaitMessage = islandService.getRecreationQueueWaitMessage(player.getUniqueId());
+            if (recreationWaitMessage != null) {
+                player.sendMessage(ChatColor.YELLOW + recreationWaitMessage);
+                return true;
+            }
             player.teleport(islandService.getSpawnLocation());
             boolean queued = islandService.queueIslandCreation(player.getUniqueId(), null, created -> {
                 islandService.ensureCentralSpawnAndCoreSafe(created);
                 coreService.ensureCorePlaced(created);
                 islandService.queuePregeneration(created);
+                Bukkit.broadcastMessage(ChatColor.GOLD + "Willkommen " + ChatColor.YELLOW + player.getName()
+                        + ChatColor.GOLD + " auf der neuen Insel" + ChatColor.YELLOW + " " + created.getGridX() + ":" + created.getGridZ()
+                        + ChatColor.GOLD + "!");
                 Player online = plugin.getServer().getPlayer(created.getOwner());
                 if (online == null || !online.isOnline()) return;
                 online.sendMessage(ChatColor.YELLOW + "Deine Insel wird vorbereitet (Startbereich).");
@@ -74,9 +87,9 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.RED + "Inselerstellung konnte nicht gestartet werden.");
                 return true;
             }
-            int queuePos = islandService.getIslandCreationQueuePosition(player.getUniqueId());
-            if (queuePos > 1) {
-                player.sendMessage(ChatColor.GOLD + "Inselerstellung gestartet. Warteschlange Platz " + queuePos + ".");
+            int pregenerationQueuePos = islandService.getIslandPregenerationQueuePosition(player.getUniqueId());
+            if (pregenerationQueuePos > 1) {
+                player.sendMessage(ChatColor.GOLD + "Inselerstellung gestartet. Startchunks sind bereit, Pregeneration Platz " + pregenerationQueuePos + ".");
             } else {
                 player.sendMessage(ChatColor.GOLD + "Inselerstellung gestartet...");
             }
@@ -626,9 +639,9 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 stopGenerationStatusMessages(playerId);
                 return;
             }
-            int queuePos = islandService.getIslandCreationQueuePosition(playerId);
-            if (queuePos > 0) {
-                live.sendMessage(ChatColor.YELLOW + "Deine Insel wird vorbereitet... Warteschlange Platz " + queuePos + ".");
+            int pregenerationQueuePos = islandService.getIslandPregenerationQueuePosition(playerId);
+            if (pregenerationQueuePos > 1) {
+                live.sendMessage(ChatColor.YELLOW + "Deine Startchunks sind bereit. Weitere Generierung: Pregeneration Platz " + pregenerationQueuePos + ".");
                 return;
             }
             int progress = islandService.getIslandPregenerationProgress(playerId);
