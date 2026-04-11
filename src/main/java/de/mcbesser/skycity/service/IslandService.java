@@ -101,6 +101,41 @@ public class IslandService {
             return values[(ordinal() + 1) % values.length];
         }
     }
+    public enum IslandWeatherMode {
+        NORMAL,
+        CLEAR,
+        RAIN,
+        THUNDER;
+
+        public static IslandWeatherMode from(String raw) {
+            if (raw == null || raw.isBlank()) return NORMAL;
+            String normalized = raw.toUpperCase(Locale.ROOT);
+            if ("SUN".equals(normalized) || "SUNSHINE".equals(normalized) || "SONNE".equals(normalized)) return CLEAR;
+            if ("STORM".equals(normalized) || "GEWITTER".equals(normalized)) return THUNDER;
+            try {
+                return IslandWeatherMode.valueOf(normalized);
+            } catch (IllegalArgumentException ex) {
+                return NORMAL;
+            }
+        }
+    }
+    public enum SnowWeatherMode {
+        NORMAL,
+        ALLOW,
+        BLOCK;
+
+        public static SnowWeatherMode from(String raw) {
+            if (raw == null || raw.isBlank()) return NORMAL;
+            String normalized = raw.toUpperCase(Locale.ROOT);
+            if ("SNOW".equals(normalized) || "ALLOW_SNOW".equals(normalized)) return ALLOW;
+            if ("NO_SNOW".equals(normalized) || "CLEAR_SNOW".equals(normalized) || "SCHNEEFREI".equals(normalized)) return BLOCK;
+            try {
+                return SnowWeatherMode.valueOf(normalized);
+            } catch (IllegalArgumentException ex) {
+                return NORMAL;
+            }
+        }
+    }
     public enum ChunkUnlockResult {
         SUCCESS,
         ALREADY_UNLOCKED,
@@ -323,6 +358,7 @@ public class IslandService {
     private static final long BIOME_CHANGE_COST_CHUNK = 120L;
     private static final long BIOME_CHANGE_COST_ISLAND = 3000L;
     private static final long TIME_MODE_CHANGE_COST = 180L;
+    private static final long WEATHER_MODE_CHANGE_COST = 180L;
     private static final long NIGHT_VISION_COST_CHUNK = 220L;
     private static final long NIGHT_VISION_COST_ISLAND = 2400L;
     private static final long XP_BOTTLE_POINTS = 10L;
@@ -453,6 +489,8 @@ public class IslandService {
                 island.setCoreDisplayMode(sec.getString("coreDisplayMode", "ALL"));
                 island.setPinnedUpgradeKey(sec.getString("pinnedUpgradeKey", "MILESTONE"));
                 island.setIslandTimeMode(sec.getString("islandTimeMode", "NORMAL"));
+                island.setIslandWeatherMode(sec.getString("islandWeatherMode", "NORMAL"));
+                island.setIslandSnowMode(sec.getString("islandSnowMode", "NORMAL"));
                 island.setIslandNightVisionEnabled(sec.getBoolean("islandNightVisionEnabled", false));
                 island.setPoints(sec.getLong("points", 0L));
                 island.setStoredExperience(sec.getLong("storedExperience", 0L));
@@ -527,6 +565,11 @@ public class IslandService {
                 psec.getBoolean("gamesEnabled", false)
         );
         parcel.setCtfEnabled(psec.getBoolean("ctfEnabled", false));
+        parcel.setSnowballFightEnabled(psec.getBoolean("snowballFightEnabled", false));
+        parcel.setTimeMode(psec.getString("timeMode", "NORMAL"));
+        parcel.setWeatherMode(psec.getString("weatherMode", "NORMAL"));
+        parcel.setSnowMode(psec.getString("snowMode", "NORMAL"));
+        parcel.setNightVisionEnabled(psec.getBoolean("nightVisionEnabled", false));
         parcel.setCountdownDurationSeconds(psec.getInt("countdownDurationSeconds", 300));
         parcel.setCountdownStartAt(psec.getLong("countdownStartAt", 0L));
         parcel.setCountdownEndsAt(psec.getLong("countdownEndsAt", 0L));
@@ -1783,6 +1826,8 @@ public class IslandService {
         migrated.setWarpName(island.getWarpName());
         migrated.setPinnedUpgradeKey(island.getPinnedUpgradeKey());
         migrated.setIslandTimeMode(island.getIslandTimeMode());
+        migrated.setIslandWeatherMode(island.getIslandWeatherMode());
+        migrated.setIslandSnowMode(island.getIslandSnowMode());
         migrated.setIslandNightVisionEnabled(island.isIslandNightVisionEnabled());
         migrated.setPoints(island.getPoints());
         migrated.setStoredExperience(island.getStoredExperience());
@@ -1816,6 +1861,11 @@ public class IslandService {
             dst.setPvpEnabled(srcParcel.isPvpEnabled());
             dst.setGamesEnabled(srcParcel.isGamesEnabled());
             dst.setCtfEnabled(srcParcel.isCtfEnabled());
+            dst.setSnowballFightEnabled(srcParcel.isSnowballFightEnabled());
+            dst.setTimeMode(srcParcel.getTimeMode());
+            dst.setWeatherMode(srcParcel.getWeatherMode());
+            dst.setSnowMode(srcParcel.getSnowMode());
+            dst.setNightVisionEnabled(srcParcel.isNightVisionEnabled());
             dst.setCountdownDurationSeconds(srcParcel.getCountdownDurationSeconds());
             dst.setCountdownStartAt(srcParcel.getCountdownStartAt());
             dst.setCountdownEndsAt(srcParcel.getCountdownEndsAt());
@@ -3863,9 +3913,96 @@ public class IslandService {
         return world.getBiome((worldChunkX << 4) + 8, SkyWorldService.SPAWN_Y, (worldChunkZ << 4) + 8);
     }
 
+    public boolean setBiomeForParcel(IslandData island, ParcelData parcel, Biome biome) {
+        World world = skyWorldService.getWorld();
+        if (island == null || parcel == null || biome == null || world == null || !parcel.hasBounds()) return false;
+        boolean changed = false;
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                for (int y = world.getMinHeight(); y < world.getMaxHeight(); y += 4) {
+                    world.setBiome(x, y, z, biome);
+                }
+                changed = true;
+            }
+        }
+        if (!changed) return false;
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public int clearWeatherSnowForIsland(IslandData island) {
+        World world = skyWorldService.getWorld();
+        if (island == null || world == null) return 0;
+        int cleared = 0;
+        for (int relX = 0; relX < ISLAND_CHUNKS; relX++) {
+            for (int relZ = 0; relZ < ISLAND_CHUNKS; relZ++) {
+                if (!isChunkUnlocked(island, relX, relZ)) continue;
+                int worldChunkX = plotMinChunkX(island.getGridX()) + relX;
+                int worldChunkZ = plotMinChunkZ(island.getGridZ()) + relZ;
+                cleared += clearWeatherSnowInChunk(world, worldChunkX, worldChunkZ);
+            }
+        }
+        if (cleared > 0) {
+            island.setLastActiveAt(System.currentTimeMillis());
+            save();
+        }
+        return cleared;
+    }
+
+    public int clearWeatherSnowForParcel(IslandData island, ParcelData parcel) {
+        World world = skyWorldService.getWorld();
+        if (island == null || parcel == null || world == null || !parcel.hasBounds()) return 0;
+        int cleared = 0;
+        for (int x = parcel.getMinX(); x <= parcel.getMaxX(); x++) {
+            for (int z = parcel.getMinZ(); z <= parcel.getMaxZ(); z++) {
+                for (int y = parcel.getMinY(); y <= parcel.getMaxY(); y++) {
+                    if (world.getBlockAt(x, y, z).getType() == Material.SNOW) {
+                        world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                        cleared++;
+                    }
+                }
+            }
+        }
+        if (cleared > 0) {
+            island.setLastActiveAt(System.currentTimeMillis());
+            save();
+        }
+        return cleared;
+    }
+
+    private int clearWeatherSnowInChunk(World world, int worldChunkX, int worldChunkZ) {
+        if (world == null) return 0;
+        int cleared = 0;
+        int baseX = worldChunkX << 4;
+        int baseZ = worldChunkZ << 4;
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                for (int y = world.getMaxHeight() - 1; y >= world.getMinHeight(); y--) {
+                    Block block = world.getBlockAt(baseX + x, y, baseZ + z);
+                    if (block.getType() == Material.SNOW) {
+                        block.setType(Material.AIR, false);
+                        cleared++;
+                    }
+                }
+            }
+        }
+        return cleared;
+    }
+
     public IslandTimeMode getIslandTimeMode(IslandData island) {
         if (island == null) return IslandTimeMode.NORMAL;
         return IslandTimeMode.from(island.getIslandTimeMode());
+    }
+
+    public IslandWeatherMode getIslandWeatherMode(IslandData island) {
+        if (island == null) return IslandWeatherMode.NORMAL;
+        return IslandWeatherMode.from(island.getIslandWeatherMode());
+    }
+
+    public SnowWeatherMode getIslandSnowMode(IslandData island) {
+        if (island == null) return SnowWeatherMode.NORMAL;
+        return SnowWeatherMode.from(island.getIslandSnowMode());
     }
 
     public IslandTimeMode cycleIslandTimeMode(IslandData island) {
@@ -3881,6 +4018,62 @@ public class IslandService {
         island.setIslandTimeMode(mode.name());
         island.setLastActiveAt(System.currentTimeMillis());
         save();
+    }
+
+    public void setIslandWeatherMode(IslandData island, IslandWeatherMode mode) {
+        if (island == null || mode == null) return;
+        island.setIslandWeatherMode(mode.name());
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+    }
+
+    public void setIslandSnowMode(IslandData island, SnowWeatherMode mode) {
+        if (island == null || mode == null) return;
+        island.setIslandSnowMode(mode.name());
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+    }
+
+    public IslandTimeMode getParcelTimeMode(ParcelData parcel) {
+        if (parcel == null) return IslandTimeMode.NORMAL;
+        return IslandTimeMode.from(parcel.getTimeMode());
+    }
+
+    public boolean setParcelTimeMode(IslandData island, ParcelData parcel, UUID actor, IslandTimeMode mode) {
+        if (!isParcelOwner(island, parcel, actor) || mode == null) return false;
+        if (getParcelTimeMode(parcel) == mode) return false;
+        parcel.setTimeMode(mode.name());
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public IslandWeatherMode getParcelWeatherMode(ParcelData parcel) {
+        if (parcel == null) return IslandWeatherMode.NORMAL;
+        return IslandWeatherMode.from(parcel.getWeatherMode());
+    }
+
+    public SnowWeatherMode getParcelSnowMode(ParcelData parcel) {
+        if (parcel == null) return SnowWeatherMode.NORMAL;
+        return SnowWeatherMode.from(parcel.getSnowMode());
+    }
+
+    public boolean setParcelWeatherMode(IslandData island, ParcelData parcel, UUID actor, IslandWeatherMode mode) {
+        if (!isParcelOwner(island, parcel, actor) || mode == null) return false;
+        if (getParcelWeatherMode(parcel) == mode) return false;
+        parcel.setWeatherMode(mode.name());
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean setParcelSnowMode(IslandData island, ParcelData parcel, UUID actor, SnowWeatherMode mode) {
+        if (!isParcelOwner(island, parcel, actor) || mode == null) return false;
+        if (getParcelSnowMode(parcel) == mode) return false;
+        parcel.setSnowMode(mode.name());
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
     }
 
     public boolean spendStoredExperience(IslandData island, long amount) {
@@ -3901,6 +4094,10 @@ public class IslandService {
         return TIME_MODE_CHANGE_COST;
     }
 
+    public long getWeatherModeChangeCost() {
+        return WEATHER_MODE_CHANGE_COST;
+    }
+
     public long getNightVisionCost(boolean islandWide) {
         return islandWide ? NIGHT_VISION_COST_ISLAND : NIGHT_VISION_COST_CHUNK;
     }
@@ -3911,6 +4108,10 @@ public class IslandService {
 
     public boolean isChunkNightVisionEnabled(IslandData island, int relChunkX, int relChunkZ) {
         return island != null && island.getNightVisionChunks().contains(chunkKey(relChunkX, relChunkZ));
+    }
+
+    public boolean isParcelNightVisionEnabled(ParcelData parcel) {
+        return parcel != null && parcel.isNightVisionEnabled();
     }
 
     public boolean hasNightVision(IslandData island, int relChunkX, int relChunkZ) {
@@ -3928,11 +4129,41 @@ public class IslandService {
         return true;
     }
 
+    public boolean buyParcelNightVision(IslandData island, ParcelData parcel, UUID actor) {
+        if (!isParcelOwner(island, parcel, actor) || parcel == null || parcel.isNightVisionEnabled()) return false;
+        if (!spendStoredExperience(island, getNightVisionCost(false))) return false;
+        parcel.setNightVisionEnabled(true);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean disableParcelNightVision(IslandData island, ParcelData parcel, UUID actor) {
+        if (!isParcelOwner(island, parcel, actor) || parcel == null || !parcel.isNightVisionEnabled()) return false;
+        parcel.setNightVisionEnabled(false);
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
     public boolean setParcelGames(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
         if (!isParcelOwner(island, parcel, actor)) return false;
         if (parcel.isGamesEnabled() == enabled) return false;
         parcel.setCombatMode(enabled ? ParcelData.CombatMode.GAMES : ParcelData.CombatMode.NONE);
-        if (!enabled) parcel.setCtfEnabled(false);
+        if (!enabled) {
+            parcel.setCtfEnabled(false);
+            parcel.setSnowballFightEnabled(false);
+        }
+        island.setLastActiveAt(System.currentTimeMillis());
+        save();
+        return true;
+    }
+
+    public boolean setParcelSnowballFightEnabled(IslandData island, ParcelData parcel, UUID actor, boolean enabled) {
+        if (!isParcelOwner(island, parcel, actor)) return false;
+        if (enabled && !parcel.isGamesEnabled()) return false;
+        if (parcel.isSnowballFightEnabled() == enabled) return false;
+        parcel.setSnowballFightEnabled(enabled);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
         return true;
@@ -4191,6 +4422,25 @@ public class IslandService {
             case DAY -> "Nur Tag";
             case SUNSET -> "Sonnenuntergang";
             case MIDNIGHT -> "Nacht";
+            case NORMAL -> "Normal";
+        };
+    }
+
+    public String islandWeatherModeLabel(IslandWeatherMode mode) {
+        if (mode == null) return "Normal";
+        return switch (mode) {
+            case CLEAR -> "Sonnenschein";
+            case RAIN -> "Regen";
+            case THUNDER -> "Gewitter";
+            case NORMAL -> "Normal";
+        };
+    }
+
+    public String snowWeatherModeLabel(SnowWeatherMode mode) {
+        if (mode == null) return "Normal";
+        return switch (mode) {
+            case ALLOW -> "Schnee bleibt liegen";
+            case BLOCK -> "Schneefrei";
             case NORMAL -> "Normal";
         };
     }
@@ -5812,6 +6062,8 @@ public class IslandService {
                 .put("coreDisplayMode", island.getCoreDisplayMode())
                 .put("pinnedUpgradeKey", island.getPinnedUpgradeKey())
                 .put("islandTimeMode", island.getIslandTimeMode())
+                .put("islandWeatherMode", island.getIslandWeatherMode())
+                .put("islandSnowMode", island.getIslandSnowMode())
                 .put("islandNightVisionEnabled", island.isIslandNightVisionEnabled())
                 .put("points", island.getPoints())
                 .put("storedExperience", island.getStoredExperience())
@@ -5964,6 +6216,8 @@ public class IslandService {
         island.setCoreDisplayMode(defaultString(document.get("coreDisplayMode", String.class), "ALL"));
         island.setPinnedUpgradeKey(defaultString(document.get("pinnedUpgradeKey", String.class), "MILESTONE"));
         island.setIslandTimeMode(defaultString(document.get("islandTimeMode", String.class), "NORMAL"));
+        island.setIslandWeatherMode(defaultString(document.get("islandWeatherMode", String.class), "NORMAL"));
+        island.setIslandSnowMode(defaultString(document.get("islandSnowMode", String.class), "NORMAL"));
         island.setIslandNightVisionEnabled(Boolean.TRUE.equals(document.get("islandNightVisionEnabled", Boolean.class)));
         island.setPoints(longValue(document.get("points")));
         island.setStoredExperience(longValue(document.get("storedExperience")));
@@ -6015,6 +6269,11 @@ public class IslandService {
                 .put("pvpEnabled", parcel.isPvpEnabled())
                 .put("gamesEnabled", parcel.isGamesEnabled())
                 .put("ctfEnabled", parcel.isCtfEnabled())
+                .put("snowballFightEnabled", parcel.isSnowballFightEnabled())
+                .put("timeMode", parcel.getTimeMode())
+                .put("weatherMode", parcel.getWeatherMode())
+                .put("snowMode", parcel.getSnowMode())
+                .put("nightVisionEnabled", parcel.isNightVisionEnabled())
                 .put("countdownDurationSeconds", parcel.getCountdownDurationSeconds())
                 .put("countdownStartAt", parcel.getCountdownStartAt())
                 .put("countdownEndsAt", parcel.getCountdownEndsAt())
@@ -6072,6 +6331,11 @@ public class IslandService {
                 Boolean.TRUE.equals(document.get("gamesEnabled", Boolean.class))
         );
         parcel.setCtfEnabled(Boolean.TRUE.equals(document.get("ctfEnabled", Boolean.class)));
+        parcel.setSnowballFightEnabled(Boolean.TRUE.equals(document.get("snowballFightEnabled", Boolean.class)));
+        parcel.setTimeMode(defaultString(document.get("timeMode", String.class), "NORMAL"));
+        parcel.setWeatherMode(defaultString(document.get("weatherMode", String.class), "NORMAL"));
+        parcel.setSnowMode(defaultString(document.get("snowMode", String.class), "NORMAL"));
+        parcel.setNightVisionEnabled(Boolean.TRUE.equals(document.get("nightVisionEnabled", Boolean.class)));
         int countdownDurationSeconds = intValue(document.get("countdownDurationSeconds"));
         parcel.setCountdownDurationSeconds(countdownDurationSeconds > 0 ? countdownDurationSeconds : 300);
         parcel.setCountdownStartAt(longValue(document.get("countdownStartAt")));

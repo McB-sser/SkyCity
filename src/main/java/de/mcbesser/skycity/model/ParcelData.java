@@ -38,6 +38,11 @@ public class ParcelData {
     private boolean pvpEnabled;
     private boolean gamesEnabled;
     private boolean ctfEnabled;
+    private boolean snowballFightEnabled;
+    private String timeMode = "NORMAL";
+    private String weatherMode = "NORMAL";
+    private String snowMode = "NORMAL";
+    private boolean nightVisionEnabled;
     private int countdownDurationSeconds = 300;
     private long countdownStartAt;
     private long countdownEndsAt;
@@ -129,6 +134,28 @@ public class ParcelData {
     }
     public boolean isCtfEnabled() { return ctfEnabled; }
     public void setCtfEnabled(boolean ctfEnabled) { this.ctfEnabled = ctfEnabled; }
+    public boolean isSnowballFightEnabled() { return snowballFightEnabled; }
+    public void setSnowballFightEnabled(boolean snowballFightEnabled) { this.snowballFightEnabled = snowballFightEnabled; }
+    public String getTimeMode() { return timeMode; }
+    public void setTimeMode(String timeMode) {
+        this.timeMode = (timeMode == null || timeMode.isBlank())
+                ? "NORMAL"
+                : timeMode.toUpperCase(java.util.Locale.ROOT);
+    }
+    public String getWeatherMode() { return weatherMode; }
+    public void setWeatherMode(String weatherMode) {
+        this.weatherMode = (weatherMode == null || weatherMode.isBlank())
+                ? "NORMAL"
+                : weatherMode.toUpperCase(java.util.Locale.ROOT);
+    }
+    public String getSnowMode() { return snowMode; }
+    public void setSnowMode(String snowMode) {
+        this.snowMode = (snowMode == null || snowMode.isBlank())
+                ? "NORMAL"
+                : snowMode.toUpperCase(java.util.Locale.ROOT);
+    }
+    public boolean isNightVisionEnabled() { return nightVisionEnabled; }
+    public void setNightVisionEnabled(boolean nightVisionEnabled) { this.nightVisionEnabled = nightVisionEnabled; }
     public int getCountdownDurationSeconds() { return countdownDurationSeconds; }
     public void setCountdownDurationSeconds(int countdownDurationSeconds) { this.countdownDurationSeconds = Math.max(30, countdownDurationSeconds); }
     public long getCountdownStartAt() { return countdownStartAt; }

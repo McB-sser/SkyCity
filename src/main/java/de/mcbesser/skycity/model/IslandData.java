@@ -40,6 +40,8 @@ public class IslandData {
     private String coreDisplayMode = "ALL";
     private String pinnedUpgradeKey = "MILESTONE";
     private String islandTimeMode = "NORMAL";
+    private String islandWeatherMode = "NORMAL";
+    private String islandSnowMode = "NORMAL";
     private boolean islandNightVisionEnabled;
     private long points = 0L;
     private long storedExperience = 0L;
@@ -103,6 +105,18 @@ public class IslandData {
         this.islandTimeMode = (islandTimeMode == null || islandTimeMode.isBlank())
                 ? "NORMAL"
                 : islandTimeMode.toUpperCase(java.util.Locale.ROOT);
+    }
+    public String getIslandWeatherMode() { return islandWeatherMode; }
+    public void setIslandWeatherMode(String islandWeatherMode) {
+        this.islandWeatherMode = (islandWeatherMode == null || islandWeatherMode.isBlank())
+                ? "NORMAL"
+                : islandWeatherMode.toUpperCase(java.util.Locale.ROOT);
+    }
+    public String getIslandSnowMode() { return islandSnowMode; }
+    public void setIslandSnowMode(String islandSnowMode) {
+        this.islandSnowMode = (islandSnowMode == null || islandSnowMode.isBlank())
+                ? "NORMAL"
+                : islandSnowMode.toUpperCase(java.util.Locale.ROOT);
     }
     public boolean isIslandNightVisionEnabled() { return islandNightVisionEnabled; }
     public void setIslandNightVisionEnabled(boolean islandNightVisionEnabled) { this.islandNightVisionEnabled = islandNightVisionEnabled; }

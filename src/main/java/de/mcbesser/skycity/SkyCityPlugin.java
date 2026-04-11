@@ -36,6 +36,7 @@ public class SkyCityPlugin extends JavaPlugin {
     private CoreSidebar coreSidebar;
     private ParticlePreviewService particlePreviewService;
     private SkyCityPlaceholderExpansion placeholderExpansion;
+    private PlayerListener playerListener;
     private boolean runtimeInitialized;
     private int placeholderRetryTaskId = -1;
     private int vaultRetryTaskId = -1;
@@ -72,7 +73,7 @@ public class SkyCityPlugin extends JavaPlugin {
             registerVaultEconomyIfAvailable();
         }, 20L, 40L);
 
-        PlayerListener playerListener = new PlayerListener(this, islandService, skyWorldService, coreService);
+        playerListener = new PlayerListener(this, islandService, skyWorldService, coreService);
         Bukkit.getPluginManager().registerEvents(playerListener, this);
         Bukkit.getPluginManager().registerEvents(new ProtectionListener(this, islandService, coreService, skyWorldService, playerListener), this);
         Bukkit.getPluginManager().registerEvents(new PlotWandListener(this, islandService, skyWorldService, coreService), this);
@@ -111,6 +112,9 @@ public class SkyCityPlugin extends JavaPlugin {
         }
         if (placeholderExpansion != null) {
             placeholderExpansion.unregister();
+        }
+        if (playerListener != null) {
+            playerListener.resetAllParcelCtfStates();
         }
         if (islandService != null) {
             islandService.stopIslandCreationTask();
@@ -176,6 +180,9 @@ public class SkyCityPlugin extends JavaPlugin {
         islandService.startPregenerationTask();
         islandService.ensureSpawnPlotAndSpawnPlatform();
         coreService.registerRecipe();
+        if (playerListener != null) {
+            playerListener.resetAllParcelCtfStates();
+        }
         coreService.startDisplayTask();
         coreSidebar.start();
         particlePreviewService.startTask();

@@ -16,12 +16,15 @@ import org.bukkit.Particle;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.Biome;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Snow;
 import org.bukkit.block.data.type.Bamboo;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.ArmorStand;
@@ -40,6 +43,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
@@ -57,6 +61,8 @@ import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
@@ -85,6 +91,7 @@ import java.util.function.Predicate;
 
 public class ProtectionListener implements Listener {
     private static final long GROWTH_BOOST_INTERVAL_TICKS = 20L;
+    private static final long WEATHER_SNOW_INTERVAL_TICKS = 60L;
     private static final Set<Material> GROWTH_BOOST_MATERIALS = EnumSet.of(
             Material.WHEAT,
             Material.CARROTS,
@@ -144,6 +151,103 @@ public class ProtectionListener implements Listener {
         this.skyWorldService = skyWorldService;
         this.playerListener = playerListener;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::runPeriodicGrowthBoosts, GROWTH_BOOST_INTERVAL_TICKS, GROWTH_BOOST_INTERVAL_TICKS);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runWeatherSnowSimulation, WEATHER_SNOW_INTERVAL_TICKS, WEATHER_SNOW_INTERVAL_TICKS);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBlockForm(BlockFormEvent event) {
+        Block block = event.getBlock();
+        if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
+        if (event.getNewState().getType() != Material.SNOW) return;
+        if (islandService.isInSpawnPlot(block.getLocation())) {
+            event.setCancelled(true);
+            return;
+        }
+        IslandData island = islandService.getIslandAt(block.getLocation());
+        if (island == null) return;
+        ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
+        IslandService.SnowWeatherMode mode = parcel != null
+                ? islandService.getParcelSnowMode(parcel)
+                : islandService.getIslandSnowMode(island);
+        if (mode == IslandService.SnowWeatherMode.BLOCK) {
+            event.setCancelled(true);
+        }
+    }
+
+    private void runWeatherSnowSimulation() {
+        World world = skyWorldService.getWorld();
+        if (world == null) return;
+        for (Player player : world.getPlayers()) {
+            if (player == null || !player.isOnline()) continue;
+            Location center = player.getLocation();
+            if (islandService.isInSpawnPlot(center)) continue;
+            IslandData island = islandService.getIslandAt(center);
+            if (island == null) continue;
+            for (int i = 0; i < 4; i++) {
+                int x = center.getBlockX() + ThreadLocalRandom.current().nextInt(-24, 25);
+                int z = center.getBlockZ() + ThreadLocalRandom.current().nextInt(-24, 25);
+                simulateSnowAt(world, island, x, z);
+            }
+        }
+    }
+
+    private void simulateSnowAt(World world, IslandData originIsland, int x, int z) {
+        if (world == null || originIsland == null) return;
+        Location probe = new Location(world, x + 0.5, SkyWorldService.SPAWN_Y, z + 0.5);
+        if (islandService.isInSpawnPlot(probe)) return;
+        IslandData island = islandService.getIslandAt(probe);
+        if (island == null || !island.getOwner().equals(originIsland.getOwner())) return;
+        ParcelData parcel = islandService.getParcelAt(island, probe);
+        IslandService.IslandWeatherMode weatherMode = parcel != null
+                ? islandService.getParcelWeatherMode(parcel)
+                : islandService.getIslandWeatherMode(island);
+        if (weatherMode != IslandService.IslandWeatherMode.RAIN && weatherMode != IslandService.IslandWeatherMode.THUNDER) {
+            return;
+        }
+        IslandService.SnowWeatherMode snowMode = parcel != null
+                ? islandService.getParcelSnowMode(parcel)
+                : islandService.getIslandSnowMode(island);
+        if (snowMode == IslandService.SnowWeatherMode.BLOCK) {
+            return;
+        }
+        Biome biome = world.getBiome(x, SkyWorldService.SPAWN_Y, z);
+        if (!isColdSnowBiome(biome)) return;
+        Block top = world.getHighestBlockAt(x, z);
+        if (top.getType() == Material.SNOW) {
+            BlockData data = top.getBlockData();
+            if (data instanceof Snow snow && snow.getLayers() < snow.getMaximumLayers()) {
+                snow.setLayers(Math.min(snow.getMaximumLayers(), snow.getLayers() + 1));
+                top.setBlockData(snow, false);
+            }
+            return;
+        }
+        Block above = top.getRelative(BlockFace.UP);
+        if (!above.getType().isAir()) return;
+        if (!canSnowRestOn(top)) return;
+        above.setType(Material.SNOW, false);
+    }
+
+    private boolean isColdSnowBiome(Biome biome) {
+        if (biome == null) return false;
+        return biome == Biome.FROZEN_OCEAN
+                || biome == Biome.DEEP_FROZEN_OCEAN
+                || biome == Biome.FROZEN_RIVER
+                || biome == Biome.SNOWY_PLAINS
+                || biome == Biome.ICE_SPIKES
+                || biome == Biome.SNOWY_TAIGA
+                || biome == Biome.SNOWY_BEACH
+                || biome == Biome.SNOWY_SLOPES
+                || biome == Biome.FROZEN_PEAKS
+                || biome == Biome.JAGGED_PEAKS
+                || biome == Biome.GROVE;
+    }
+
+    private boolean canSnowRestOn(Block block) {
+        if (block == null) return false;
+        Material material = block.getType();
+        if (material == Material.ICE || material == Material.PACKED_ICE || material == Material.BLUE_ICE) return false;
+        if (material == Material.WATER || material == Material.LAVA) return false;
+        return material.isSolid() && material.isOccluding();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -328,6 +432,11 @@ public class ProtectionListener implements Listener {
         }
         if (block.getType().name().endsWith("_PRESSURE_PLATE")) {
             islandService.removeCheckpointPlateYaw(island, block.getLocation());
+        }
+        if (parcel != null && parcel.isGamesEnabled() && parcel.isSnowballFightEnabled() && isSnowGameBlock(block.getType())) {
+            int amount = block.getType() == Material.SNOW_BLOCK ? 4 : 1;
+            event.setDropItems(false);
+            block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), playerListener.createMagicSnowballItem(amount));
         }
         playerListener.invalidateStructureCaches(block.getLocation(), block.getType());
         islandService.markIslandActivity(player.getUniqueId());
@@ -1278,6 +1387,9 @@ public class ProtectionListener implements Listener {
         if (!(event.getEntity() instanceof Player victim)) return;
         Player attacker = resolveDamagingPlayer(event);
         if (attacker == null) return;
+        if (event.getDamager() instanceof org.bukkit.entity.Snowball snowball && playerListener.isMagicSnowballProjectile(snowball)) {
+            return;
+        }
         if (!skyWorldService.isSkyCityWorld(victim.getWorld())) return;
         if (islandService.canPlayersFightAt(victim.getLocation(), attacker.getUniqueId(), victim.getUniqueId())) return;
         event.setCancelled(true);
@@ -1520,6 +1632,12 @@ public class ProtectionListener implements Listener {
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         if (player.isOp()) return;
+        Location inventoryLocation = inventoryHolderLocation(event.getInventory().getHolder());
+        if (playerListener.isActiveCtfShelfLocation(inventoryLocation)) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "CTF-Regale können nicht direkt geöffnet werden.");
+            return;
+        }
         Object holder = event.getInventory().getHolder();
         Location location = event.getInventory().getLocation();
         if (location == null && holder instanceof Entity entity) {
@@ -1554,6 +1672,43 @@ public class ProtectionListener implements Listener {
             }
             islandService.markIslandActivity(player.getUniqueId());
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (player.isOp()) return;
+        if (event.getClickedInventory() == null) return;
+        Location inventoryLocation = inventoryHolderLocation(event.getView().getTopInventory().getHolder());
+        if (!playerListener.isActiveCtfShelfLocation(inventoryLocation)) return;
+        event.setCancelled(true);
+        player.sendMessage(ChatColor.RED + "Aus CTF-Regalen können keine Items entnommen werden.");
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (player.isOp()) return;
+        Location inventoryLocation = inventoryHolderLocation(event.getView().getTopInventory().getHolder());
+        if (!playerListener.isActiveCtfShelfLocation(inventoryLocation)) return;
+        int topSize = event.getView().getTopInventory().getSize();
+        boolean touchesTop = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
+        if (!touchesTop) return;
+        event.setCancelled(true);
+        player.sendMessage(ChatColor.RED + "CTF-Regale sind für Spieler gesperrt.");
+    }
+
+    private Location inventoryHolderLocation(Object holder) {
+        if (holder instanceof BlockState blockState) {
+            return blockState.getLocation();
+        }
+        if (holder instanceof DoubleChest doubleChest) {
+            return doubleChest.getLocation();
+        }
+        if (holder instanceof Entity entity) {
+            return entity.getLocation();
+        }
+        return null;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

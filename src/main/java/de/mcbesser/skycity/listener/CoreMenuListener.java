@@ -101,8 +101,20 @@ public class CoreMenuListener implements Listener {
             handleIslandShopMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.TimeModeShopInventoryHolder holder) {
             handleTimeModeShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.WeatherShopInventoryHolder holder) {
+            handleWeatherShopMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.NightVisionShopInventoryHolder holder) {
             handleNightVisionShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelShopInventoryHolder holder) {
+            handleParcelShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelBiomeInventoryHolder holder) {
+            handleParcelBiomeMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelTimeModeShopInventoryHolder holder) {
+            handleParcelTimeModeShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelWeatherShopInventoryHolder holder) {
+            handleParcelWeatherShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelNightVisionShopInventoryHolder holder) {
+            handleParcelNightVisionShopMenuClick(event, player, holder);
         }
     }
 
@@ -748,6 +760,13 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createTimeModeShopMenu(island, "shop"));
             return;
         }
+        if (raw == 13) {
+            if (!canUseIslandShop(player, island)) {
+                return;
+            }
+            player.openInventory(coreService.createWeatherShopMenu(island, "shop"));
+            return;
+        }
         if (raw == 14) {
             if (!canUseIslandShop(player, island)) {
                 return;
@@ -812,6 +831,66 @@ public class CoreMenuListener implements Listener {
         islandService.setIslandTimeMode(island, target);
         player.sendMessage(ChatColor.GREEN + "Zeitmodus gesetzt: " + islandService.islandTimeModeLabel(target) + " (Kosten: " + cost + ")");
         player.openInventory(coreService.createTimeModeShopMenu(island, holder.backTarget()));
+    }
+
+    private void handleWeatherShopMenuClick(InventoryClickEvent event, Player player, CoreService.WeatherShopInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        if (!canUseIslandShop(player, island)) {
+            return;
+        }
+        int raw = event.getRawSlot();
+        if (raw == 40) {
+            player.openInventory(coreService.createIslandShopMenu(player, island));
+            return;
+        }
+        IslandService.IslandWeatherMode target = switch (raw) {
+            case 11 -> IslandService.IslandWeatherMode.CLEAR;
+            case 13 -> IslandService.IslandWeatherMode.RAIN;
+            case 15 -> IslandService.IslandWeatherMode.THUNDER;
+            case 22 -> IslandService.IslandWeatherMode.NORMAL;
+            default -> null;
+        };
+        IslandService.SnowWeatherMode snowTarget = switch (raw) {
+            case 29 -> IslandService.SnowWeatherMode.ALLOW;
+            case 33 -> IslandService.SnowWeatherMode.BLOCK;
+            default -> null;
+        };
+        if (snowTarget != null) {
+            if (islandService.getIslandSnowMode(island) == snowTarget) {
+                player.sendMessage(ChatColor.YELLOW + "Dieser Schnee-Modus ist bereits aktiv.");
+                player.openInventory(coreService.createWeatherShopMenu(island, holder.backTarget()));
+                return;
+            }
+            long cost = islandService.getWeatherModeChangeCost();
+            if (!islandService.spendStoredExperience(island, cost)) {
+                player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Benötigt: " + cost);
+                return;
+            }
+            islandService.setIslandSnowMode(island, snowTarget);
+            if (snowTarget == IslandService.SnowWeatherMode.BLOCK) {
+                islandService.clearWeatherSnowForIsland(island);
+            }
+            player.sendMessage(ChatColor.GREEN + "Schnee-Modus gesetzt: " + islandService.snowWeatherModeLabel(snowTarget) + " (Kosten: " + cost + ")");
+            player.openInventory(coreService.createWeatherShopMenu(island, holder.backTarget()));
+            return;
+        }
+        if (target == null) return;
+        IslandService.IslandWeatherMode current = islandService.getIslandWeatherMode(island);
+        if (current == target) {
+            player.sendMessage(ChatColor.YELLOW + "Dieser Wettermodus ist bereits aktiv.");
+            player.openInventory(coreService.createWeatherShopMenu(island, holder.backTarget()));
+            return;
+        }
+        long cost = islandService.getWeatherModeChangeCost();
+        if (!islandService.spendStoredExperience(island, cost)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Benötigt: " + cost);
+            return;
+        }
+        islandService.setIslandWeatherMode(island, target);
+        player.sendMessage(ChatColor.GREEN + "Wetter gesetzt: " + islandService.islandWeatherModeLabel(target) + " (Kosten: " + cost + ")");
+        player.openInventory(coreService.createWeatherShopMenu(island, holder.backTarget()));
     }
 
     private void handleNightVisionShopMenuClick(InventoryClickEvent event, Player player, CoreService.NightVisionShopInventoryHolder holder) {
@@ -880,6 +959,15 @@ public class CoreMenuListener implements Listener {
             return true;
         }
         player.sendMessage(ISLAND_SHOP_PERMISSION_MESSAGE);
+        return false;
+    }
+
+    private boolean canUseParcelShop(Player player, IslandData island, ParcelData parcel) {
+        if (player == null || island == null || parcel == null) return false;
+        if (player.isOp() || islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+            return true;
+        }
+        player.sendMessage(ChatColor.RED + "Nur Master, Owner oder Plot-Owner können im GS-Shop kaufen.");
         return false;
     }
 
@@ -983,6 +1071,13 @@ public class CoreMenuListener implements Listener {
                     return;
                 }
             }
+            case 24 -> {
+                var parcel = targetParcel;
+                if (parcel != null && canUseParcelShop(player, island, parcel)) {
+                    player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                    return;
+                }
+            }
             case 28 -> {
                 var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
@@ -1009,6 +1104,9 @@ public class CoreMenuListener implements Listener {
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     boolean enabled = !parcel.isGamesEnabled();
                     if (islandService.setParcelGames(island, parcel, player.getUniqueId(), enabled)) {
+                        if (!enabled) {
+                            playerListener.resetParcelSnowballFight(island, parcel);
+                        }
                         player.sendMessage((enabled ? ChatColor.AQUA : ChatColor.GREEN) + "GS-Games " + (enabled ? "aktiviert." : "deaktiviert."));
                     }
                 }
@@ -1125,6 +1223,29 @@ public class CoreMenuListener implements Listener {
                     }
                 }
             }
+            case 50 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    boolean enabled = !parcel.isSnowballFightEnabled();
+                    if (enabled && !parcel.isGamesEnabled()) {
+                        player.sendMessage(ChatColor.RED + "Schneeballschlacht benötigt zuerst GS-Games.");
+                        return;
+                    }
+                    if (islandService.setParcelSnowballFightEnabled(island, parcel, player.getUniqueId(), enabled)) {
+                        if (!enabled) {
+                            playerListener.resetParcelSnowballFight(island, parcel);
+                        }
+                        player.sendMessage((enabled ? ChatColor.AQUA : ChatColor.GREEN) + "Schneeballschlacht " + (enabled ? "aktiviert." : "deaktiviert."));
+                    }
+                }
+            }
+            case 51 -> {
+                var parcel = targetParcel;
+                if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
+                    playerListener.resetParcelSnowballFight(island, parcel);
+                    player.sendMessage(ChatColor.YELLOW + "Schneeball-Teamwertung wurde zurückgesetzt.");
+                }
+            }
             case 49 -> {
                 player.openInventory(coreService.createIslandMenu(player, island));
                 return;
@@ -1133,6 +1254,189 @@ public class CoreMenuListener implements Listener {
             }
         }
         openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+    }
+
+    private void handleParcelShopMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelShopInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (!canUseParcelShop(player, island, parcel)) return;
+        switch (event.getRawSlot()) {
+            case 10 -> player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), 0));
+            case 12 -> player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            case 14 -> player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            case 30 -> player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            case 40 -> player.openInventory(coreService.createParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ()));
+            default -> {
+            }
+        }
+    }
+
+    private void handleParcelBiomeMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelBiomeInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (!canUseParcelShop(player, island, parcel)) return;
+        int raw = event.getRawSlot();
+        if (raw == 45) {
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
+        if (raw == 48 && holder.page() > 0) {
+            player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.page() - 1));
+            return;
+        }
+        if (raw == 50) {
+            player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.page() + 1));
+            return;
+        }
+        if (raw < 0 || raw >= 45) return;
+        int index = holder.page() * 45 + raw;
+        if (index < 0 || index >= coreService.getBiomeOptionCount()) return;
+        Biome biome = coreService.biomeOptionAt(index);
+        if (biome == null) return;
+        long cost = islandService.getBiomeChangeCost(false);
+        if (!islandService.spendStoredExperience(island, cost)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Benötigt: " + cost);
+            return;
+        }
+        if (!islandService.setBiomeForParcel(island, parcel, biome)) {
+            player.sendMessage(ChatColor.RED + "Parcel-Biom konnte nicht gesetzt werden.");
+            return;
+        }
+        player.sendMessage(ChatColor.GREEN + "Parcel-Biom gesetzt: " + coreService.biomeDisplayNameDe(biome) + " (Kosten: " + cost + ")");
+        player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.page()));
+    }
+
+    private void handleParcelTimeModeShopMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelTimeModeShopInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (!canUseParcelShop(player, island, parcel)) return;
+        int raw = event.getRawSlot();
+        if (raw == 40) {
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
+        IslandService.IslandTimeMode target = switch (raw) {
+            case 11 -> IslandService.IslandTimeMode.DAY;
+            case 13 -> IslandService.IslandTimeMode.SUNSET;
+            case 15 -> IslandService.IslandTimeMode.MIDNIGHT;
+            case 22 -> IslandService.IslandTimeMode.NORMAL;
+            default -> null;
+        };
+        if (target == null) return;
+        if (islandService.getParcelTimeMode(parcel) == target) {
+            player.sendMessage(ChatColor.YELLOW + "Dieser Zeitmodus ist bereits auf dem Grundstück aktiv.");
+            return;
+        }
+        long cost = islandService.getTimeModeChangeCost();
+        if (!islandService.spendStoredExperience(island, cost)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Benötigt: " + cost);
+            return;
+        }
+        if (!islandService.setParcelTimeMode(island, parcel, player.getUniqueId(), target)) {
+            player.sendMessage(ChatColor.RED + "Parcel-Zeitmodus konnte nicht gesetzt werden.");
+            return;
+        }
+        player.sendMessage(ChatColor.GREEN + "Parcel-Zeit gesetzt: " + islandService.islandTimeModeLabel(target) + " (Kosten: " + cost + ")");
+        player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+    }
+
+    private void handleParcelWeatherShopMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelWeatherShopInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (!canUseParcelShop(player, island, parcel)) return;
+        int raw = event.getRawSlot();
+        if (raw == 40) {
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
+        IslandService.IslandWeatherMode target = switch (raw) {
+            case 11 -> IslandService.IslandWeatherMode.CLEAR;
+            case 13 -> IslandService.IslandWeatherMode.RAIN;
+            case 15 -> IslandService.IslandWeatherMode.THUNDER;
+            case 22 -> IslandService.IslandWeatherMode.NORMAL;
+            default -> null;
+        };
+        IslandService.SnowWeatherMode snowTarget = switch (raw) {
+            case 29 -> IslandService.SnowWeatherMode.ALLOW;
+            case 33 -> IslandService.SnowWeatherMode.BLOCK;
+            default -> null;
+        };
+        if (snowTarget != null) {
+            if (islandService.getParcelSnowMode(parcel) == snowTarget) {
+                player.sendMessage(ChatColor.YELLOW + "Dieser Schnee-Modus ist bereits auf dem Grundstück aktiv.");
+                return;
+            }
+            long cost = islandService.getWeatherModeChangeCost();
+            if (!islandService.spendStoredExperience(island, cost)) {
+                player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Benötigt: " + cost);
+                return;
+            }
+            if (!islandService.setParcelSnowMode(island, parcel, player.getUniqueId(), snowTarget)) {
+                player.sendMessage(ChatColor.RED + "Parcel-Schnee-Modus konnte nicht gesetzt werden.");
+                return;
+            }
+            if (snowTarget == IslandService.SnowWeatherMode.BLOCK) {
+                islandService.clearWeatherSnowForParcel(island, parcel);
+            }
+            player.sendMessage(ChatColor.GREEN + "Parcel-Schnee gesetzt: " + islandService.snowWeatherModeLabel(snowTarget) + " (Kosten: " + cost + ")");
+            player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
+        if (target == null) return;
+        if (islandService.getParcelWeatherMode(parcel) == target) {
+            player.sendMessage(ChatColor.YELLOW + "Dieser Wettermodus ist bereits auf dem Grundstück aktiv.");
+            return;
+        }
+        long cost = islandService.getWeatherModeChangeCost();
+        if (!islandService.spendStoredExperience(island, cost)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Benötigt: " + cost);
+            return;
+        }
+        if (!islandService.setParcelWeatherMode(island, parcel, player.getUniqueId(), target)) {
+            player.sendMessage(ChatColor.RED + "Parcel-Wetter konnte nicht gesetzt werden.");
+            return;
+        }
+        player.sendMessage(ChatColor.GREEN + "Parcel-Wetter gesetzt: " + islandService.islandWeatherModeLabel(target) + " (Kosten: " + cost + ")");
+        player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+    }
+
+    private void handleParcelNightVisionShopMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelNightVisionShopInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (!canUseParcelShop(player, island, parcel)) return;
+        int raw = event.getRawSlot();
+        if (raw == 40) {
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
+        if (raw == 11) {
+            long cost = islandService.getNightVisionCost(false);
+            if (!islandService.buyParcelNightVision(island, parcel, player.getUniqueId())) {
+                player.sendMessage(ChatColor.RED + "Parcel-Nachtsicht konnte nicht gekauft werden.");
+                return;
+            }
+            player.sendMessage(ChatColor.GREEN + "Parcel-Nachtsicht aktiviert. Kosten: " + cost);
+            player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
+        if (raw == 29) {
+            if (!islandService.disableParcelNightVision(island, parcel, player.getUniqueId())) {
+                player.sendMessage(ChatColor.RED + "Parcel-Nachtsicht war nicht aktiv.");
+                return;
+            }
+            player.sendMessage(ChatColor.YELLOW + "Parcel-Nachtsicht deaktiviert.");
+            player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+        }
     }
 
     private ParcelData resolveHolderParcel(IslandData island, String parcelKey, int relChunkX, int relChunkZ) {
@@ -1679,7 +1983,13 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.ParcelModerationInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandShopInventoryHolder
                 || top.getHolder() instanceof CoreService.TimeModeShopInventoryHolder
-                || top.getHolder() instanceof CoreService.NightVisionShopInventoryHolder) {
+                || top.getHolder() instanceof CoreService.WeatherShopInventoryHolder
+                || top.getHolder() instanceof CoreService.NightVisionShopInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelShopInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelBiomeInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelTimeModeShopInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelWeatherShopInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelNightVisionShopInventoryHolder) {
             event.setCancelled(true);
             return;
         }
