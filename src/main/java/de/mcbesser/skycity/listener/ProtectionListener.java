@@ -29,12 +29,15 @@ import org.bukkit.block.data.type.Bamboo;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Animals;
+import org.bukkit.entity.Cow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Goat;
 import org.bukkit.entity.Hanging;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
+import org.bukkit.entity.MushroomCow;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Vehicle;
@@ -54,6 +57,7 @@ import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityMountEvent;
@@ -1837,7 +1841,9 @@ public class ProtectionListener implements Listener {
                 && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalBreed())) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Du darfst hier keine Tiere vermehren.");
+            return;
         }
+        coreService.setTemporaryEntityEmotion(event.getEntity(), ChatColor.LIGHT_PURPLE + "😏", 5000L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1864,7 +1870,9 @@ public class ProtectionListener implements Listener {
                 && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalShear())) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Du darfst hier nicht scheren.");
+            return;
         }
+        coreService.setTemporaryEntityEmotion(event.getRightClicked(), ChatColor.YELLOW + "😕", 4500L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1894,7 +1902,25 @@ public class ProtectionListener implements Listener {
         if (!allowed) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Du darfst in diesem Plot nicht mit Tieren interagieren.");
+            return;
         }
+        if (breedingItem) {
+            coreService.setTemporaryEntityEmotion(animal, ChatColor.LIGHT_PURPLE + "😘", 3500L);
+            return;
+        }
+        if (item != null && item.getType() == Material.BUCKET && (animal instanceof Cow || animal instanceof MushroomCow || animal instanceof Goat)) {
+            coreService.setTemporaryEntityEmotion(animal, ChatColor.YELLOW + "😕", 4500L);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityEmotionDamage(EntityDamageEvent event) {
+        if (!skyWorldService.isSkyCityWorld(event.getEntity().getWorld())) return;
+        if (!(event.getEntity() instanceof Animals)
+                && !islandService.isTrackedGolem(event.getEntityType())) {
+            return;
+        }
+        coreService.setTemporaryEntityEmotion(event.getEntity(), ChatColor.RED + "😖", 2500L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

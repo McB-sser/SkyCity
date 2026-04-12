@@ -133,6 +133,7 @@ public class CoreService {
    private final Map<UUID, UUID> playerAnimalLookTargets = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> animalLookDisplayEntities = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> animalLookHealthDisplayEntities = new ConcurrentHashMap<>();
+   private final Map<UUID, TimedEntityEmotion> entityEmotions = new ConcurrentHashMap<>();
    private final Map<UUID, BossBar> limitHintBossBars = new ConcurrentHashMap<>();
    private final Map<UUID, Integer> limitHintHideTasks = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
@@ -3719,6 +3720,7 @@ public class CoreService {
 
    private void updateAnimalLookDisplays() {
       Set<UUID> activeTargets = ConcurrentHashMap.newKeySet();
+      Set<UUID> activeHealthTargets = ConcurrentHashMap.newKeySet();
 
       for (UUID entityId : new ArrayList<>(this.animalLookDisplayEntities.keySet())) {
          Entity entity = Bukkit.getEntity(entityId);
@@ -3727,8 +3729,29 @@ public class CoreService {
          }
       }
 
+      for (UUID entityId : new ArrayList<>(this.animalLookHealthDisplayEntities.keySet())) {
+         Entity entity = Bukkit.getEntity(entityId);
+         if (entity == null || !entity.isValid() || !this.supportsEntityLookDisplay(entity)) {
+            this.removeAnimalHealthDisplay(entityId);
+         }
+      }
+
       for (Player player : Bukkit.getOnlinePlayers()) {
          if (!player.isOnline()) continue;
+         for (Entity entity : player.getWorld().getEntities()) {
+            if (!this.supportsEntityLookDisplay(entity)) {
+               continue;
+            }
+            if (!entity.isValid()) {
+               continue;
+            }
+            IslandData island = this.islandService.getIslandAt(entity.getLocation());
+            if (island == null) {
+               continue;
+            }
+            activeHealthTargets.add(entity.getUniqueId());
+            this.ensureAnimalHealthLookText(entity);
+         }
          Location eyeLocation = player.getEyeLocation();
          RayTraceResult trace = player.getWorld()
             .rayTraceEntities(eyeLocation, eyeLocation.getDirection(), 12.0, 0.2, this::supportsEntityLookDisplay);
@@ -3752,12 +3775,17 @@ public class CoreService {
          if (display != null) {
             this.animalLookDisplayEntities.put(entityId, display.getUniqueId());
          }
-         this.ensureAnimalHealthLookText(entity);
       }
 
       for (UUID entityId : new ArrayList<>(this.visibleAnimalLookTargets)) {
          if (!activeTargets.contains(entityId)) {
             this.removeAnimalLookDisplay(entityId);
+         }
+      }
+
+      for (UUID entityId : new ArrayList<>(this.animalLookHealthDisplayEntities.keySet())) {
+         if (!activeHealthTargets.contains(entityId)) {
+            this.removeAnimalHealthDisplay(entityId);
          }
       }
 
@@ -3813,7 +3841,7 @@ public class CoreService {
       }
 
       if (resolved == null) {
-         double spawnYOffset = this.islandService.isTrackedGolem(entity.getType()) ? entity.getHeight() + 0.64D : entity.getHeight() + 0.31D;
+         double spawnYOffset = this.islandService.isTrackedGolem(entity.getType()) ? entity.getHeight() + 0.98D : entity.getHeight() + 0.65D;
          Location spawnLocation = entity.getLocation().clone().add(0.0, spawnYOffset, 0.0);
          resolved = (TextDisplay)entity.getWorld().spawnEntity(spawnLocation, EntityType.TEXT_DISPLAY);
          resolved.addScoreboardTag(tag);
@@ -3835,7 +3863,7 @@ public class CoreService {
          display.setInterpolationDelay(0);
          display.setInterpolationDuration(0);
          display.setTeleportDuration(0);
-         float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.42F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.64F : 0.31F);
+         float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.70F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.98F : 0.65F);
          display.setTransformation(new Transformation(new Vector3f(0.0F, yOffset, 0.0F), new AxisAngle4f(), new Vector3f(1.0F, 1.0F, 1.0F), new AxisAngle4f()));
          if (display.getVehicle() != entity) {
             if (display.getVehicle() != null) {
@@ -3895,6 +3923,10 @@ public class CoreService {
       if (entity == null) {
          return;
       }
+      if (entity instanceof org.bukkit.entity.ArmorStand) {
+         this.removeAnimalHealthDisplay(entity.getUniqueId());
+         return;
+      }
       if (!(entity instanceof Damageable damageable) || !(entity instanceof LivingEntity living) || living.getAttribute(Attribute.MAX_HEALTH) == null) {
          this.removeAnimalHealthDisplay(entity.getUniqueId());
          return;
@@ -3904,7 +3936,7 @@ public class CoreService {
          this.removeAnimalHealthDisplay(entity.getUniqueId());
          return;
       }
-      String healthText = this.buildHealthSmileText(damageable.getHealth(), maxHealth);
+      String healthText = this.resolveEntityEmotionText(entity, damageable.getHealth(), maxHealth);
       String tag = this.animalLookHealthTag(entity.getUniqueId());
       TextDisplay resolved = null;
       boolean created = false;
@@ -3924,7 +3956,7 @@ public class CoreService {
          }
       }
       if (resolved == null) {
-         double spawnYOffset = this.islandService.isTrackedGolem(entity.getType()) ? entity.getHeight() + 0.95D : entity.getHeight() + 0.62D;
+         double spawnYOffset = this.islandService.isTrackedGolem(entity.getType()) ? entity.getHeight() + 0.64D : entity.getHeight() + 0.31D;
          Location spawnLocation = entity.getLocation().clone().add(0.0, spawnYOffset, 0.0);
          resolved = (TextDisplay)entity.getWorld().spawnEntity(spawnLocation, EntityType.TEXT_DISPLAY);
          resolved.addScoreboardTag(tag);
@@ -3943,7 +3975,7 @@ public class CoreService {
          display.setInterpolationDelay(0);
          display.setInterpolationDuration(0);
          display.setTeleportDuration(0);
-         float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.70F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.98F : 0.65F);
+         float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.42F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.64F : 0.31F);
          display.setTransformation(new Transformation(new Vector3f(0.0F, yOffset, 0.0F), new AxisAngle4f(), new Vector3f(1.0F, 1.0F, 1.0F), new AxisAngle4f()));
          if (display.getVehicle() != entity) {
             if (display.getVehicle() != null) {
@@ -3960,13 +3992,16 @@ public class CoreService {
 
    private String buildHealthSmileText(double health, double maxHealth) {
       double ratio = maxHealth <= 0.0D ? 1.0D : Math.max(0.0D, Math.min(1.0D, health / maxHealth));
-      if (ratio >= 0.66D) {
-         return ChatColor.GREEN + ":-)";
+      if (ratio >= 0.95D) {
+         return ChatColor.GREEN + "😃";
       }
-      if (ratio >= 0.33D) {
-         return ChatColor.YELLOW + ":-|";
+      if (ratio >= 0.75D) {
+         return ChatColor.GREEN + "🙂";
       }
-      return ChatColor.RED + ":-(";
+      if (ratio >= 0.45D) {
+         return ChatColor.YELLOW + "😐";
+      }
+      return ChatColor.RED + "🙁";
    }
 
    private void removeAnimalHealthDisplay(UUID entityId) {
@@ -3981,6 +4016,26 @@ public class CoreService {
       if (display != null) {
          display.remove();
       }
+   }
+
+   private String resolveEntityEmotionText(Entity entity, double health, double maxHealth) {
+      if (entity != null) {
+         TimedEntityEmotion emotion = this.entityEmotions.get(entity.getUniqueId());
+         if (emotion != null) {
+            if (emotion.expiresAt() > System.currentTimeMillis()) {
+               return emotion.text();
+            }
+            this.entityEmotions.remove(entity.getUniqueId(), emotion);
+         }
+      }
+      return this.buildHealthSmileText(health, maxHealth);
+   }
+
+   public void setTemporaryEntityEmotion(Entity entity, String text, long durationMs) {
+      if (entity == null || text == null || text.isBlank() || durationMs <= 0L) {
+         return;
+      }
+      this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, System.currentTimeMillis() + durationMs));
    }
 
    private void removeStaleTaggedDisplaysInIsland(IslandData island, String prefix, Set<String> activeTags) {
@@ -4069,6 +4124,9 @@ public class CoreService {
 
    private String animalLookHealthTag(UUID entityId) {
       return "skycity_animal_health_" + entityId.toString().substring(0, 8);
+   }
+
+   private static record TimedEntityEmotion(String text, long expiresAt) {
    }
 
    public void showIslandLimitHint(Player player, IslandData island, Material type) {
