@@ -3794,13 +3794,58 @@ public class CoreService {
    }
 
    private String buildEntityLimitLookText(Entity entity, IslandData island) {
+      String entityLabel = this.entityDisplayNameDe(entity);
       if (entity != null && this.islandService.isTrackedGolem(entity.getType())) {
-         return ChatColor.GREEN + "Golems: " + this.islandService.getGolemCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getGolemLimit();
+         return ChatColor.GOLD + entityLabel + ChatColor.GRAY + " | " + ChatColor.GREEN + "Golems: " + this.islandService.getGolemCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getGolemLimit();
       }
       if (entity instanceof org.bukkit.entity.ArmorStand) {
          return ChatColor.GREEN + "Rüstungsständer: " + this.islandService.getArmorStandCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getArmorStandLimit();
       }
-      return ChatColor.GREEN + "Tiere: " + this.islandService.getAnimalCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getAnimalLimit();
+      return ChatColor.GOLD + entityLabel + ChatColor.GRAY + " | " + ChatColor.GREEN + "Tiere: " + this.islandService.getAnimalCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getAnimalLimit();
+   }
+
+   private String entityDisplayNameDe(Entity entity) {
+      if (entity == null) {
+         return "Entity";
+      }
+      return switch (entity.getType()) {
+         case COW -> "Kuh";
+         case MOOSHROOM -> "Pilzkuh";
+         case SHEEP -> "Schaf";
+         case PIG -> "Schwein";
+         case CHICKEN -> "Huhn";
+         case HORSE -> "Pferd";
+         case DONKEY -> "Esel";
+         case MULE -> "Maultier";
+         case LLAMA -> "Lama";
+         case TRADER_LLAMA -> "Händlerlama";
+         case CAMEL -> "Kamel";
+         case GOAT -> "Ziege";
+         case RABBIT -> "Kaninchen";
+         case CAT -> "Katze";
+         case WOLF -> "Wolf";
+         case FOX -> "Fuchs";
+         case BEE -> "Biene";
+         case TURTLE -> "Schildkröte";
+         case FROG -> "Frosch";
+         case AXOLOTL -> "Axolotl";
+         case SNIFFER -> "Sniffer";
+         case STRIDER -> "Strider";
+         case COPPER_GOLEM -> "Kupfergolem";
+         case IRON_GOLEM -> "Eisengolem";
+         case SNOW_GOLEM -> "Schneegolem";
+         case ARMOR_STAND -> "Rüstungsständer";
+         default -> {
+            String[] parts = entity.getType().name().toLowerCase(Locale.ROOT).split("_");
+            StringBuilder sb = new StringBuilder();
+            for (String part : parts) {
+               if (part.isBlank()) continue;
+               if (sb.length() > 0) sb.append(' ');
+               sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+            }
+            yield sb.length() == 0 ? "Entity" : sb.toString();
+         }
+      };
    }
 
    private boolean supportsEntityLookDisplay(Entity entity) {
@@ -3863,7 +3908,7 @@ public class CoreService {
          display.setInterpolationDelay(0);
          display.setInterpolationDuration(0);
          display.setTeleportDuration(0);
-         float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.70F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.98F : 0.65F);
+         float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.12F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.98F : 0.65F);
          display.setTransformation(new Transformation(new Vector3f(0.0F, yOffset, 0.0F), new AxisAngle4f(), new Vector3f(1.0F, 1.0F, 1.0F), new AxisAngle4f()));
          if (display.getVehicle() != entity) {
             if (display.getVehicle() != null) {
