@@ -1288,6 +1288,10 @@ public class ProtectionListener implements Listener {
         if (!skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
         if (coreService.handleDisplayInteraction(event.getPlayer(), event.getRightClicked())) {
             event.setCancelled(true);
+            return;
+        }
+        if (coreService.handleParcelOfferInteraction(event.getPlayer(), event.getRightClicked())) {
+            event.setCancelled(true);
         }
     }
 
@@ -1296,6 +1300,11 @@ public class ProtectionListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND) return;
         if (skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())
             && coreService.handleDisplayInteraction(event.getPlayer(), event.getRightClicked())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())
+            && coreService.handleParcelOfferInteraction(event.getPlayer(), event.getRightClicked())) {
             event.setCancelled(true);
             return;
         }
@@ -1332,6 +1341,10 @@ public class ProtectionListener implements Listener {
             Player attacker = resolveDamagingPlayer(event);
             if (attacker == null || !skyWorldService.isSkyCityWorld(interaction.getWorld())) return;
             if (coreService.handleCoreDisplayToggle(attacker, interaction)) {
+                event.setCancelled(true);
+                return;
+            }
+            if (coreService.handleParcelOfferInteraction(attacker, interaction)) {
                 event.setCancelled(true);
                 return;
             }
