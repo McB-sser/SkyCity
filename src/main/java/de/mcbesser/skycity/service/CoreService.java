@@ -42,9 +42,12 @@ import org.bukkit.block.ShulkerBox;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
@@ -54,6 +57,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.RayTraceResult;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 public class CoreService {
    public static final String CORE_MENU_TITLE = "SkyCity Core";
@@ -3282,20 +3288,28 @@ public class CoreService {
          Bukkit.getScheduler().cancelTask(this.animalLookTaskId);
          this.animalLookTaskId = -1;
       }
+
+      this.clearAnimalLookDisplays();
    }
 
    private void updateDisplays(IslandData island) {
       if (island.getCoreLocation() != null && island.getCoreLocation().getWorld() != null) {
          this.processCoreShulkerBuffer(island);
-         Location coreTop = island.getCoreLocation().clone().add(0.5, 1.01, 0.5);
+         Location coreTop = island.getCoreLocation().clone().add(0.5, 1.51, 0.5);
          List<String> lines = this.buildCoreDisplayLines(island);
+         Set<String> activeTags = new java.util.HashSet<>();
          double yOffset = 0.0;
          int lineIndex = 0;
+
+         this.ensureCoreToggleInteraction(coreTop, "skycity_core_toggle");
+         activeTags.add("skycity_core_toggle");
 
          for (int i = lines.size() - 1; i >= 0; i--) {
             String line = this.sanitizeLegacyText(lines.get(i));
             if (line != null && !line.isBlank()) {
-               this.ensureText(coreTop.clone().add(0.0, yOffset, 0.0), "skycity_core_line_" + lineIndex, line);
+               String tag = "skycity_core_line_" + lineIndex;
+               this.ensureCoreText(coreTop.clone().add(0.0, yOffset, 0.0), tag, line);
+               activeTags.add(tag);
                yOffset += 0.28;
                lineIndex++;
             } else {
@@ -3303,7 +3317,7 @@ public class CoreService {
             }
          }
 
-         this.removeStaleCoreDisplays(island, coreTop, lines);
+         this.removeStaleCoreDisplays(island, activeTags);
       }
       this.updateParcelOfferDisplays(island);
       if (island.getCoreLocation() == null || island.getCoreLocation().getWorld() == null) {
@@ -3372,39 +3386,101 @@ public class CoreService {
       }
    }
 
-   private void removeStaleCoreDisplays(IslandData island, Location coreDisplayBase, List<String> lines) {
-      int nonBlankLines = 0;
-      if (lines != null) {
-         for (String line : lines) {
-            if (line != null && !line.isBlank()) {
-               nonBlankLines++;
-            }
-         }
-      }
-
-      double maxDist = Math.max(4.2, (double)nonBlankLines * 0.32 + 1.2);
-
+   private void removeStaleCoreDisplays(IslandData island, Set<String> activeTags) {
       for (Entity e : this.islandService.getEntitiesInIsland(island)) {
-         if (e instanceof ArmorStand) {
-            ArmorStand stand = (ArmorStand)e;
-            boolean coreTag = false;
-
-            for (String tag : stand.getScoreboardTags()) {
-               if (tag.startsWith("skycity_core_")) {
-                  coreTag = true;
-                  break;
-               }
-            }
-
-            if (coreTag) {
-               if (!stand.getWorld().equals(coreDisplayBase.getWorld())) {
-                  stand.remove();
-               } else if (stand.getLocation().distanceSquared(coreDisplayBase) > maxDist * maxDist) {
-                  stand.remove();
-               }
+         for (String tag : e.getScoreboardTags()) {
+            if (tag.startsWith("skycity_core_") && (activeTags == null || !activeTags.contains(tag))) {
+               e.remove();
+               break;
             }
          }
       }
+   }
+
+   private void ensureCoreText(Location location, String tag, String text) {
+      TextDisplay display = null;
+      Interaction interaction = null;
+
+      for (Entity e : location.getWorld().getNearbyEntities(location, 2.5, 4.0, 2.5)) {
+         if (!e.getScoreboardTags().contains(tag)) {
+            continue;
+         }
+         if (e instanceof TextDisplay textDisplay) {
+            if (display == null) {
+               display = textDisplay;
+            } else {
+               e.remove();
+            }
+         } else if (e instanceof Interaction hitbox) {
+            if (interaction == null) {
+               interaction = hitbox;
+            } else {
+               e.remove();
+            }
+         } else if (e instanceof ArmorStand) {
+            e.remove();
+         }
+      }
+
+      if (display == null) {
+         display = (TextDisplay)location.getWorld().spawnEntity(location, EntityType.TEXT_DISPLAY);
+         display.addScoreboardTag(tag);
+      }
+      if (interaction == null) {
+         interaction = (Interaction)location.getWorld().spawnEntity(location, EntityType.INTERACTION);
+         interaction.addScoreboardTag(tag);
+      }
+
+      this.configureCoreTextDisplay(display, location, text);
+      this.configureCoreInteraction(interaction, location);
+   }
+
+   private void configureCoreTextDisplay(TextDisplay display, Location location, String text) {
+      display.setBillboard(Display.Billboard.CENTER);
+      display.setSeeThrough(true);
+      display.setShadowed(false);
+      display.setPersistent(false);
+      display.setInterpolationDelay(0);
+      display.setInterpolationDuration(0);
+      display.setTeleportDuration(0);
+      Component desiredText = LegacyComponentSerializer.legacySection().deserialize(text);
+      if (!desiredText.equals(display.text())) {
+         display.text(desiredText);
+      }
+      if (display.getLocation().distanceSquared(location) > 1.0E-4D) {
+         display.teleport(location);
+      }
+   }
+
+   private void configureCoreInteraction(Interaction interaction, Location location) {
+      interaction.setPersistent(false);
+      interaction.setInteractionWidth(0.95F);
+      interaction.setInteractionHeight(0.25F);
+      if (interaction.getLocation().distanceSquared(location) > 1.0E-4D) {
+         interaction.teleport(location);
+      }
+   }
+
+   private void ensureCoreToggleInteraction(Location location, String tag) {
+      Interaction interaction = null;
+
+      for (Entity e : location.getWorld().getNearbyEntities(location, 1.5, 3.0, 1.5)) {
+         if (!(e instanceof Interaction hitbox) || !e.getScoreboardTags().contains(tag)) {
+            continue;
+         }
+         if (interaction == null) {
+            interaction = hitbox;
+         } else {
+            e.remove();
+         }
+      }
+
+      if (interaction == null) {
+         interaction = (Interaction)location.getWorld().spawnEntity(location, EntityType.INTERACTION);
+         interaction.addScoreboardTag(tag);
+      }
+
+      this.configureCoreInteraction(interaction, location);
    }
 
    private ArmorStand ensureText(Location location, String tag, String text) {
@@ -3453,14 +3529,10 @@ public class CoreService {
 
    private void removeTaggedDisplaysByPrefixInIsland(IslandData island, String prefix) {
       for (Entity e : this.islandService.getEntitiesInIsland(island)) {
-         if (e instanceof ArmorStand) {
-            ArmorStand stand = (ArmorStand)e;
-
-            for (String tag : stand.getScoreboardTags()) {
-               if (tag.startsWith(prefix)) {
-                  stand.remove();
-                  break;
-               }
+         for (String tag : e.getScoreboardTags()) {
+            if (tag.startsWith(prefix)) {
+               e.remove();
+               break;
             }
          }
       }
@@ -3625,6 +3697,13 @@ public class CoreService {
    private void updateAnimalLookDisplays() {
       Set<UUID> activeTargets = ConcurrentHashMap.newKeySet();
 
+      for (UUID entityId : new ArrayList<>(this.animalLookDisplayEntities.keySet())) {
+         Entity entity = Bukkit.getEntity(entityId);
+         if (entity == null || !entity.isValid() || !(entity instanceof Animals) && !this.islandService.isTrackedGolem(entity.getType())) {
+            this.removeAnimalLookDisplay(entityId);
+         }
+      }
+
       for (Player player : Bukkit.getOnlinePlayers()) {
          if (!player.isOnline()) continue;
          Location eyeLocation = player.getEyeLocation();
@@ -3646,9 +3725,9 @@ public class CoreService {
          IslandData island = this.islandService.getIslandAt(entity.getLocation());
          if (island == null) continue;
          String tag = this.animalLookTag(entityId);
-         ArmorStand stand = this.ensureText(entity.getLocation().clone().add(0.0, 1.4, 0.0), tag, this.buildEntityLimitLookText(entity, island));
-         if (stand != null) {
-            this.animalLookDisplayEntities.put(entityId, stand.getUniqueId());
+         TextDisplay display = this.ensureAnimalLookText(entity, tag, this.buildEntityLimitLookText(entity, island));
+         if (display != null) {
+            this.animalLookDisplayEntities.put(entityId, display.getUniqueId());
          }
       }
 
@@ -3669,12 +3748,87 @@ public class CoreService {
       return ChatColor.GREEN + "Tiere: " + this.islandService.getAnimalCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getAnimalLimit();
    }
 
+   private TextDisplay ensureAnimalLookText(Entity entity, String tag, String text) {
+      if (entity == null || !entity.isValid()) {
+         return null;
+      }
+
+      TextDisplay resolved = null;
+      boolean created = false;
+      UUID displayId = this.animalLookDisplayEntities.get(entity.getUniqueId());
+      if (displayId != null) {
+         Entity tracked = Bukkit.getEntity(displayId);
+         if (tracked instanceof TextDisplay textDisplay && tracked.isValid() && tracked.getScoreboardTags().contains(tag)) {
+            resolved = textDisplay;
+         }
+      }
+
+      if (resolved == null) {
+         for (Entity passenger : entity.getPassengers()) {
+            if (passenger instanceof TextDisplay textDisplay && passenger.getScoreboardTags().contains(tag)) {
+               resolved = textDisplay;
+               break;
+            }
+         }
+      }
+
+      if (resolved == null) {
+         for (Entity nearby : entity.getNearbyEntities(1.5, 3.0, 1.5)) {
+            if (nearby instanceof TextDisplay textDisplay && nearby.getScoreboardTags().contains(tag)) {
+               resolved = textDisplay;
+               break;
+            }
+         }
+      }
+
+      if (resolved == null) {
+         double spawnYOffset = this.islandService.isTrackedGolem(entity.getType()) ? entity.getHeight() + 0.64D : entity.getHeight() + 0.31D;
+         Location spawnLocation = entity.getLocation().clone().add(0.0, spawnYOffset, 0.0);
+         resolved = (TextDisplay)entity.getWorld().spawnEntity(spawnLocation, EntityType.TEXT_DISPLAY);
+         resolved.addScoreboardTag(tag);
+         created = true;
+      }
+
+      this.configureAnimalLookDisplay(resolved, entity, text, created);
+      return resolved;
+   }
+
+   private void configureAnimalLookDisplay(TextDisplay display, Entity entity, String text, boolean created) {
+      Component desiredText = LegacyComponentSerializer.legacySection().deserialize(text);
+      if (created) {
+         display.text(Component.empty());
+         display.setBillboard(Display.Billboard.CENTER);
+         display.setSeeThrough(true);
+         display.setShadowed(false);
+         display.setPersistent(false);
+         display.setInterpolationDelay(0);
+         display.setInterpolationDuration(0);
+         display.setTeleportDuration(0);
+         float yOffset = this.islandService.isTrackedGolem(entity.getType()) ? 0.64F : 0.31F;
+         display.setTransformation(new Transformation(new Vector3f(0.0F, yOffset, 0.0F), new AxisAngle4f(), new Vector3f(1.0F, 1.0F, 1.0F), new AxisAngle4f()));
+         if (display.getVehicle() != entity) {
+            if (display.getVehicle() != null) {
+               display.leaveVehicle();
+            }
+            entity.addPassenger(display);
+         }
+      }
+      if (!desiredText.equals(display.text())) {
+         display.text(desiredText);
+      } else if (display.getVehicle() != entity) {
+         if (display.getVehicle() != null) {
+            display.leaveVehicle();
+         }
+         entity.addPassenger(display);
+      }
+   }
+
    private void removeAnimalLookDisplay(UUID animalId) {
-      UUID standId = this.animalLookDisplayEntities.remove(animalId);
-      if (standId != null) {
-         Entity standEntity = Bukkit.getEntity(standId);
-         if (standEntity instanceof ArmorStand stand && stand.isValid()) {
-            stand.remove();
+      UUID displayId = this.animalLookDisplayEntities.remove(animalId);
+      if (displayId != null) {
+         Entity displayEntity = Bukkit.getEntity(displayId);
+         if (displayEntity instanceof TextDisplay display && display.isValid()) {
+            display.remove();
             return;
          }
       }
@@ -3683,11 +3837,19 @@ public class CoreService {
 
       for (World world : Bukkit.getWorlds()) {
          for (Entity e : world.getEntities()) {
-            if (e instanceof ArmorStand && e.getScoreboardTags().contains(tag)) {
+            if (e instanceof TextDisplay && e.getScoreboardTags().contains(tag)) {
                e.remove();
             }
          }
       }
+   }
+
+   private void clearAnimalLookDisplays() {
+      for (UUID entityId : new ArrayList<>(this.animalLookDisplayEntities.keySet())) {
+         this.removeAnimalLookDisplay(entityId);
+      }
+      this.visibleAnimalLookTargets.clear();
+      this.playerAnimalLookTargets.clear();
    }
 
    private void removeStaleTaggedDisplaysInIsland(IslandData island, String prefix, Set<String> activeTags) {
@@ -3704,11 +3866,11 @@ public class CoreService {
       }
    }
 
-   public boolean handleDisplayInteraction(Player player, ArmorStand stand) {
-      if (player == null || stand == null) return false;
-      boolean coreLine = stand.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_"));
+   public boolean handleDisplayInteraction(Player player, Entity entity) {
+      if (player == null || entity == null) return false;
+      boolean coreLine = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_"));
       if (!coreLine) return false;
-      IslandData island = this.islandService.getIslandAt(stand.getLocation());
+      IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
       if (this.islandService.isMilestonePinned(island)) {
          if (this.islandService.levelUp(island)) {
@@ -3725,6 +3887,17 @@ public class CoreService {
          }
       }
       this.refreshCoreDisplay(island);
+      return true;
+   }
+
+   public boolean handleCoreDisplayToggle(Player player, Entity entity) {
+      if (player == null || entity == null) return false;
+      boolean coreToggle = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_") || tag.equals("skycity_core_toggle"));
+      if (!coreToggle) return false;
+      IslandData island = this.islandService.getIslandAt(entity.getLocation());
+      if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
+      CoreService.CoreDisplayMode mode = this.cycleCoreDisplayMode(island, island.getCoreLocation());
+      player.sendMessage(ChatColor.LIGHT_PURPLE + "Core-Anzeige: " + ChatColor.WHITE + this.displayModeLabel(mode));
       return true;
    }
 

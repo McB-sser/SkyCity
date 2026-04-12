@@ -32,6 +32,7 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Hanging;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
@@ -1284,9 +1285,8 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDisplayInteract(PlayerInteractAtEntityEvent event) {
-        if (!(event.getRightClicked() instanceof ArmorStand stand)) return;
-        if (!skyWorldService.isSkyCityWorld(stand.getWorld())) return;
-        if (coreService.handleDisplayInteraction(event.getPlayer(), stand)) {
+        if (!skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
+        if (coreService.handleDisplayInteraction(event.getPlayer(), event.getRightClicked())) {
             event.setCancelled(true);
         }
     }
@@ -1294,6 +1294,11 @@ public class ProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityInteract(PlayerInteractEntityEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
+        if (skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())
+            && coreService.handleDisplayInteraction(event.getPlayer(), event.getRightClicked())) {
+            event.setCancelled(true);
+            return;
+        }
         Player player = event.getPlayer();
         if (player.isOp() || !skyWorldService.isSkyCityWorld(event.getRightClicked().getWorld())) return;
         if (event.getRightClicked() instanceof Hanging) {
@@ -1321,6 +1326,14 @@ public class ProtectionListener implements Listener {
             LivingEntity pveAttacker = resolveDamagingLivingEntity(event);
             if (pveAttacker != null) {
                 islandService.recordPveMobPlayerHit(pveAttacker, victim);
+            }
+        }
+        if (event.getEntity() instanceof Interaction interaction) {
+            Player attacker = resolveDamagingPlayer(event);
+            if (attacker == null || !skyWorldService.isSkyCityWorld(interaction.getWorld())) return;
+            if (coreService.handleCoreDisplayToggle(attacker, interaction)) {
+                event.setCancelled(true);
+                return;
             }
         }
         if (event.getEntity() instanceof ArmorStand stand) {
