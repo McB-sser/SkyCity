@@ -776,7 +776,7 @@ public class CoreService {
       int currentMilestone = Math.max(0, island.getLevel() - 1);
       int maxMilestone = Math.max(0, this.islandService.getLevelDefinitions().size() - 1);
       List<String> lore = new ArrayList<>();
-      lore.add(ChatColor.GOLD + "Meilenstein Stufe");
+      lore.add(ChatColor.GOLD + "Stufe");
       lore.add(ChatColor.WHITE + String.valueOf(currentMilestone) + ChatColor.DARK_GRAY + "/" + maxMilestone);
       lore.add(" ");
       if (next == null) {
