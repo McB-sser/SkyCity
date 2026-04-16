@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -139,6 +140,7 @@ public class CoreService {
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandWarpInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingParcelRenameInput = new ConcurrentHashMap<>();
+   private final Map<UUID, PermissionSearchContext> pendingPermissionSearch = new ConcurrentHashMap<>();
    private int displayTaskId = -1;
    private int animalLookTaskId = -1;
 
@@ -1433,10 +1435,8 @@ public class CoreService {
          inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
          inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
          inv.setItem(19, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-Men\u00fc", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
-         inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Member-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All")));
-         inv.setItem(21, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
-         inv.setItem(22, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner add/remove")));
-         inv.setItem(23, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten")));
+         inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
+         inv.setItem(24, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
          inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
          return inv;
       }
@@ -1466,10 +1466,8 @@ public class CoreService {
       inv.setItem(12, this.named(Material.LECTERN, ChatColor.GOLD + "Blockwertigkeit", List.of(ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level")));
       inv.setItem(13, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
       inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
-      inv.setItem(19, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Member-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All")));
-      inv.setItem(20, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
-      inv.setItem(21, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner add/remove")));
-      inv.setItem(22, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten")));
+      inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
+      inv.setItem(24, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
       inv.setItem(15, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       return inv;
@@ -2660,6 +2658,140 @@ public class CoreService {
          inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
       return inv;
+   }
+
+   public ItemStack createPlayerHead(org.bukkit.OfflinePlayer target, String displayName, List<String> lore) {
+      ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+      org.bukkit.inventory.meta.SkullMeta meta = (org.bukkit.inventory.meta.SkullMeta) item.getItemMeta();
+      if (meta != null) {
+         meta.setOwningPlayer(target);
+         if (displayName != null) meta.setDisplayName(displayName);
+         if (lore != null) meta.setLore(lore);
+         item.setItemMeta(meta);
+      }
+      return item;
+   }
+
+   public Inventory createPermissionsHubMenu(IslandData island) {
+      Inventory inv = Bukkit.createInventory(new PermissionsHubInventoryHolder(island.getOwner()), 27, "Berechtigungen");
+      this.fillWithPanes(inv);
+      inv.setItem(11, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Master verwalten")));
+      inv.setItem(13, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner verwalten")));
+      inv.setItem(15, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Member-Rechte", List.of(ChatColor.GRAY + "Member verwalten")));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Insel-Einstellungen")));
+      return inv;
+   }
+
+   public Inventory createPermissionsActionMenu(IslandData island, String role) {
+      Inventory inv = Bukkit.createInventory(new PermissionsActionInventoryHolder(island.getOwner(), role), 27, role + " verwalten");
+      this.fillWithPanes(inv);
+      inv.setItem(11, this.named(Material.EMERALD, ChatColor.GREEN + "Spieler hinzuf\u00fcgen", List.of(ChatColor.GRAY + "Suchen und " + role + " hinzuf\u00fcgen")));
+      inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + ("MEMBER".equals(role) ? "Spieler entfernen oder bearbeiten" : "Spieler entfernen"), "MEMBER".equals(role) ? List.of(ChatColor.GRAY + "Aktuelle Member anzeigen,", ChatColor.GRAY + "Rechte anpassen oder entfernen") : List.of(ChatColor.GRAY + "Aktuelle " + role + "s anzeigen und entfernen")));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Berechtigungen")));
+      return inv;
+   }
+
+   public Inventory createPermissionPlayerListMenu(IslandData island, String role, boolean adding, String searchFilter, int page) {
+      Inventory inv = Bukkit.createInventory(new PermissionPlayerListInventoryHolder(island.getOwner(), role, adding, searchFilter, page), 54, (adding ? "Hinzuf\u00fcgen: " : "Entfernen: ") + role + " " + (page + 1));
+      this.fillWithPanes(inv);
+      List<org.bukkit.OfflinePlayer> candidates = new ArrayList<>();
+
+      if (adding) {
+         Bukkit.getOnlinePlayers().stream().filter(p -> {
+            if ("MASTER".equals(role)) return !this.islandService.isIslandMaster(island, p.getUniqueId());
+            if ("OWNER".equals(role)) return !island.getOwners().contains(p.getUniqueId());
+            if ("MEMBER".equals(role)) return !islandHasTrustPermission(island, p.getUniqueId(), IslandService.TrustPermission.ALL);
+            return false;
+         }).forEach(candidates::add);
+      } else {
+         Set<UUID> current = switch (role) {
+            case "MASTER" -> island.getMasters();
+            case "OWNER" -> island.getOwners();
+            case "MEMBER" -> {
+               Set<UUID> members = new HashSet<>();
+               members.addAll(island.getMemberBuildAccess());
+               members.addAll(island.getMemberContainerAccess());
+               members.addAll(island.getMemberRedstoneAccess());
+               yield members;
+            }
+            default -> new HashSet<>();
+         };
+         for (UUID u : current) {
+            candidates.add(Bukkit.getOfflinePlayer(u));
+         }
+      }
+
+      if (searchFilter != null && !searchFilter.isBlank()) {
+         candidates.removeIf(p -> p.getName() == null || !p.getName().toLowerCase().contains(searchFilter.toLowerCase()));
+      }
+      candidates.sort((a, b) -> (a.getName() == null ? "" : a.getName()).compareToIgnoreCase(b.getName() == null ? "" : b.getName()));
+
+      int totalPages = Math.max(1, (int)Math.ceil((double)candidates.size() / 45.0));
+      int safePage = Math.max(0, Math.min(totalPages - 1, page));
+      int start = safePage * 45;
+
+      for (int i = 0; i < 45; i++) {
+         int idx = start + i;
+         if (idx >= candidates.size()) break;
+         org.bukkit.OfflinePlayer target = candidates.get(idx);
+         List<String> lore = new ArrayList<>();
+         lore.add(ChatColor.YELLOW + (adding ? ("MASTER".equals(role) ? "Klick = Einladen" : "Klick = Hinzuf\u00fcgen") : ("MEMBER".equals(role) ? "Klick = Verwalten" : "Klick = Entfernen")));
+         lore.add(ChatColor.DARK_GRAY + "uuid:" + target.getUniqueId());
+         inv.setItem(GRID_SLOTS.get(i), createPlayerHead(target, ChatColor.AQUA + (target.getName() != null ? target.getName() : "Unbekannt"), lore));
+      }
+
+      inv.setItem(46, this.named(Material.NAME_TAG, ChatColor.GOLD + "Suche", List.of(ChatColor.GRAY + "Spieler suchen", searchFilter != null ? ChatColor.AQUA + "Filter: " + searchFilter : ChatColor.GRAY + "Kein Filter", ChatColor.YELLOW + "Klick = Suchen")));
+
+      if (safePage > 0) inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu " + role + " verwalten")));
+      if (safePage < totalPages - 1) inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
+      return inv;
+   }
+
+   public Inventory createPermissionMemberDetailMenu(IslandData island, UUID targetPlayer) {
+      Inventory inv = Bukkit.createInventory(new PermissionMemberDetailInventoryHolder(island.getOwner(), targetPlayer), 27, "Member-Optionen");
+      this.fillWithPanes(inv);
+      org.bukkit.OfflinePlayer t = Bukkit.getOfflinePlayer(targetPlayer);
+      boolean hasBuild = island.getMemberBuildAccess().contains(targetPlayer);
+      boolean hasContainer = island.getMemberContainerAccess().contains(targetPlayer);
+      boolean hasRedstone = island.getMemberRedstoneAccess().contains(targetPlayer);
+
+      inv.setItem(4, createPlayerHead(t, ChatColor.GOLD + (t.getName() != null ? t.getName() : "Unbekannt"), List.of()));
+      inv.setItem(9, this.named(Material.EMERALD, ChatColor.GREEN + "Alle Rechte vergeben", List.of(ChatColor.GRAY + "Gibt dem Member", ChatColor.GRAY + "alle verf\u00fcgbaren Rechte", ChatColor.YELLOW + "Klick = Zuweisen")));
+      inv.setItem(11, this.named(hasBuild ? Material.DIAMOND_PICKAXE : Material.WOODEN_PICKAXE, (hasBuild ? ChatColor.GREEN : ChatColor.RED) + "Bauen", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
+      inv.setItem(13, this.named(hasContainer ? Material.TRAPPED_CHEST : Material.CHEST, (hasContainer ? ChatColor.GREEN : ChatColor.RED) + "Kisten", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
+      inv.setItem(15, this.named(hasRedstone ? Material.REDSTONE_TORCH : Material.REDSTONE, (hasRedstone ? ChatColor.GREEN : ChatColor.RED) + "Redstone", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
+      inv.setItem(17, this.named(Material.BARRIER, ChatColor.RED + "Member entfernen", List.of(ChatColor.GRAY + "Nimmt alle Member-Rechte", ChatColor.YELLOW + "Klick = Entfernen")));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Liste")));
+      return inv;
+   }
+
+   public boolean isAwaitingPlayerPermissionSearch(UUID playerId) {
+      return pendingPermissionSearch.containsKey(playerId);
+   }
+
+   public void beginPlayerPermissionSearch(Player player, IslandData island, String role, boolean adding) {
+      player.closeInventory();
+      pendingPermissionSearch.put(player.getUniqueId(), new PermissionSearchContext(island.getOwner(), role, adding));
+      player.sendMessage(ChatColor.YELLOW + "Bitte gib den gesuchten Spielernamen in den Chat ein (oder 'cancel' / 'abbruch' zum Abbrechen):");
+   }
+
+   public void handlePlayerPermissionSearchInput(Player player, String message) {
+      PermissionSearchContext ctx = pendingPermissionSearch.remove(player.getUniqueId());
+      if (ctx == null) return;
+      if ("cancel".equalsIgnoreCase(message) || "abbruch".equalsIgnoreCase(message)) {
+         player.sendMessage(ChatColor.YELLOW + "Suche abgebrochen.");
+      } else {
+         IslandData island = islandService.getIsland(ctx.islandOwner()).orElse(null);
+         if (island != null) {
+            player.openInventory(createPermissionPlayerListMenu(island, ctx.role(), ctx.adding(), message, 0));
+            return;
+         }
+      }
+      IslandData island = islandService.getPrimaryIsland(player.getUniqueId()).orElse(null);
+      if (island != null) {
+         player.openInventory(createPermissionsActionMenu(island, ctx.role()));
+      }
    }
 
    private boolean islandHasTrustPermission(IslandData island, UUID playerId, IslandService.TrustPermission permission) {
@@ -4775,6 +4907,20 @@ public class CoreService {
       public Inventory getInventory() {
          return null;
       }
+   }
+
+   public static record PermissionSearchContext(UUID islandOwner, String role, boolean adding) {}
+   public static record PermissionsHubInventoryHolder(UUID islandOwner) implements InventoryHolder {
+      public Inventory getInventory() { return null; }
+   }
+   public static record PermissionsActionInventoryHolder(UUID islandOwner, String role) implements InventoryHolder {
+      public Inventory getInventory() { return null; }
+   }
+   public static record PermissionPlayerListInventoryHolder(UUID islandOwner, String role, boolean adding, String searchFilter, int page) implements InventoryHolder {
+      public Inventory getInventory() { return null; }
+   }
+   public static record PermissionMemberDetailInventoryHolder(UUID islandOwner, UUID targetPlayer) implements InventoryHolder {
+      public Inventory getInventory() { return null; }
    }
 
    public static record VisitorSettingsInventoryHolder(UUID islandOwner) implements InventoryHolder {

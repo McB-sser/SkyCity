@@ -1504,10 +1504,15 @@ public class PlayerListener implements Listener {
     public void onAsyncChat(AsyncPlayerChatEvent event) {
         if (!coreService.isAwaitingIslandTitleInput(event.getPlayer().getUniqueId())
                 && !coreService.isAwaitingIslandWarpInput(event.getPlayer().getUniqueId())
+                && !coreService.isAwaitingPlayerPermissionSearch(event.getPlayer().getUniqueId())
                 && !coreService.isAwaitingParcelRenameInput(event.getPlayer().getUniqueId())) return;
         event.setCancelled(true);
         String msg = event.getMessage();
         Bukkit.getScheduler().runTask(plugin, () -> {
+            if (coreService.isAwaitingPlayerPermissionSearch(event.getPlayer().getUniqueId())) {
+                coreService.handlePlayerPermissionSearchInput(event.getPlayer(), msg);
+                return;
+            }
             if (coreService.isAwaitingIslandTitleInput(event.getPlayer().getUniqueId())) {
                 coreService.handleIslandTitleChatInputSafe(event.getPlayer(), msg);
                 return;
