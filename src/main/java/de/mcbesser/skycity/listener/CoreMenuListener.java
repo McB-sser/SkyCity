@@ -430,9 +430,9 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null || !islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) return;
         switch (event.getRawSlot()) {
-            case 11 -> player.openInventory(coreService.createPermissionsActionMenu(island, "MASTER"));
-            case 13 -> player.openInventory(coreService.createPermissionsActionMenu(island, "OWNER"));
-            case 15 -> player.openInventory(coreService.createPermissionsActionMenu(island, "MEMBER"));
+            case 11 -> player.openInventory(coreService.createPermissionsActionMenu(player, island, "MASTER"));
+            case 13 -> player.openInventory(coreService.createPermissionsActionMenu(player, island, "OWNER"));
+            case 15 -> player.openInventory(coreService.createPermissionsActionMenu(player, island, "MEMBER"));
             case 22 -> player.openInventory(coreService.createIslandSettingsMenu(island));
         }
     }
@@ -443,7 +443,37 @@ public class CoreMenuListener implements Listener {
         if (island == null || !islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) return;
         switch (event.getRawSlot()) {
             case 11 -> player.openInventory(coreService.createPermissionPlayerListMenu(island, holder.role(), true, null, 0));
-            case 15 -> player.openInventory(coreService.createPermissionPlayerListMenu(island, holder.role(), false, null, 0));
+            case 13 -> {
+                if ("MASTER".equals(holder.role())) {
+                    if (islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null) {
+                        if (islandService.acceptMasterInvite(player.getUniqueId())) {
+                            player.sendMessage(ChatColor.GREEN + "Master-Einladung angenommen. Deine alte Insel wurde ggf. aufgel\u00f6st.");
+                            IslandData newIsland = islandService.getIsland(player.getUniqueId()).orElse(island);
+                            player.openInventory(coreService.createIslandMenu(player, newIsland));
+                            return;
+                        }
+                    } else {
+                        player.sendMessage(ChatColor.RED + "Keine offene Master-Einladung.");
+                    }
+                    player.openInventory(coreService.createPermissionsActionMenu(player, island, "MASTER"));
+                }
+            }
+            case 15 -> {
+                if ("MASTER".equals(holder.role())) {
+                    if (islandService.leaveMasterRole(player.getUniqueId())) {
+                        player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
+                        player.teleport(islandService.getSpawnLocation());
+                        sendNoIslandHelp(player);
+                    } else {
+                        player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master.");
+                    }
+                    IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
+                    if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
+                    else player.closeInventory();
+                } else {
+                    player.openInventory(coreService.createPermissionPlayerListMenu(island, holder.role(), false, null, 0));
+                }
+            }
             case 22 -> player.openInventory(coreService.createPermissionsHubMenu(island));
         }
     }
@@ -459,7 +489,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createPermissionPlayerListMenu(island, holder.role(), holder.adding(), holder.searchFilter(), holder.page() - 1));
             return;
         } else if (event.getRawSlot() == 49) {
-            player.openInventory(coreService.createPermissionsActionMenu(island, holder.role()));
+            player.openInventory(coreService.createPermissionsActionMenu(player, island, holder.role()));
             return;
         } else if (event.getRawSlot() == 50) {
             player.openInventory(coreService.createPermissionPlayerListMenu(island, holder.role(), holder.adding(), holder.searchFilter(), holder.page() + 1));
@@ -478,7 +508,15 @@ public class CoreMenuListener implements Listener {
             if ("MASTER".equals(holder.role())) {
                 islandService.queueMasterInvite(island, player.getUniqueId(), targetId);
                 Player tPlayer = target.getPlayer();
-                if (tPlayer != null) tPlayer.sendMessage(ChatColor.GOLD + "Du wurdest von " + player.getName() + " in seine Master-Insel eingeladen!");
+                if (tPlayer != null) {
+                    tPlayer.sendMessage("");
+                    tPlayer.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "ACHTUNG: MASTER-EINLADUNG ERHALTEN!");
+                    tPlayer.sendMessage(ChatColor.RED + player.getName() + " hat dich eingeladen, Master seiner Insel zu werden.");
+                    tPlayer.sendMessage(ChatColor.RED + "Gehe in deine EIGENEN Insel-Einstellungen -> Berechtigungen -> Master-Rechte, um sie anzunehmen!");
+                    tPlayer.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "WENN DU ANNNIMMST, WIRD DEINE EIGENE INSEL UNWIDERRUFLICH GEL\u00d6SCHT!");
+                    tPlayer.sendMessage(ChatColor.RED + "Du kannst nur EINER Insel als Master/Owner angeh\u00f6ren.");
+                    tPlayer.sendMessage("");
+                }
                 player.sendMessage(ChatColor.GREEN + "Master-Einladung verschickt.");
                 player.openInventory(coreService.createPermissionPlayerListMenu(island, holder.role(), true, holder.searchFilter(), holder.page()));
             } else if ("OWNER".equals(holder.role())) {

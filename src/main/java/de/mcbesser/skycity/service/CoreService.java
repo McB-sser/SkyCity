@@ -2682,17 +2682,23 @@ public class CoreService {
       return inv;
    }
 
-   public Inventory createPermissionsActionMenu(IslandData island, String role) {
+   public Inventory createPermissionsActionMenu(Player viewer, IslandData island, String role) {
       Inventory inv = Bukkit.createInventory(new PermissionsActionInventoryHolder(island.getOwner(), role), 27, role + " verwalten");
       this.fillWithPanes(inv);
       inv.setItem(11, this.named(Material.EMERALD, ChatColor.GREEN + "Spieler hinzuf\u00fcgen", List.of(ChatColor.GRAY + "Suchen und " + role + " hinzuf\u00fcgen")));
-      inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + ("MEMBER".equals(role) ? "Spieler entfernen oder bearbeiten" : "Spieler entfernen"), "MEMBER".equals(role) ? List.of(ChatColor.GRAY + "Aktuelle Member anzeigen,", ChatColor.GRAY + "Rechte anpassen oder entfernen") : List.of(ChatColor.GRAY + "Aktuelle " + role + "s anzeigen und entfernen")));
+      if ("MASTER".equals(role)) {
+         boolean hasInvite = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null;
+         inv.setItem(13, this.named(Material.DIAMOND, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung vorhanden" : "Keine offene Einladung"), ChatColor.YELLOW + "Klick = annehmen")));
+         inv.setItem(15, this.named(Material.RED_BED, ChatColor.DARK_RED + "Als Master austreten", List.of(ChatColor.GRAY + "Du verl\u00e4sst den Master-Rang", ChatColor.YELLOW + "Klick = austreten")));
+      } else {
+         inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + ("MEMBER".equals(role) ? "Spieler entfernen oder bearbeiten" : "Spieler entfernen"), "MEMBER".equals(role) ? List.of(ChatColor.GRAY + "Aktuelle Member anzeigen,", ChatColor.GRAY + "Rechte anpassen oder entfernen") : List.of(ChatColor.GRAY + "Aktuelle " + role + "s anzeigen und entfernen")));
+      }
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Berechtigungen")));
       return inv;
    }
 
    public Inventory createPermissionPlayerListMenu(IslandData island, String role, boolean adding, String searchFilter, int page) {
-      Inventory inv = Bukkit.createInventory(new PermissionPlayerListInventoryHolder(island.getOwner(), role, adding, searchFilter, page), 54, (adding ? "Hinzuf\u00fcgen: " : "Entfernen: ") + role + " " + (page + 1));
+      Inventory inv = Bukkit.createInventory(new PermissionPlayerListInventoryHolder(island.getOwner(), role, adding, searchFilter, page), 54, (adding ? "Hinzuf\u00fcgen: " : ("MEMBER".equals(role) ? "Bearbeiten/Entfernen: " : "Entfernen: ")) + role + " " + (page + 1));
       this.fillWithPanes(inv);
       List<org.bukkit.OfflinePlayer> candidates = new ArrayList<>();
 
@@ -2790,7 +2796,7 @@ public class CoreService {
       }
       IslandData island = islandService.getPrimaryIsland(player.getUniqueId()).orElse(null);
       if (island != null) {
-         player.openInventory(createPermissionsActionMenu(island, ctx.role()));
+         player.openInventory(createPermissionsActionMenu(player, island, ctx.role()));
       }
    }
 
