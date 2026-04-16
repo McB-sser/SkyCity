@@ -132,9 +132,9 @@ public class CoreMenuListener implements Listener {
                 return;
             }
             if (event.isShiftClick()) {
-                player.openInventory(coreService.createIslandBlocksMenu(island));
+                player.openInventory(coreService.createIslandBlocksMenu(island, 0, "core"));
             } else {
-                player.openInventory(coreService.createBlockValueMenu(island));
+                player.openInventory(coreService.createBlockValueMenu(island, 0, "core"));
             }
             return;
         }
@@ -371,8 +371,8 @@ public class CoreMenuListener implements Listener {
         if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
         switch (event.getRawSlot()) {
             case 10 -> player.openInventory(coreService.createCoreMenu(player, island));
-            case 11 -> player.openInventory(coreService.createIslandBlocksMenu(island));
-            case 12 -> player.openInventory(coreService.createBlockValueMenu(island));
+            case 11 -> player.openInventory(coreService.createIslandBlocksMenu(island, 0, "island"));
+            case 12 -> player.openInventory(coreService.createBlockValueMenu(island, 0, "island"));
             case 13 -> {
                 island.setIslandSpawn(player.getLocation().clone());
                 islandService.save();
@@ -583,11 +583,15 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
         if (event.getRawSlot() == 49) {
-            player.openInventory(coreService.createIslandMenu(player, island));
+            if ("core".equalsIgnoreCase(holder.backTarget())) {
+                player.openInventory(coreService.createCoreMenu(player, island));
+            } else {
+                player.openInventory(coreService.createIslandMenu(player, island));
+            }
         } else if (event.getRawSlot() == 48 && holder.page() > 0) {
-            player.openInventory(coreService.createBlockValueMenu(island, holder.page() - 1));
+            player.openInventory(coreService.createBlockValueMenu(island, holder.page() - 1, holder.backTarget()));
         } else if (event.getRawSlot() == 50) {
-            player.openInventory(coreService.createBlockValueMenu(island, holder.page() + 1));
+            player.openInventory(coreService.createBlockValueMenu(island, holder.page() + 1, holder.backTarget()));
         }
     }
 
@@ -596,11 +600,15 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
         if (event.getRawSlot() == 49) {
-            player.openInventory(coreService.createIslandMenu(player, island));
+            if ("core".equalsIgnoreCase(holder.backTarget())) {
+                player.openInventory(coreService.createCoreMenu(player, island));
+            } else {
+                player.openInventory(coreService.createIslandMenu(player, island));
+            }
         } else if (event.getRawSlot() == 48 && holder.page() > 0) {
-            player.openInventory(coreService.createIslandBlocksMenu(island, holder.page() - 1));
+            player.openInventory(coreService.createIslandBlocksMenu(island, holder.page() - 1, holder.backTarget()));
         } else if (event.getRawSlot() == 50) {
-            player.openInventory(coreService.createIslandBlocksMenu(island, holder.page() + 1));
+            player.openInventory(coreService.createIslandBlocksMenu(island, holder.page() + 1, holder.backTarget()));
         }
     }
 

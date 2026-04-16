@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -28,6 +29,7 @@ public final class CoreSidebar {
     private final IslandService islandService;
     private final CoreService coreService;
     private final ConcurrentMap<UUID, BoardState> activeBoards = new ConcurrentHashMap<>();
+    private final Set<UUID> pendingRefreshes = ConcurrentHashMap.newKeySet();
     private BukkitTask refreshTask;
 
     public CoreSidebar(SkyCityPlugin plugin, IslandService islandService, CoreService coreService) {
@@ -101,10 +103,27 @@ public final class CoreSidebar {
         }
     }
 
+    public void scheduleRefresh(Player player) {
+        if (player == null) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        if (!pendingRefreshes.add(playerId)) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            pendingRefreshes.remove(playerId);
+            if (player.isOnline()) {
+                refresh(player);
+            }
+        });
+    }
+
     public void clear(Player player) {
         if (player == null) {
             return;
         }
+        pendingRefreshes.remove(player.getUniqueId());
         BoardState active = activeBoards.remove(player.getUniqueId());
         if (active == null) {
             return;
@@ -117,6 +136,7 @@ public final class CoreSidebar {
     }
 
     private void clearAll() {
+        pendingRefreshes.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
             clear(player);
         }

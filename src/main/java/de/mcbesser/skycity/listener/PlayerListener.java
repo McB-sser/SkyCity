@@ -203,6 +203,9 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (plugin.getCoreSidebar() != null) {
+            plugin.getCoreSidebar().clear(event.getPlayer());
+        }
         returnCtfFlagToBase(event.getPlayer().getUniqueId(), false);
         stopPreparationStatusMessages(event.getPlayer().getUniqueId());
         stopIslandCreateHintMessages(event.getPlayer().getUniqueId());
@@ -319,6 +322,9 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
         if (event.getTo() == null) return;
+        if (didViewChange(event) && plugin.getCoreSidebar() != null) {
+            plugin.getCoreSidebar().scheduleRefresh(event.getPlayer());
+        }
         CtfCarrierState carriedFlag = ctfCarrierStates.get(event.getPlayer().getUniqueId());
         if (carriedFlag != null && skyWorldService.isSkyCityWorld(event.getTo().getWorld())) {
             ensureCtfCarryDisplay(event.getPlayer(), carriedFlag);
@@ -375,6 +381,13 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onTeleport(PlayerTeleportEvent event) {
+        if (plugin.getCoreSidebar() != null) {
+            if (event.getTo() == null) {
+                plugin.getCoreSidebar().clear(event.getPlayer());
+            } else {
+                plugin.getCoreSidebar().scheduleRefresh(event.getPlayer());
+            }
+        }
         if (event.getTo() == null || !skyWorldService.isSkyCityWorld(event.getTo().getWorld())) {
             returnCtfFlagToBase(event.getPlayer().getUniqueId(), false);
             clearParcelPvpState(event.getPlayer().getUniqueId());
@@ -389,6 +402,22 @@ public class PlayerListener implements Listener {
         updateParcelCtfState(event.getPlayer(), event.getTo());
         updateParcelCountdownState(event.getPlayer(), event.getTo());
         updateParcelPveState(event.getPlayer(), event.getTo());
+    }
+
+    private boolean didViewChange(PlayerMoveEvent event) {
+        if (event.getTo() == null) {
+            return false;
+        }
+        if (event.getFrom().getWorld() != event.getTo().getWorld()) {
+            return true;
+        }
+        if (event.getFrom().getBlockX() != event.getTo().getBlockX()
+                || event.getFrom().getBlockY() != event.getTo().getBlockY()
+                || event.getFrom().getBlockZ() != event.getTo().getBlockZ()) {
+            return true;
+        }
+        return Float.compare(event.getFrom().getYaw(), event.getTo().getYaw()) != 0
+                || Float.compare(event.getFrom().getPitch(), event.getTo().getPitch()) != 0;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

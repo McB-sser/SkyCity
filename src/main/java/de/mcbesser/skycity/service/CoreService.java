@@ -1079,14 +1079,19 @@ public class CoreService {
    }
 
    public Inventory createBlockValueMenu(IslandData island) {
-      return this.createBlockValueMenu(island, 0);
+      return this.createBlockValueMenu(island, 0, "island");
    }
 
    public Inventory createBlockValueMenu(IslandData island, int page) {
+      return this.createBlockValueMenu(island, page, "island");
+   }
+
+   public Inventory createBlockValueMenu(IslandData island, int page, String backTarget) {
       int totalPages = Math.max(1, (int)Math.ceil((double)BLOCK_VALUE_MAP.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
+      String safeBackTarget = backTarget == null ? "island" : backTarget.toLowerCase(Locale.ROOT);
       Inventory inv = Bukkit.createInventory(
-         new CoreService.BlockValueInventoryHolder(island.getOwner(), safePage), 54, "Blockwertigkeit " + (safePage + 1) + "/" + totalPages
+         new CoreService.BlockValueInventoryHolder(island.getOwner(), safePage, safeBackTarget), 54, "Blockwertigkeit " + (safePage + 1) + "/" + totalPages
       );
       this.fillWithPanes(inv);
       List<Entry<Material, Double>> entries = new ArrayList<>(BLOCK_VALUE_MAP.entrySet());
@@ -1124,7 +1129,8 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.BARRIER, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      String backLabel = "core".equals(safeBackTarget) ? "Zum Core-Men\u00fc" : "Zur Inselansicht";
+      inv.setItem(49, this.named(Material.BARRIER, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + backLabel)));
       if (safePage < totalPages - 1) {
          inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
@@ -1133,17 +1139,22 @@ public class CoreService {
    }
 
    public Inventory createIslandBlocksMenu(IslandData island) {
-      return this.createIslandBlocksMenu(island, 0);
+      return this.createIslandBlocksMenu(island, 0, "island");
    }
 
    public Inventory createIslandBlocksMenu(IslandData island, int page) {
+      return this.createIslandBlocksMenu(island, page, "island");
+   }
+
+   public Inventory createIslandBlocksMenu(IslandData island, int page, String backTarget) {
       List<Entry<String, Integer>> entries = new ArrayList<>(island.getProgress().entrySet());
       entries.removeIf(e -> e.getValue() == null || e.getValue() <= 0);
       entries.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
       int totalPages = Math.max(1, (int)Math.ceil((double)entries.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
+      String safeBackTarget = backTarget == null ? "island" : backTarget.toLowerCase(Locale.ROOT);
       Inventory inv = Bukkit.createInventory(
-         new CoreService.IslandBlocksInventoryHolder(island.getOwner(), safePage), 54, "Inselbl\u00f6cke " + (safePage + 1) + "/" + totalPages
+         new CoreService.IslandBlocksInventoryHolder(island.getOwner(), safePage, safeBackTarget), 54, "Inselbl\u00f6cke " + (safePage + 1) + "/" + totalPages
       );
       this.fillWithPanes(inv);
       int start = safePage * 45;
@@ -1175,7 +1186,8 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      String backLabel = "core".equals(safeBackTarget) ? "Zum Core-Men\u00fc" : "Zur Inselansicht";
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + backLabel)));
       if (safePage < totalPages - 1) {
          inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
@@ -4451,7 +4463,7 @@ public class CoreService {
       }
    }
 
-   public static record BlockValueInventoryHolder(UUID islandOwner, int page) implements InventoryHolder {
+   public static record BlockValueInventoryHolder(UUID islandOwner, int page, String backTarget) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
@@ -4532,7 +4544,7 @@ public class CoreService {
       }
    }
 
-   public static record IslandBlocksInventoryHolder(UUID islandOwner, int page) implements InventoryHolder {
+   public static record IslandBlocksInventoryHolder(UUID islandOwner, int page, String backTarget) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
