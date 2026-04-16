@@ -1422,14 +1422,16 @@ public class IslandService {
         for (int y = floorY + 1; y <= floorY + 4; y++) {
             w.getBlockAt(x, y, z).setType(Material.OAK_LOG, false);
         }
+        org.bukkit.block.data.type.Leaves leaves = (org.bukkit.block.data.type.Leaves) org.bukkit.Bukkit.createBlockData(Material.OAK_LEAVES);
+        leaves.setPersistent(true);
         for (int lx = -2; lx <= 2; lx++) for (int lz = -2; lz <= 2; lz++) {
             if (Math.abs(lx) == 2 && Math.abs(lz) == 2) continue;
-            w.getBlockAt(x + lx, floorY + 4, z + lz).setType(Material.OAK_LEAVES, false);
+            w.getBlockAt(x + lx, floorY + 4, z + lz).setBlockData(leaves, false);
         }
         for (int lx = -1; lx <= 1; lx++) for (int lz = -1; lz <= 1; lz++) {
-            w.getBlockAt(x + lx, floorY + 5, z + lz).setType(Material.OAK_LEAVES, false);
+            w.getBlockAt(x + lx, floorY + 5, z + lz).setBlockData(leaves, false);
         }
-        w.getBlockAt(x, floorY + 6, z).setType(Material.OAK_LEAVES, false);
+        w.getBlockAt(x, floorY + 6, z).setBlockData(leaves, false);
     }
 
     private void placeStarterLootChest(World w, int x, int floorY, int z) {
