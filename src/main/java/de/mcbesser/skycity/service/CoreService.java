@@ -662,18 +662,18 @@ public class CoreService {
          this.named(
             Material.CHEST,
             ChatColor.AQUA + "CoreBank",
-            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Materialien landen im Core-Fortschritt f\u00fcr Meilensteine und Techbaum")
+            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Materialien landen im Core-Fortschritt f\u00fcr Meilensteine und Techtree")
          )
       );
       inv.setItem(
          13,
          this.named(
             Material.BOOK,
-            ChatColor.YELLOW + "Techbaum",
+            ChatColor.YELLOW + "Techtree",
             List.of(
                ChatColor.GRAY + "Meilensteine und einzelne Limits in einem Men\u00fc",
                ChatColor.GRAY + "Links = Fokus, Rechts = freischalten",
-               ChatColor.YELLOW + "Klick = Techbaum \u00f6ffnen"
+               ChatColor.YELLOW + "Klick = Techtree \u00f6ffnen"
             )
          )
       );
@@ -698,11 +698,11 @@ public class CoreService {
    }
 
    public Inventory createUpgradeProgressMenu(IslandData island, int page) {
-      Inventory inv = Bukkit.createInventory(new UpgradeProgressInventoryHolder(island.getOwner(), 0), 54, "Techbaum");
+      Inventory inv = Bukkit.createInventory(new UpgradeProgressInventoryHolder(island.getOwner(), 0), 54, "Techtree");
       this.fillWithPanes(inv);
       inv.setItem(4, this.createMilestoneProgressItem(island));
       inv.setItem(13, this.createDisplayFocusSummaryItem(island));
-      int[] slots = new int[]{19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33};
+      int[] slots = new int[]{19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
       List<IslandService.UpgradeBranch> branches = this.islandService.getUpgradeBranches();
       for (int i = 0; i < Math.min(slots.length, branches.size()); i++) {
          inv.setItem(slots[i], this.createTechTreeNodeItem(island, branches.get(i)));
@@ -756,7 +756,7 @@ public class CoreService {
 
    private List<String> buildUpgradeLore(IslandData island) {
       List<String> lines = new ArrayList<>();
-      lines.add(ChatColor.GOLD + "Techbaum");
+      lines.add(ChatColor.GOLD + "Techtree");
       lines.add(" ");
       if (this.islandService.isMilestonePinned(island)) {
          lines.add(ChatColor.WHITE + "Anzeige: " + ChatColor.GOLD + "Meilensteinpfad");
@@ -926,6 +926,15 @@ public class CoreService {
       int totalChunksAfterLevelUp = island.getUnlockedChunks().size() + island.getAvailableChunkUnlocks() + next.chunkUnlocksGranted();
       lines.add(ChatColor.AQUA + "+" + next.chunkUnlocksGranted() + " freie Chunks");
       lines.add(ChatColor.GRAY + "Danach frei: " + ChatColor.WHITE + freeChunksAfterLevelUp + ChatColor.DARK_GRAY + " (gesamt " + totalChunksAfterLevelUp + "/" + this.islandService.getTotalIslandChunkCount() + ")");
+      lines.add(" ");
+      lines.add(ChatColor.GOLD + "Neue Maximale Stufen");
+      int nextMilestoneLevel = Math.max(0, island.getLevel());
+      for (IslandService.UpgradeBranch branch : IslandService.UpgradeBranch.values()) {
+         int newCap = this.islandService.getUnlockedUpgradeTierCapForMilestone(nextMilestoneLevel, branch);
+         if (newCap > 0) {
+            lines.add(ChatColor.GRAY + "- " + branch.displayName() + ": " + ChatColor.WHITE + "Stufe " + newCap);
+         }
+      }
       return lines;
    }
 
@@ -4113,21 +4122,76 @@ public class CoreService {
       IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
       if (this.islandService.isMilestonePinned(island)) {
+         org.bukkit.inventory.ItemStack loreItem = this.createMilestoneProgressItem(island);
          if (this.islandService.levelUp(island)) {
-            player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + Math.max(0, island.getLevel() - 1));
+            int achievedLevel = Math.max(0, island.getLevel() - 1);
+            player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + achievedLevel);
+            this.broadcastMilestoneAchievement(player, achievedLevel, loreItem);
          } else {
             this.sendUpgradeStatusChat(player, island);
          }
       } else {
          IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
+         org.bukkit.inventory.ItemStack loreItem = this.createTechTreeNodeItem(island, pinned);
          if (this.islandService.unlockUpgrade(island, pinned)) {
             player.sendMessage(ChatColor.GREEN + pinned.displayName() + " freigeschaltet.");
+            this.broadcastUpgradeAchievement(player, pinned, loreItem);
          } else {
             this.sendUpgradeStatusChat(player, island);
          }
       }
       this.refreshCoreDisplay(island);
       return true;
+   }
+
+   public void broadcastMilestoneAchievement(Player player, int achievedLevel, org.bukkit.inventory.ItemStack clickedItem) {
+      try {
+         net.md_5.bungee.api.chat.BaseComponent[] msgArray = net.md_5.bungee.api.chat.TextComponent.fromLegacyText(ChatColor.GOLD + "[SkyCity] " + ChatColor.GREEN + "[Core] " + ChatColor.AQUA + "[Techtree] " + ChatColor.YELLOW + player.getName() + ChatColor.WHITE + " hat Meilenstein Stufe " + ChatColor.GOLD + achievedLevel + ChatColor.WHITE + " erreicht!");
+         if (clickedItem != null && clickedItem.hasItemMeta() && clickedItem.getItemMeta().getLore() != null) {
+            net.md_5.bungee.api.chat.ComponentBuilder hoverBuilder = new net.md_5.bungee.api.chat.ComponentBuilder("");
+            boolean first = true;
+            for (String line : clickedItem.getItemMeta().getLore()) {
+               if (line.contains("Linksklick") || line.contains("Rechtsklick") || ChatColor.stripColor(line).startsWith("action:")) continue;
+               if (!first) hoverBuilder.append("\n");
+               hoverBuilder.append(net.md_5.bungee.api.chat.TextComponent.fromLegacyText(line));
+               first = false;
+            }
+            net.md_5.bungee.api.chat.HoverEvent hover = new net.md_5.bungee.api.chat.HoverEvent(net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT, hoverBuilder.create());
+            for (net.md_5.bungee.api.chat.BaseComponent bc : msgArray) {
+               bc.setHoverEvent(hover);
+            }
+         }
+         for (Player p : Bukkit.getOnlinePlayers()) {
+            p.spigot().sendMessage(msgArray);
+         }
+      } catch (Exception e) {
+         Bukkit.getLogger().severe("Error broadcasting milestone: " + e.getMessage());
+      }
+   }
+
+   public void broadcastUpgradeAchievement(Player player, IslandService.UpgradeBranch branch, org.bukkit.inventory.ItemStack clickedItem) {
+      try {
+         net.md_5.bungee.api.chat.BaseComponent[] msgArray = net.md_5.bungee.api.chat.TextComponent.fromLegacyText(ChatColor.GOLD + "[SkyCity] " + ChatColor.GREEN + "[Core] " + ChatColor.AQUA + "[Techtree] " + ChatColor.YELLOW + player.getName() + ChatColor.WHITE + " hat das Upgrade " + ChatColor.GOLD + branch.displayName() + ChatColor.WHITE + " freigeschaltet!");
+         if (clickedItem != null && clickedItem.hasItemMeta() && clickedItem.getItemMeta().getLore() != null) {
+            net.md_5.bungee.api.chat.ComponentBuilder hoverBuilder = new net.md_5.bungee.api.chat.ComponentBuilder("");
+            boolean first = true;
+            for (String line : clickedItem.getItemMeta().getLore()) {
+               if (line.contains("Linksklick") || line.contains("Rechtsklick") || ChatColor.stripColor(line).startsWith("branch:")) continue;
+               if (!first) hoverBuilder.append("\n");
+               hoverBuilder.append(net.md_5.bungee.api.chat.TextComponent.fromLegacyText(line));
+               first = false;
+            }
+            net.md_5.bungee.api.chat.HoverEvent hover = new net.md_5.bungee.api.chat.HoverEvent(net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT, hoverBuilder.create());
+            for (net.md_5.bungee.api.chat.BaseComponent bc : msgArray) {
+               bc.setHoverEvent(hover);
+            }
+         }
+         for (Player p : Bukkit.getOnlinePlayers()) {
+            p.spigot().sendMessage(msgArray);
+         }
+      } catch (Exception e) {
+         Bukkit.getLogger().severe("Error broadcasting upgrade: " + e.getMessage());
+      }
    }
 
    public boolean handleCoreDisplayToggle(Player player, Entity entity) {

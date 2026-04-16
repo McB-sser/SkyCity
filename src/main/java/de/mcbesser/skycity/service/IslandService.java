@@ -4571,6 +4571,11 @@ public class IslandService {
     public int getUnlockedUpgradeTierCap(IslandData island, UpgradeBranch branch) {
         if (island == null || branch == null) return 0;
         int milestone = Math.max(0, island.getLevel() - 1);
+        return getUnlockedUpgradeTierCapForMilestone(milestone, branch);
+    }
+
+    public int getUnlockedUpgradeTierCapForMilestone(int milestone, UpgradeBranch branch) {
+        if (branch == null) return 0;
         int cap = switch (branch) {
             case ANIMAL -> (milestone * 20 + 10) / 11;
             case CHUNKS -> milestone * 24;

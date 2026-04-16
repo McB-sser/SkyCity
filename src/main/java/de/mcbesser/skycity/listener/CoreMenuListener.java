@@ -24,6 +24,10 @@ import org.bukkit.block.ShulkerBox;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -188,8 +192,11 @@ public class CoreMenuListener implements Listener {
                 islandService.setPinnedMilestone(island);
                 player.sendMessage(ChatColor.AQUA + "Display fokussiert jetzt: " + ChatColor.WHITE + "Meilensteinpfad");
             } else if (event.isRightClick()) {
+                ItemStack clickedItem = event.getCurrentItem();
                 if (islandService.levelUp(island)) {
-                    player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + Math.max(0, island.getLevel() - 1));
+                    int achievedLevel = Math.max(0, island.getLevel() - 1);
+                    player.sendMessage(ChatColor.GREEN + "Meilenstein freigeschaltet. Stufe " + achievedLevel);
+                    coreService.broadcastMilestoneAchievement(player, achievedLevel, clickedItem);
                 } else {
                     player.sendMessage(ChatColor.RED + "Meilensteinbedingungen nicht erf\u00fcllt.");
                     coreService.sendUpgradeStatusChat(player, island);
@@ -201,9 +208,11 @@ public class CoreMenuListener implements Listener {
         }
         IslandService.UpgradeBranch branch = coreService.readUpgradeBranch(event.getCurrentItem());
         if (branch == null) return;
-        if (event.getClick() == ClickType.RIGHT) {
+        if (event.isRightClick()) {
+            ItemStack clickedItem = event.getCurrentItem();
             if (islandService.unlockUpgrade(island, branch)) {
                 player.sendMessage(ChatColor.GREEN + branch.displayName() + " ausgebaut.");
+                coreService.broadcastUpgradeAchievement(player, branch, clickedItem);
             } else {
                 player.sendMessage(ChatColor.RED + "Upgradebedingungen nicht erf\u00fcllt.");
                 islandService.setPinnedUpgrade(island, branch);
