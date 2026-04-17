@@ -1772,6 +1772,8 @@ public class IslandService {
         if (current != null && current != island) {
             removeMasterFromIsland(current, target, false);
         }
+        island.getOwners().remove(target);
+        clearMemberPermissions(island, target);
         island.getMasters().add(target);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
@@ -1787,6 +1789,13 @@ public class IslandService {
         IslandData island = getIsland(playerId).orElse(null);
         if (island == null) return false;
         if (!isIslandMaster(island, playerId)) return false;
+        removeMasterFromIsland(island, playerId, false);
+        return true;
+    }
+
+    public boolean leaveMasterRole(IslandData island, UUID playerId) {
+        if (island == null || playerId == null) return false;
+        if (!island.getMasters().contains(playerId)) return false;
         removeMasterFromIsland(island, playerId, false);
         return true;
     }
@@ -2014,8 +2023,48 @@ public class IslandService {
 
     public boolean hasAccess(UUID playerId, IslandData island) { return hasBuildAccess(playerId, island); }
 
-    public boolean grantMemberPermission(IslandData island, UUID target, TrustPermission permission) {
+    public boolean hasAnyMemberPermission(IslandData island, UUID target) {
+        return island != null && target != null
+                && (island.getMemberBuildAccess().contains(target)
+                || island.getMemberContainerAccess().contains(target)
+                || island.getMemberRedstoneAccess().contains(target));
+    }
+
+    public boolean canInviteMaster(IslandData island, UUID actor) {
+        return isIslandMaster(island, actor);
+    }
+
+    public boolean canAddOwner(IslandData island, UUID actor) {
+        return isIslandOwner(island, actor);
+    }
+
+    public boolean canRemoveOwner(IslandData island, UUID actor) {
+        return isIslandMaster(island, actor);
+    }
+
+    public boolean canManageMembers(IslandData island, UUID actor) {
+        return isIslandOwner(island, actor);
+    }
+
+    private boolean clearMemberPermissions(IslandData island, UUID target) {
+        if (island == null || target == null) return false;
         boolean changed = false;
+        changed |= island.getMemberBuildAccess().remove(target);
+        changed |= island.getMemberContainerAccess().remove(target);
+        changed |= island.getMemberRedstoneAccess().remove(target);
+        return changed;
+    }
+
+    private boolean removeAdditionalMasterRole(IslandData island, UUID target) {
+        return island != null && target != null && island.getMasters().remove(target);
+    }
+
+    public boolean grantMemberPermission(IslandData island, UUID target, TrustPermission permission) {
+        if (island == null || target == null || permission == null) return false;
+        if (isPrimaryMaster(island, target)) return false;
+        boolean changed = false;
+        changed |= island.getOwners().remove(target);
+        changed |= removeAdditionalMasterRole(island, target);
         switch (permission) {
             case BUILD -> changed = island.getMemberBuildAccess().add(target);
             case CONTAINER -> changed = island.getMemberContainerAccess().add(target);
@@ -2072,9 +2121,11 @@ public class IslandService {
 
     public boolean grantOwnerRole(IslandData island, UUID actor, UUID target) {
         if (island == null || actor == null || target == null) return false;
-        if (!isIslandOwner(island, actor)) return false; // Master oder Owner darf Owner hinzuf\u00fcgen
-        if (isIslandMaster(island, target)) return false;
+        if (!canAddOwner(island, actor)) return false;
+        if (isPrimaryMaster(island, target)) return false;
         boolean changed = island.getOwners().add(target);
+        changed |= removeAdditionalMasterRole(island, target);
+        changed |= clearMemberPermissions(island, target);
         if (changed) {
             island.getIslandBanned().remove(target);
             island.setLastActiveAt(System.currentTimeMillis());
@@ -2085,7 +2136,7 @@ public class IslandService {
 
     public boolean revokeOwnerRole(IslandData island, UUID actor, UUID target) {
         if (island == null || actor == null || target == null) return false;
-        if (!actor.equals(target) && !isIslandMaster(island, actor)) return false; // andere Owner nur als Master entfernen, sich selbst darf man austragen
+        if (!actor.equals(target) && !canRemoveOwner(island, actor)) return false;
         boolean changed = island.getOwners().remove(target);
         if (changed) {
             island.setLastActiveAt(System.currentTimeMillis());

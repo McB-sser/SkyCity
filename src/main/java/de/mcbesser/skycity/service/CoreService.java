@@ -1424,9 +1424,10 @@ public class CoreService {
       return inv;
    }
 
-   public Inventory createIslandSettingsMenu(IslandData island) {
+   public Inventory createIslandSettingsMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new IslandSettingsInventoryHolder(island.getOwner()), 45, "Insel");
       this.fillWithPanes(inv);
+      boolean canManagePermissions = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || viewer.isOp());
       if (System.currentTimeMillis() >= 0L) {
          inv.setItem(10, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core \u00f6ffnen", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank")));
          inv.setItem(11, this.named(Material.CHEST_MINECART, ChatColor.AQUA + "Inselbl\u00f6cke", List.of(ChatColor.GRAY + "Gesammelte Core-Items / Mengen")));
@@ -1435,7 +1436,9 @@ public class CoreService {
          inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
          inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
          inv.setItem(19, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-Men\u00fc", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
-         inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
+         if (canManagePermissions) {
+            inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
+         }
          inv.setItem(24, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
          inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
          return inv;
@@ -2506,7 +2509,7 @@ public class CoreService {
       );
       this.fillWithPanes(inv);
       List<OfflinePlayer> candidates = new ArrayList<>(Arrays.asList(this.plugin.getServer().getOfflinePlayers()));
-      candidates.removeIf(px -> px.getName() == null || px.getName().isBlank() || this.islandService.isIslandOwner(island, px.getUniqueId()));
+      candidates.removeIf(px -> px.getName() == null || px.getName().isBlank() || this.islandService.isPrimaryMaster(island, px.getUniqueId()));
       candidates.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
       List<OfflinePlayer> filtered = candidates.stream().filter(px -> {
          boolean memberx = this.islandHasTrustPermission(island, px.getUniqueId(), permission);
@@ -2569,6 +2572,8 @@ public class CoreService {
       String safeFilter = this.normalizeFilter(filter);
       Inventory inv = Bukkit.createInventory(new CoreService.IslandOwnersInventoryHolder(island.getOwner(), page, safeFilter), 54, "Insel-Owner " + (page + 1));
       this.fillWithPanes(inv);
+      boolean canAddOwner = this.islandService.canAddOwner(island, viewer.getUniqueId()) || viewer.isOp();
+      boolean canRemoveOwner = this.islandService.canRemoveOwner(island, viewer.getUniqueId()) || viewer.isOp();
       List<OfflinePlayer> candidates = new ArrayList<>(Arrays.asList(this.plugin.getServer().getOfflinePlayers()));
       candidates.removeIf(px -> px.getName() == null || px.getName().isBlank() || px.getUniqueId().equals(island.getOwner()));
       candidates.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
@@ -2595,8 +2600,8 @@ public class CoreService {
          List<String> lore = new ArrayList<>();
          lore.add(ChatColor.GRAY + "Online: " + (p.isOnline() ? "ja" : "nein"));
          lore.add(ChatColor.GRAY + "Status: " + (owner ? "ist Owner" : "kein Owner"));
-         lore.add(ChatColor.YELLOW + "Linksklick = Owner vergeben");
-         lore.add(ChatColor.YELLOW + "Rechtsklick = Owner entfernen");
+         if (canAddOwner && !owner) lore.add(ChatColor.YELLOW + "Linksklick = Owner vergeben");
+         if (canRemoveOwner && owner) lore.add(ChatColor.YELLOW + "Rechtsklick = Owner entfernen");
          inv.setItem(GRID_SLOTS.get(i), this.named(owner ? Material.LIME_DYE : Material.GRAY_DYE, (owner ? ChatColor.GREEN : ChatColor.AQUA) + p.getName(), lore));
       }
 
@@ -2618,10 +2623,15 @@ public class CoreService {
    public Inventory createIslandMasterMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandMasterMenuInventoryHolder(island.getOwner()), 27, "Master-Rechte");
       this.fillWithPanes(inv);
-      boolean hasInvite = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null;
-      inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler w\u00e4hlen")));
-      inv.setItem(13, this.named(Material.EMERALD, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung vorhanden" : "Keine offene Einladung"), ChatColor.YELLOW + "Klick = annehmen")));
-      inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + "Als Master austreten", List.of(ChatColor.YELLOW + "Klick = austreten")));
+      IslandData pendingInviteIsland = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId());
+      boolean hasInvite = pendingInviteIsland != null && island.getOwner().equals(pendingInviteIsland.getOwner());
+      if (this.islandService.canInviteMaster(island, viewer.getUniqueId()) || viewer.isOp()) {
+         inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler w\u00e4hlen")));
+      }
+      inv.setItem(13, this.named(Material.EMERALD, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung f\u00fcr diese Insel vorhanden" : "Keine offene Einladung f\u00fcr diese Insel"), ChatColor.YELLOW + "Klick = annehmen")));
+      if (island.getMasters().contains(viewer.getUniqueId()) || viewer.isOp()) {
+         inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + "Als Master austreten", List.of(ChatColor.YELLOW + "Klick = austreten")));
+      }
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       return inv;
    }
@@ -2672,12 +2682,17 @@ public class CoreService {
       return item;
    }
 
-   public Inventory createPermissionsHubMenu(IslandData island) {
+   public Inventory createPermissionsHubMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new PermissionsHubInventoryHolder(island.getOwner()), 27, "Berechtigungen");
       this.fillWithPanes(inv);
-      inv.setItem(11, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Master verwalten")));
-      inv.setItem(13, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner verwalten")));
-      inv.setItem(15, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Member-Rechte", List.of(ChatColor.GRAY + "Member verwalten")));
+      boolean isOp = viewer != null && viewer.isOp();
+      boolean canOpenMasterMenu = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null || isOp);
+      boolean canInviteMasters = viewer != null && (this.islandService.canInviteMaster(island, viewer.getUniqueId()) || viewer.isOp());
+      boolean canAddOwners = viewer != null && (this.islandService.canAddOwner(island, viewer.getUniqueId()) || viewer.isOp());
+      boolean canManageMembers = viewer != null && (this.islandService.canManageMembers(island, viewer.getUniqueId()) || viewer.isOp());
+      if (canOpenMasterMenu) inv.setItem(11, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladungen annehmen oder als Master verwalten")));
+      if (canAddOwners) inv.setItem(13, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner verwalten")));
+      if (canManageMembers) inv.setItem(15, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Member-Rechte", List.of(ChatColor.GRAY + "Member verwalten")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Insel-Einstellungen")));
       return inv;
    }
@@ -2685,28 +2700,55 @@ public class CoreService {
    public Inventory createPermissionsActionMenu(Player viewer, IslandData island, String role) {
       Inventory inv = Bukkit.createInventory(new PermissionsActionInventoryHolder(island.getOwner(), role), 27, role + " verwalten");
       this.fillWithPanes(inv);
-      inv.setItem(11, this.named(Material.EMERALD, ChatColor.GREEN + "Spieler hinzuf\u00fcgen", List.of(ChatColor.GRAY + "Suchen und " + role + " hinzuf\u00fcgen")));
+      boolean isOp = viewer != null && viewer.isOp();
+      boolean canAdd = viewer != null && switch (role) {
+         case "MASTER" -> this.islandService.canInviteMaster(island, viewer.getUniqueId()) || isOp;
+         case "OWNER" -> this.islandService.canAddOwner(island, viewer.getUniqueId()) || isOp;
+         case "MEMBER" -> this.islandService.canManageMembers(island, viewer.getUniqueId()) || isOp;
+         default -> false;
+      };
+      boolean canRemove = viewer != null && switch (role) {
+         case "MASTER" -> false;
+         case "OWNER" -> this.islandService.canRemoveOwner(island, viewer.getUniqueId()) || isOp;
+         case "MEMBER" -> this.islandService.canManageMembers(island, viewer.getUniqueId()) || isOp;
+         default -> false;
+      };
+      if (canAdd) inv.setItem(11, this.named(Material.EMERALD, ChatColor.GREEN + "Spieler hinzuf\u00fcgen", List.of(ChatColor.GRAY + "Suchen und " + role + " hinzuf\u00fcgen")));
       if ("MASTER".equals(role)) {
-         boolean hasInvite = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null;
-         inv.setItem(13, this.named(Material.DIAMOND, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung vorhanden" : "Keine offene Einladung"), ChatColor.YELLOW + "Klick = annehmen")));
-         inv.setItem(15, this.named(Material.RED_BED, ChatColor.DARK_RED + "Als Master austreten", List.of(ChatColor.GRAY + "Du verl\u00e4sst den Master-Rang", ChatColor.YELLOW + "Klick = austreten")));
-      } else {
+         IslandData pendingInviteIsland = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId());
+         boolean hasInvite = pendingInviteIsland != null && island.getOwner().equals(pendingInviteIsland.getOwner());
+         inv.setItem(13, this.named(Material.DIAMOND, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Einladung f\u00fcr diese Insel vorhanden" : "Keine offene Einladung f\u00fcr diese Insel"), ChatColor.YELLOW + "Klick = annehmen")));
+         if (viewer != null && (island.getMasters().contains(viewer.getUniqueId()) || isOp)) {
+            inv.setItem(15, this.named(Material.RED_BED, ChatColor.DARK_RED + "Als Master austreten", List.of(ChatColor.GRAY + "Du verl\u00e4sst den Master-Rang", ChatColor.YELLOW + "Klick = austreten")));
+         }
+      } else if (canRemove) {
          inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + ("MEMBER".equals(role) ? "Spieler entfernen oder bearbeiten" : "Spieler entfernen"), "MEMBER".equals(role) ? List.of(ChatColor.GRAY + "Aktuelle Member anzeigen,", ChatColor.GRAY + "Rechte anpassen oder entfernen") : List.of(ChatColor.GRAY + "Aktuelle " + role + "s anzeigen und entfernen")));
       }
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Berechtigungen")));
       return inv;
    }
 
-   public Inventory createPermissionPlayerListMenu(IslandData island, String role, boolean adding, String searchFilter, int page) {
+   public Inventory createPermissionPlayerListMenu(Player viewer, IslandData island, String role, boolean adding, String searchFilter, int page) {
       Inventory inv = Bukkit.createInventory(new PermissionPlayerListInventoryHolder(island.getOwner(), role, adding, searchFilter, page), 54, (adding ? "Hinzuf\u00fcgen: " : ("MEMBER".equals(role) ? "Bearbeiten/Entfernen: " : "Entfernen: ")) + role + " " + (page + 1));
       this.fillWithPanes(inv);
       List<org.bukkit.OfflinePlayer> candidates = new ArrayList<>();
+      boolean isOp = viewer != null && viewer.isOp();
+      boolean allowed = viewer != null && switch (role) {
+         case "MASTER" -> adding ? this.islandService.canInviteMaster(island, viewer.getUniqueId()) || isOp : false;
+         case "OWNER" -> adding ? this.islandService.canAddOwner(island, viewer.getUniqueId()) || isOp : this.islandService.canRemoveOwner(island, viewer.getUniqueId()) || isOp;
+         case "MEMBER" -> this.islandService.canManageMembers(island, viewer.getUniqueId()) || isOp;
+         default -> false;
+      };
+      if (!allowed) {
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu " + role + " verwalten")));
+         return inv;
+      }
 
       if (adding) {
          Bukkit.getOnlinePlayers().stream().filter(p -> {
             if ("MASTER".equals(role)) return !this.islandService.isIslandMaster(island, p.getUniqueId());
-            if ("OWNER".equals(role)) return !island.getOwners().contains(p.getUniqueId());
-            if ("MEMBER".equals(role)) return !islandHasTrustPermission(island, p.getUniqueId(), IslandService.TrustPermission.ALL);
+            if ("OWNER".equals(role)) return !this.islandService.isPrimaryMaster(island, p.getUniqueId());
+            if ("MEMBER".equals(role)) return !this.islandService.isPrimaryMaster(island, p.getUniqueId());
             return false;
          }).forEach(candidates::add);
       } else {
@@ -2754,7 +2796,7 @@ public class CoreService {
       return inv;
    }
 
-   public Inventory createPermissionMemberDetailMenu(IslandData island, UUID targetPlayer) {
+   public Inventory createPermissionMemberDetailMenu(Player viewer, IslandData island, UUID targetPlayer) {
       Inventory inv = Bukkit.createInventory(new PermissionMemberDetailInventoryHolder(island.getOwner(), targetPlayer), 27, "Member-Optionen");
       this.fillWithPanes(inv);
       org.bukkit.OfflinePlayer t = Bukkit.getOfflinePlayer(targetPlayer);
@@ -2787,14 +2829,20 @@ public class CoreService {
       if (ctx == null) return;
       if ("cancel".equalsIgnoreCase(message) || "abbruch".equalsIgnoreCase(message)) {
          player.sendMessage(ChatColor.YELLOW + "Suche abgebrochen.");
+         IslandData island = islandService.getIsland(ctx.islandOwner()).orElse(null);
+         if (island != null) {
+            player.openInventory(createPermissionsActionMenu(player, island, ctx.role()));
+            return;
+         }
       } else {
          IslandData island = islandService.getIsland(ctx.islandOwner()).orElse(null);
          if (island != null) {
-            player.openInventory(createPermissionPlayerListMenu(island, ctx.role(), ctx.adding(), message, 0));
+            player.openInventory(createPermissionPlayerListMenu(player, island, ctx.role(), ctx.adding(), message, 0));
             return;
          }
       }
-      IslandData island = islandService.getPrimaryIsland(player.getUniqueId()).orElse(null);
+      IslandData island = islandService.getIsland(ctx.islandOwner()).orElse(null);
+      if (island == null) island = islandService.getPrimaryIsland(player.getUniqueId()).orElse(null);
       if (island != null) {
          player.openInventory(createPermissionsActionMenu(player, island, ctx.role()));
       }
@@ -4195,17 +4243,29 @@ public class CoreService {
    }
 
    private String buildHealthSmileText(double health, double maxHealth) {
+      ChatColor color = this.colorForHealth(health, maxHealth);
       double ratio = maxHealth <= 0.0D ? 1.0D : Math.max(0.0D, Math.min(1.0D, health / maxHealth));
       if (ratio >= 0.95D) {
-         return ChatColor.GREEN + "😃";
+         return color + "😃";
       }
       if (ratio >= 0.75D) {
-         return ChatColor.GREEN + "🙂";
+         return color + "🙂";
       }
       if (ratio >= 0.45D) {
-         return ChatColor.YELLOW + "😐";
+         return color + "😐";
       }
-      return ChatColor.RED + "🙁";
+      return color + "🙁";
+   }
+
+   private ChatColor colorForHealth(double health, double maxHealth) {
+      double ratio = maxHealth <= 0.0D ? 1.0D : Math.max(0.0D, Math.min(1.0D, health / maxHealth));
+      if (ratio >= 0.75D) {
+         return ChatColor.GREEN;
+      }
+      if (ratio >= 0.45D) {
+         return ChatColor.YELLOW;
+      }
+      return ChatColor.RED;
    }
 
    private void removeAnimalHealthDisplay(UUID entityId) {
@@ -4226,8 +4286,8 @@ public class CoreService {
       if (entity != null) {
          TimedEntityEmotion emotion = this.entityEmotions.get(entity.getUniqueId());
          if (emotion != null) {
-            if (emotion.expiresAt() > System.currentTimeMillis()) {
-               return emotion.text();
+            if (this.isEmotionStillActive(entity, emotion)) {
+               return this.resolveTimedEmotionDisplayText(entity, emotion, health, maxHealth);
             }
             this.entityEmotions.remove(entity.getUniqueId(), emotion);
          }
@@ -4239,7 +4299,65 @@ public class CoreService {
       if (entity == null || text == null || text.isBlank() || durationMs <= 0L) {
          return;
       }
-      this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, System.currentTimeMillis() + durationMs));
+      this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, System.currentTimeMillis() + durationMs, EntityEmotionMode.TEMPORARY));
+   }
+
+   public void setEntityEmotionUntilAdult(Entity entity, String text) {
+      if (entity == null || text == null || text.isBlank()) {
+         return;
+      }
+      this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, Long.MAX_VALUE, EntityEmotionMode.UNTIL_ADULT));
+   }
+
+   public void setEntityEmotionUntilBreedReady(Entity entity, String text) {
+      if (entity == null || text == null || text.isBlank()) {
+         return;
+      }
+      this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, Long.MAX_VALUE, EntityEmotionMode.UNTIL_BREED_READY));
+   }
+
+   public boolean hasEntityEmotionUntilAdult(Entity entity) {
+      return this.hasEntityEmotionMode(entity, EntityEmotionMode.UNTIL_ADULT);
+   }
+
+   public boolean hasEntityEmotionUntilBreedReady(Entity entity) {
+      return this.hasEntityEmotionMode(entity, EntityEmotionMode.UNTIL_BREED_READY);
+   }
+
+   public ChatColor getEntityEmotionHealthColor(Entity entity) {
+      if (entity instanceof org.bukkit.entity.Damageable damageable) {
+         return this.colorForHealth(damageable.getHealth(), damageable.getMaxHealth());
+      }
+      return ChatColor.RED;
+   }
+
+   private boolean hasEntityEmotionMode(Entity entity, EntityEmotionMode mode) {
+      if (entity == null || mode == null) {
+         return false;
+      }
+      TimedEntityEmotion emotion = this.entityEmotions.get(entity.getUniqueId());
+      return emotion != null && emotion.mode() == mode && this.isEmotionStillActive(entity, emotion);
+   }
+
+   private boolean isEmotionStillActive(Entity entity, TimedEntityEmotion emotion) {
+      if (entity == null || emotion == null) {
+         return false;
+      }
+      return switch (emotion.mode()) {
+         case TEMPORARY -> emotion.expiresAt() > System.currentTimeMillis();
+         case UNTIL_ADULT -> entity instanceof org.bukkit.entity.Ageable ageable && !ageable.isAdult();
+         case UNTIL_BREED_READY -> entity instanceof org.bukkit.entity.Animals animals && !animals.canBreed();
+      };
+   }
+
+   private String resolveTimedEmotionDisplayText(Entity entity, TimedEntityEmotion emotion, double health, double maxHealth) {
+      if (emotion == null) {
+         return this.buildHealthSmileText(health, maxHealth);
+      }
+      return switch (emotion.mode()) {
+         case UNTIL_BREED_READY -> ChatColor.LIGHT_PURPLE + ChatColor.stripColor(emotion.text());
+         case TEMPORARY, UNTIL_ADULT -> emotion.text();
+      };
    }
 
    private void removeStaleTaggedDisplaysInIsland(IslandData island, String prefix, Set<String> activeTags) {
@@ -4255,8 +4373,8 @@ public class CoreService {
 
    public boolean handleDisplayInteraction(Player player, Entity entity) {
       if (player == null || entity == null) return false;
-      boolean coreLine = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_"));
-      if (!coreLine) return false;
+      boolean isUpgradeLine = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_") || tag.equals("skycity_core_toggle"));
+      if (!isUpgradeLine) return false;
       IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
       if (this.islandService.isMilestonePinned(island)) {
@@ -4385,7 +4503,13 @@ public class CoreService {
       return "skycity_animal_health_" + entityId.toString().substring(0, 8);
    }
 
-   private static record TimedEntityEmotion(String text, long expiresAt) {
+   private static record TimedEntityEmotion(String text, long expiresAt, EntityEmotionMode mode) {
+   }
+
+   private enum EntityEmotionMode {
+      TEMPORARY,
+      UNTIL_ADULT,
+      UNTIL_BREED_READY
    }
 
    public void showIslandLimitHint(Player player, IslandData island, Material type) {

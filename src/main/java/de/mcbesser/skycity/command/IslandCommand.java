@@ -200,7 +200,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
 
     private boolean usesCurrentIslandContext(String sub) {
         return switch (sub) {
-            case "setspawn", "showchunks", "hidechunks", "chunkunlock", "title",
+            case "", "setspawn", "showchunks", "hidechunks", "chunkunlock", "title",
                  "masterinvite", "owner", "member", "unmember",
                  "kick", "ban", "unban", "pkick", "pban", "punban", "plot" -> true;
             default -> false;
@@ -338,12 +338,12 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
         switch (action) {
             case "add" -> {
-                if (!islandService.isIslandOwner(island, player.getUniqueId())) {
+                if (!islandService.canAddOwner(island, player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Owner hinzuf\u00fcgen.");
                     return;
                 }
-                if (islandService.isIslandMaster(island, target.getUniqueId())) {
-                    player.sendMessage(ChatColor.YELLOW + "Spieler ist bereits Master.");
+                if (islandService.isPrimaryMaster(island, target.getUniqueId())) {
+                    player.sendMessage(ChatColor.YELLOW + "Der prim\u00e4re Master kann nicht umgestuft werden.");
                     return;
                 }
                 boolean changed = islandService.grantOwnerRole(island, player.getUniqueId(), target.getUniqueId());
@@ -355,7 +355,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.RED + "Du bist auf dieser Insel nicht als Owner eingetragen.");
                     return;
                 }
-                if (!selfRemove && !islandService.isIslandMaster(island, player.getUniqueId())) {
+                if (!selfRemove && !islandService.canRemoveOwner(island, player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Nur Master k\u00f6nnen Owner entfernen.");
                     return;
                 }
@@ -592,8 +592,8 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.RED + "Du bist bereits Master oder Owner.");
             return;
         }
-        if (islandService.isIslandOwner(island, target.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Dieser Spieler ist bereits Master oder Owner.");
+        if (islandService.isPrimaryMaster(island, target.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Der prim\u00e4re Master kann nicht als Member eingetragen werden.");
             return;
         }
         IslandService.TrustPermission permission = IslandService.TrustPermission.ALL;
@@ -629,20 +629,47 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             return List.of();
         }
-        if (args.length == 1) return List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masterinvite", "masteraccept", "masterleave", "owner", "member", "unmember", "kick", "ban", "unban", "pkick", "pban", "punban", "plot");
+        if (args.length == 1) {
+            if (!(sender instanceof Player player)) return List.of("create", "home", "islands");
+            List<String> suggestions = new ArrayList<>(List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masteraccept", "masterleave", "kick", "ban", "unban", "pkick", "pban", "punban", "plot"));
+            IslandData island = resolveCommandIsland(player, "", islandService.getIsland(player.getUniqueId()).orElse(null));
+            if (island != null) {
+                if (islandService.canInviteMaster(island, player.getUniqueId())) suggestions.add("masterinvite");
+                if (islandService.canAddOwner(island, player.getUniqueId()) || islandService.canRemoveOwner(island, player.getUniqueId())) suggestions.add("owner");
+                if (islandService.canManageMembers(island, player.getUniqueId())) {
+                    suggestions.add("member");
+                    suggestions.add("unmember");
+                }
+            }
+            return suggestions;
+        }
         if (args.length == 2 && "title".equalsIgnoreCase(args[0])) return List.of("clear");
         if (args.length == 2 && "masterinvite".equalsIgnoreCase(args[0])) {
+            if (!(sender instanceof Player player)) return List.of();
+            IslandData island = resolveCommandIsland(player, args[0].toLowerCase(Locale.ROOT), islandService.getIsland(player.getUniqueId()).orElse(null));
+            if (island == null || !islandService.canInviteMaster(island, player.getUniqueId())) return List.of();
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
         if (args.length == 2 && ("member".equalsIgnoreCase(args[0]) || "unmember".equalsIgnoreCase(args[0]))) {
+            if (!(sender instanceof Player player)) return List.of();
+            IslandData island = resolveCommandIsland(player, args[0].toLowerCase(Locale.ROOT), islandService.getIsland(player.getUniqueId()).orElse(null));
+            if (island == null || !islandService.canManageMembers(island, player.getUniqueId())) return List.of();
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
         if (args.length == 2 && "plot".equalsIgnoreCase(args[0])) return List.of("wand", "create", "delete", "list", "buy", "rent", "owner", "member");
-        if (args.length == 2 && "owner".equalsIgnoreCase(args[0])) return List.of("add", "remove");
+        if (args.length == 2 && "owner".equalsIgnoreCase(args[0])) {
+            if (!(sender instanceof Player player)) return List.of();
+            IslandData island = resolveCommandIsland(player, args[0].toLowerCase(Locale.ROOT), islandService.getIsland(player.getUniqueId()).orElse(null));
+            if (island == null) return List.of();
+            List<String> actions = new ArrayList<>();
+            if (islandService.canAddOwner(island, player.getUniqueId())) actions.add("add");
+            if (islandService.canRemoveOwner(island, player.getUniqueId())) actions.add("remove");
+            return actions;
+        }
         if (args.length == 3 && "plot".equalsIgnoreCase(args[0]) && ("owner".equalsIgnoreCase(args[1]) || "member".equalsIgnoreCase(args[1]))) return List.of("add", "remove");
         if (args.length == 2 && List.of("kick","ban","unban","pkick","pban","punban").contains(args[0].toLowerCase(Locale.ROOT))) {
             List<String> names = new ArrayList<>();
@@ -655,11 +682,20 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return names;
         }
         if (args.length == 3 && "owner".equalsIgnoreCase(args[0])) {
+            if (!(sender instanceof Player player)) return List.of();
+            IslandData island = resolveCommandIsland(player, args[0].toLowerCase(Locale.ROOT), islandService.getIsland(player.getUniqueId()).orElse(null));
+            if (island == null) return List.of();
+            String action = args[1].toLowerCase(Locale.ROOT);
+            if ("add".equals(action) && !islandService.canAddOwner(island, player.getUniqueId())) return List.of();
+            if ("remove".equals(action) && !islandService.canRemoveOwner(island, player.getUniqueId())) return List.of();
             List<String> names = new ArrayList<>();
             for (Player online : plugin.getServer().getOnlinePlayers()) names.add(online.getName());
             return names;
         }
         if (args.length == 3 && ("member".equalsIgnoreCase(args[0]) || "unmember".equalsIgnoreCase(args[0]))) {
+            if (!(sender instanceof Player player)) return List.of();
+            IslandData island = resolveCommandIsland(player, args[0].toLowerCase(Locale.ROOT), islandService.getIsland(player.getUniqueId()).orElse(null));
+            if (island == null || !islandService.canManageMembers(island, player.getUniqueId())) return List.of();
             return List.of("all", "build", "container", "redstone");
         }
         return List.of();

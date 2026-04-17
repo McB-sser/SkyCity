@@ -1025,6 +1025,15 @@ public class PlayerListener implements Listener {
         if (location == null || location.getWorld() == null) return null;
         Block feet = location.getBlock();
         if (isTeamSelectableWool(feet)) return feet;
+        
+        // Only allow changing teams if the space the player is standing in is empty (AIR),
+        // or if they are standing directly on a half block (slab/stairs).
+        // This prevents team changes if items like torches, carpets, or grass are placed on the wool.
+        Material feetType = feet.getType();
+        if (!feetType.isAir() && !feetType.name().endsWith("_SLAB") && !feetType.name().endsWith("_STAIRS")) {
+            return null;
+        }
+
         Block below = feet.getRelative(0, -1, 0);
         if (isTeamSelectableWool(below)) return below;
         Block belowTwo = feet.getRelative(0, -2, 0);
@@ -1058,6 +1067,15 @@ public class PlayerListener implements Listener {
                 || name.endsWith("_SIGN")
                 || name.endsWith("_RAIL")
                 || name.endsWith("_BANNER")
+                || name.endsWith("_CARPET")
+                || name.endsWith("_FENCE")
+                || name.endsWith("_WALL")
+                || name.endsWith("LANTERN")
+                || type == Material.IRON_BARS
+                || type == Material.BELL
+                || type == Material.BREWING_STAND
+                || type == Material.CAMPFIRE
+                || type == Material.SOUL_CAMPFIRE
                 || type == Material.LEVER
                 || type == Material.REPEATER
                 || type == Material.COMPARATOR

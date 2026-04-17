@@ -1672,7 +1672,7 @@ public class ProtectionListener implements Listener {
         Location inventoryLocation = inventoryHolderLocation(event.getInventory().getHolder());
         if (playerListener.isActiveCtfShelfLocation(inventoryLocation)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "CTF-Regale können nicht direkt geöffnet werden.");
+            player.sendMessage(ChatColor.RED + "CTF-Regale kÃ¶nnen nicht direkt geÃ¶ffnet werden.");
             return;
         }
         Object holder = event.getInventory().getHolder();
@@ -1719,7 +1719,7 @@ public class ProtectionListener implements Listener {
         Location inventoryLocation = inventoryHolderLocation(event.getView().getTopInventory().getHolder());
         if (!playerListener.isActiveCtfShelfLocation(inventoryLocation)) return;
         event.setCancelled(true);
-        player.sendMessage(ChatColor.RED + "Aus CTF-Regalen können keine Items entnommen werden.");
+        player.sendMessage(ChatColor.RED + "Aus CTF-Regalen kÃ¶nnen keine Items entnommen werden.");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1732,7 +1732,7 @@ public class ProtectionListener implements Listener {
         boolean touchesTop = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
         if (!touchesTop) return;
         event.setCancelled(true);
-        player.sendMessage(ChatColor.RED + "CTF-Regale sind für Spieler gesperrt.");
+        player.sendMessage(ChatColor.RED + "CTF-Regale sind fÃ¼r Spieler gesperrt.");
     }
 
     private Location inventoryHolderLocation(Object holder) {
@@ -1831,19 +1831,34 @@ public class ProtectionListener implements Listener {
             if (event.getBreeder() instanceof Player player && !player.isOp() && !islandService.hasBuildAccess(player.getUniqueId(), island)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln keine Tiere vermehren.");
+                return;
             }
-            return;
+        } else {
+            if (event.getBreeder() instanceof Player player
+                    && !player.isOp()
+                    && !islandService.isParcelOwner(island, parcel, player.getUniqueId())
+                    && !islandService.hasBuildAccess(player.getUniqueId(), island)
+                    && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalBreed())) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Du darfst hier keine Tiere vermehren.");
+                return;
+            }
         }
-        if (event.getBreeder() instanceof Player player
-                && !player.isOp()
-                && !islandService.isParcelOwner(island, parcel, player.getUniqueId())
-                && !islandService.hasBuildAccess(player.getUniqueId(), island)
-                && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalBreed())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Du darfst hier keine Tiere vermehren.");
-            return;
-        }
-        coreService.setTemporaryEntityEmotion(event.getEntity(), ChatColor.LIGHT_PURPLE + "😏", 5000L);
+        org.bukkit.entity.LivingEntity mother = event.getMother();
+        org.bukkit.entity.LivingEntity father = event.getFather();
+        
+        String motherPairIcon = (Math.random() < 0.5D) ? "\uD83D\uDE18" : "\uD83D\uDE0F";
+        String fatherPairIcon = (Math.random() < 0.5D) ? "\uD83D\uDE18" : "\uD83D\uDE0F";
+        coreService.setTemporaryEntityEmotion(mother, ChatColor.LIGHT_PURPLE + motherPairIcon, 5000L);
+        coreService.setTemporaryEntityEmotion(father, ChatColor.LIGHT_PURPLE + fatherPairIcon, 5000L);
+
+        org.bukkit.Bukkit.getScheduler().runTaskLater(org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
+            if (mother.isValid()) coreService.setEntityEmotionUntilBreedReady(mother, "\uD83D\uDE0E");
+            if (father.isValid()) coreService.setEntityEmotionUntilBreedReady(father, "\uD83D\uDE0E");
+        }, 60L);
+
+        ChatColor babyColor = Math.random() < 0.5D ? ChatColor.AQUA : ChatColor.LIGHT_PURPLE;
+        coreService.setEntityEmotionUntilAdult(event.getEntity(), babyColor + "\u2728\uD83D\uDC76\u2728");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1862,17 +1877,18 @@ public class ProtectionListener implements Listener {
             if (!islandService.hasBuildAccess(player.getUniqueId(), island)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln keine Tiere scheren.");
+                return;
             }
-            return;
+        } else {
+            if (!islandService.isParcelOwner(island, parcel, player.getUniqueId())
+                    && !islandService.hasBuildAccess(player.getUniqueId(), island)
+                    && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalShear())) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Du darfst hier nicht scheren.");
+                return;
+            }
         }
-        if (!islandService.isParcelOwner(island, parcel, player.getUniqueId())
-                && !islandService.hasBuildAccess(player.getUniqueId(), island)
-                && (!islandService.isParcelMember(island, parcel, player.getUniqueId()) || !parcel.isMemberAnimalShear())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Du darfst hier nicht scheren.");
-            return;
-        }
-        coreService.setTemporaryEntityEmotion(event.getRightClicked(), ChatColor.YELLOW + "😕", 4500L);
+        coreService.setTemporaryEntityEmotion(event.getRightClicked(), ChatColor.WHITE + "\u2702", 4000L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1886,30 +1902,54 @@ public class ProtectionListener implements Listener {
         IslandData island = islandService.getIslandAt(animal.getLocation());
         if (island == null) return;
         ParcelData parcel = islandService.getParcelAt(island, animal.getLocation());
+        boolean breedingItem = item != null && animal.isBreedItem(item);
+        
         if (parcel == null) {
             if (!islandService.hasBuildAccess(player.getUniqueId(), island)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Du darfst auf fremden Inseln nicht mit Tieren interagieren.");
+                return;
+            }
+        } else {
+            boolean hasAccess = islandService.isParcelOwner(island, parcel, player.getUniqueId()) || islandService.hasBuildAccess(player.getUniqueId(), island)
+                    || (islandService.isParcelMember(island, parcel, player.getUniqueId()) && (breedingItem ? parcel.isMemberAnimalBreed() : parcel.isMemberAnimalShear()));
+            if (!hasAccess) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Du darfst in diesem Plot nicht mit Tieren interagieren.");
+                return;
+            }
+        }
+
+        if (breedingItem) {
+            if (!animal.isAdult()) {
+                if (!coreService.hasEntityEmotionUntilAdult(animal)) {
+                    ChatColor babyColor = Math.random() < 0.5D ? ChatColor.AQUA : ChatColor.LIGHT_PURPLE;
+                    coreService.setEntityEmotionUntilAdult(animal, babyColor + "\u2728\uD83D\uDC76\u2728");
+                }
+            } else if (animal.canBreed()) {
+                coreService.setTemporaryEntityEmotion(animal, ChatColor.LIGHT_PURPLE + "\uD83D\uDE18", 5000L);
+            } else if (!coreService.hasEntityEmotionUntilBreedReady(animal)) {
+                coreService.setEntityEmotionUntilBreedReady(animal, "\uD83D\uDE0E");
             }
             return;
         }
-        if (islandService.isParcelOwner(island, parcel, player.getUniqueId()) || islandService.hasBuildAccess(player.getUniqueId(), island)) {
-            return;
-        }
-        boolean breedingItem = item != null && animal.isBreedItem(item);
-        boolean allowed = islandService.isParcelMember(island, parcel, player.getUniqueId())
-                && (breedingItem ? parcel.isMemberAnimalBreed() : parcel.isMemberAnimalShear());
-        if (!allowed) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Du darfst in diesem Plot nicht mit Tieren interagieren.");
-            return;
-        }
-        if (breedingItem) {
-            coreService.setTemporaryEntityEmotion(animal, ChatColor.LIGHT_PURPLE + "😘", 3500L);
-            return;
-        }
         if (item != null && item.getType() == Material.BUCKET && (animal instanceof Cow || animal instanceof MushroomCow || animal instanceof Goat)) {
-            coreService.setTemporaryEntityEmotion(animal, ChatColor.YELLOW + "😕", 4500L);
+            if (coreService.hasEntityEmotionUntilBreedReady(animal)) {
+                return;
+            }
+            coreService.setTemporaryEntityEmotion(animal, ChatColor.WHITE + "\uD83E\uDD5B\uD83D\uDE0B", 3500L);
+            return;
+        }
+        if (!animal.isAdult()) {
+            if (!coreService.hasEntityEmotionUntilAdult(animal)) {
+                ChatColor babyColor = Math.random() < 0.5D ? ChatColor.AQUA : ChatColor.LIGHT_PURPLE;
+                coreService.setEntityEmotionUntilAdult(animal, babyColor + "\u2728\uD83D\uDC76\u2728");
+            }
+        } else if (item == null || item.getType().isAir()) {
+            if (coreService.hasEntityEmotionUntilBreedReady(animal)) {
+                return;
+            }
+            coreService.setTemporaryEntityEmotion(animal, ChatColor.RED + "\u2764", 2500L);
         }
     }
 
@@ -1920,7 +1960,7 @@ public class ProtectionListener implements Listener {
                 && !islandService.isTrackedGolem(event.getEntityType())) {
             return;
         }
-        coreService.setTemporaryEntityEmotion(event.getEntity(), ChatColor.RED + "😖", 2500L);
+        coreService.setTemporaryEntityEmotion(event.getEntity(), ChatColor.RED + "\uD83D\uDE16", 2500L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
