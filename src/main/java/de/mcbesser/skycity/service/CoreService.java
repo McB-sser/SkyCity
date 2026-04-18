@@ -634,21 +634,44 @@ public class CoreService {
       int bz = coreLoc == null ? 0 : coreLoc.getBlockZ();
       Inventory inv = Bukkit.createInventory(new CoreService.CoreInventoryHolder(island.getOwner(), worldName, bx, by, bz), 54, "SkyCity Core");
       this.fillWithPanes(inv);
-      inv.setItem(10, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Core", this.buildCoreSummaryLore(island)));
+      inv.setItem(4, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Core", this.buildCoreSummaryLore(island)));
       inv.setItem(
          11,
          this.named(
-            Material.LECTERN,
-            ChatColor.GOLD + "Insel-Level & Blockwertigkeit",
+            Material.BOOK,
+            ChatColor.YELLOW + "Techtree",
             List.of(
-               ChatColor.GREEN + "Insel-Level: " + ChatColor.WHITE + this.formatIslandLevel(this.islandService.calculateIslandLevelValue(island)),
-               ChatColor.GRAY + "Klick: Blockwertigkeit anzeigen",
-               ChatColor.GRAY + "Shift-Klick: Eingelagerte Inselbl\u00f6cke"
+               ChatColor.GRAY + "Meilensteine und einzelne Limits in einem Men\u00fc",
+               ChatColor.GRAY + "Links = Fokus, Rechts = freischalten",
+               ChatColor.YELLOW + "Klick = Techtree \u00f6ffnen"
             )
          )
       );
       inv.setItem(
-         16,
+         13,
+         this.named(
+            Material.LECTERN,
+            ChatColor.GOLD + "Blockwertigkeit",
+            List.of(
+               ChatColor.GREEN + "Insel-Level: " + ChatColor.WHITE + this.formatIslandLevel(this.islandService.calculateIslandLevelValue(island)),
+               ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level",
+               ChatColor.YELLOW + "Klick = Liste anzeigen"
+            )
+         )
+      );
+      inv.setItem(
+         15,
+         this.named(
+            Material.CHEST_MINECART,
+            ChatColor.AQUA + "Inselbl\u00f6cke",
+            List.of(
+               ChatColor.GRAY + "Gesammelte Core-Items / Mengen",
+               ChatColor.YELLOW + "Klick = Liste anzeigen"
+            )
+         )
+      );
+      inv.setItem(
+         31,
          this.named(
             Material.EXPERIENCE_BOTTLE,
             ChatColor.AQUA + "Erfahrungsspeicher",
@@ -661,28 +684,22 @@ public class CoreService {
          )
       );
       inv.setItem(
-         14,
+         22,
          this.named(
             Material.CHEST,
             ChatColor.AQUA + "CoreBank",
-            List.of(ChatColor.GRAY + "Items in Slots 27-35 legen", ChatColor.GRAY + "Materialien landen im Core-Fortschritt f\u00fcr Meilensteine und Techtree")
-         )
-      );
-      inv.setItem(
-         13,
-         this.named(
-            Material.BOOK,
-            ChatColor.YELLOW + "Techtree",
             List.of(
-               ChatColor.GRAY + "Meilensteine und einzelne Limits in einem Men\u00fc",
-               ChatColor.GRAY + "Links = Fokus, Rechts = freischalten",
-               ChatColor.YELLOW + "Klick = Techtree \u00f6ffnen"
+               ChatColor.GRAY + "Items in Slots 27-35 legen",
+               ChatColor.GRAY + "Materialien landen im Core-Fortschritt",
+               ChatColor.GRAY + "f\u00fcr Meilensteine und Techtree",
+               ChatColor.YELLOW + "Sneak + Rechtsklick auf den Core",
+               ChatColor.GRAY + "\u00f6ffnet die Shulker zum direkten Bef\u00fcllen"
             )
          )
       );
       CoreService.CoreDisplayMode mode = this.getCoreDisplayMode(island, coreLoc);
       inv.setItem(
-         15,
+         53,
          this.named(
             Material.END_CRYSTAL,
             ChatColor.LIGHT_PURPLE + "Core-Anzeige",
@@ -991,6 +1008,17 @@ public class CoreService {
          )
       );
       inv.setItem(
+         45,
+         this.named(
+            Material.MAP,
+            ChatColor.GREEN + "Inselhauptmen\u00fc",
+            List.of(
+               ChatColor.GRAY + "Zur\u00fcck zum Inselmen\u00fc",
+               ChatColor.YELLOW + "Klick = /is Men\u00fc \u00f6ffnen"
+            )
+         )
+      );
+      inv.setItem(
          13,
          this.named(
             Material.CARTOGRAPHY_TABLE,
@@ -1011,6 +1039,17 @@ public class CoreService {
             List.of(
                ChatColor.GRAY + "Nutzbare Teleports ansehen",
                ChatColor.YELLOW + "Klick = Teleport-Men\u00fc \u00f6ffnen"
+            )
+         )
+      );
+      inv.setItem(
+         22,
+         this.named(
+            Material.GRASS_BLOCK,
+            ChatColor.GREEN + "Inselmen\u00fc",
+            List.of(
+               ChatColor.GRAY + "Zur\u00fcck zu Insel, Chunks und Grundst\u00fccken",
+               ChatColor.YELLOW + "Klick = Inselmen\u00fc \u00f6ffnen"
             )
          )
       );
@@ -1035,97 +1074,6 @@ public class CoreService {
    public Inventory createIslandMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(island.getOwner()), 54, "SkyCity Insel");
       this.fillWithPanes(inv);
-      int relX = this.islandService.relativeChunkX(island, viewer.getLocation().getChunk().getX());
-      int relZ = this.islandService.relativeChunkZ(island, viewer.getLocation().getChunk().getZ());
-      int displayX = this.islandService.displayChunkX(relX);
-      int displayZ = this.islandService.displayChunkZ(relZ);
-      boolean currentUnlocked = this.islandService.isChunkUnlocked(island, relX, relZ);
-
-      // Oben: Core + Inselbezug
-      inv.setItem(10, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core \u00f6ffnen", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank")));
-      inv.setItem(11, this.named(Material.CHEST_MINECART, ChatColor.AQUA + "Inselbl\u00f6cke", List.of(ChatColor.GRAY + "Gesammelte Core-Items / Mengen")));
-      inv.setItem(12, this.named(Material.LECTERN, ChatColor.GOLD + "Blockwertigkeit", List.of(ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level")));
-      inv.setItem(13, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
-      inv.setItem(
-         14,
-         this.named(
-            Material.NAME_TAG,
-            ChatColor.GOLD + "Inseltitel setzen",
-            List.of(
-               ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island),
-               ChatColor.YELLOW + "Klick = Titel per Chat eingeben",
-               ChatColor.GRAY + "Schreibe 'clear' oder 'abbrechen'"
-            )
-         )
-      );
-      inv.setItem(
-         15,
-         this.named(
-            Material.EMERALD,
-            ChatColor.GREEN + "Insel-Shop",
-            List.of(
-               ChatColor.GRAY + "K\u00e4ufe mit Core-Erfahrung",
-               ChatColor.GRAY + "Biome, Zeit, Wachstum, XP-Flaschen",
-               ChatColor.YELLOW + "Klick = Shop \u00f6ffnen"
-            )
-         )
-      );
-      inv.setItem(
-         16,
-         this.named(
-            currentUnlocked ? Material.LIME_DYE : Material.TRIPWIRE_HOOK,
-            (currentUnlocked ? ChatColor.GREEN : ChatColor.YELLOW) + "Aktuellen Chunk freischalten",
-            List.of(
-               ChatColor.GRAY + "Chunk: " + displayX + ":" + displayZ,
-               ChatColor.GRAY + "Status: " + (currentUnlocked ? "bereits frei" : "gesperrt"),
-               ChatColor.GRAY + "Freie Unlocks: " + island.getAvailableChunkUnlocks(),
-               currentUnlocked ? ChatColor.DARK_GRAY + "Nichts zu tun" : ChatColor.YELLOW + "Klick = freischalten"
-            )
-         )
-      );
-
-      inv.setItem(
-         19,
-         this.named(
-            Material.MAP,
-            ChatColor.YELLOW + "Chunks",
-            List.of(ChatColor.GRAY + "Freischalten, claimen, Biome", ChatColor.GRAY + "\u00dcbersicht \u00fcber 64x64 Chunks")
-         )
-      );
-      inv.setItem(20, this.named(Material.BLAZE_POWDER, ChatColor.AQUA + "Chunkgrenzen anzeigen", List.of(ChatColor.GRAY + "Partikel an Chunkr\u00e4ndern", ChatColor.GRAY + "Status je Chunkwechsel im Chat", ChatColor.YELLOW + "Klick = an/aus umschalten")));
-
-      // Links unten: Berechtigungen
-      inv.setItem(36, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Member-Rechte", List.of(ChatColor.GRAY + "Build/Container/Redstone/All", ChatColor.GRAY + "Rechte per GUI verwalten")));
-      inv.setItem(37, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten", ChatColor.GRAY + "f\u00fcr Besucher ohne Rechte")));
-      inv.setItem(
-         38,
-         this.named(
-            Material.WRITABLE_BOOK,
-            ChatColor.YELLOW + "Owner-Rechte",
-            List.of(ChatColor.GRAY + "Owner add/remove", ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")
-         )
-      );
-      inv.setItem(
-         39,
-         this.named(
-            Material.NETHER_STAR,
-            ChatColor.GOLD + "Master-Rechte",
-            List.of(ChatColor.GRAY + "Einladen / Annehmen / Austreten", ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")
-         )
-      );
-      inv.setItem(
-         40,
-         this.named(
-            Material.NAME_TAG,
-            ChatColor.GOLD + "Grundst\u00fccke",
-            List.of(
-               ChatColor.GRAY + "Alle Grundst\u00fccks-Funktionen zentral",
-               ChatColor.GRAY + "inkl. aktueller Position",
-               ChatColor.YELLOW + "Klick = Grundst\u00fccks-Men\u00fc"
-            )
-         )
-      );
-
       inv.setItem(10, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
       inv.setItem(11, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel", List.of(ChatColor.GRAY + "Spawn, Titel, Rechte, Core", ChatColor.YELLOW + "Klick = Inselmen\u00fc")));
       inv.setItem(12, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
@@ -1312,7 +1260,7 @@ public class CoreService {
       int totalPages = Math.max(1, (int)Math.ceil((double)TOTAL_CHUNKS / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
       String title = safeMode == CoreService.ChunkMapMode.ALL ? ("Chunkkarte " + (safePage + 1) + "/" + totalPages) : "Chunkkarte Umgebung";
-      Inventory inv = Bukkit.createInventory(new CoreService.ChunkMapInventoryHolder(island.getOwner(), safePage, safeMode.name()), 54, title);
+      Inventory inv = Bukkit.createInventory(new CoreService.ChunkMapInventoryHolder(island.getOwner(), safePage, safeMode.name(), "chunks"), 54, title);
       this.fillWithPanes(inv);
       int playerRelX = this.islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
       int playerRelZ = this.islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
@@ -1378,7 +1326,7 @@ public class CoreService {
          inv.setItem(GRID_SLOTS.get(i), this.named(mat, (unlocked ? ChatColor.GREEN : ChatColor.RED) + "Chunk " + displayX + ":" + displayZ, lore));
       }
 
-      inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Chunks")));
       if (safeMode == CoreService.ChunkMapMode.ALL && safePage > 0) {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
@@ -1488,12 +1436,9 @@ public class CoreService {
       boolean canManagePermissions = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || viewer.isOp());
       if (System.currentTimeMillis() >= 0L) {
          inv.setItem(10, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core \u00f6ffnen", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank")));
-         inv.setItem(11, this.named(Material.CHEST_MINECART, ChatColor.AQUA + "Inselbl\u00f6cke", List.of(ChatColor.GRAY + "Gesammelte Core-Items / Mengen")));
-         inv.setItem(12, this.named(Material.LECTERN, ChatColor.GOLD + "Blockwertigkeit", List.of(ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level")));
          inv.setItem(13, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
          inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
          inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
-         inv.setItem(19, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-Men\u00fc", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
          if (canManagePermissions) {
             inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
          }
@@ -2350,11 +2295,16 @@ public class CoreService {
    }
 
    public Inventory createTeleportMenu(UUID viewerId, int page) {
-      return this.createTeleportMenu(viewerId, page, "all");
+      return this.createTeleportMenu(viewerId, page, "all", "island");
    }
 
    public Inventory createTeleportMenu(UUID viewerId, int page, String filter) {
+      return this.createTeleportMenu(viewerId, page, filter, "island");
+   }
+
+   public Inventory createTeleportMenu(UUID viewerId, int page, String filter, String backTarget) {
       String safeFilter = this.normalizeFilter(filter);
+      String safeBackTarget = backTarget == null ? "island" : backTarget.toLowerCase(Locale.ROOT);
       if (System.currentTimeMillis() >= 0L) {
          List<IslandService.TeleportTarget> targets = this.islandService.getTeleportTargetsFor(viewerId).stream().filter(t -> {
             return switch (safeFilter) {
@@ -2367,7 +2317,7 @@ public class CoreService {
          }).toList();
          int totalPages = Math.max(1, (int)Math.ceil((double)targets.size() / 45.0));
          int safePage = Math.max(0, Math.min(totalPages - 1, page));
-         Inventory inv = Bukkit.createInventory(new CoreService.TeleportInventoryHolder(viewerId, safePage, safeFilter), 54, "Teleport-Men\u00fc " + (safePage + 1) + "/" + totalPages);
+         Inventory inv = Bukkit.createInventory(new CoreService.TeleportInventoryHolder(viewerId, safePage, safeFilter, safeBackTarget), 54, "Teleport-Men\u00fc " + (safePage + 1) + "/" + totalPages);
          this.fillWithPanes(inv);
          int start = safePage * 45;
 
@@ -2395,7 +2345,8 @@ public class CoreService {
             inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
          }
 
-         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+         String backLabel = "parcels".equals(safeBackTarget) ? "Zu Grundst\u00fccken" : "Zur Inselansicht";
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + backLabel)));
          if (safePage < totalPages - 1) {
             inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
          }
@@ -2418,7 +2369,7 @@ public class CoreService {
       int totalPages = Math.max(1, (int)Math.ceil((double)targets.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
       Inventory inv = Bukkit.createInventory(
-         new CoreService.TeleportInventoryHolder(viewerId, safePage, safeFilter), 54, "Teleport-Men\u00fc " + (safePage + 1) + "/" + totalPages
+         new CoreService.TeleportInventoryHolder(viewerId, safePage, safeFilter, safeBackTarget), 54, "Teleport-Men\u00fc " + (safePage + 1) + "/" + totalPages
       );
       this.fillWithPanes(inv);
       int start = safePage * 45;
@@ -2444,7 +2395,8 @@ public class CoreService {
          inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+      String backLabel = "parcels".equals(safeBackTarget) ? "Zu Grundst\u00fccken" : "Zur Inselansicht";
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + backLabel)));
       if (safePage < totalPages - 1) {
          inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
@@ -5045,7 +4997,7 @@ public class CoreService {
       }
    }
 
-   public static record ChunkMapInventoryHolder(UUID islandOwner, int page, String mode) implements InventoryHolder {
+   public static record ChunkMapInventoryHolder(UUID islandOwner, int page, String mode, String backTarget) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
@@ -5277,7 +5229,7 @@ public class CoreService {
       }
    }
 
-   public static record TeleportInventoryHolder(UUID viewer, int page, String filter) implements InventoryHolder {
+   public static record TeleportInventoryHolder(UUID viewer, int page, String filter, String backTarget) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

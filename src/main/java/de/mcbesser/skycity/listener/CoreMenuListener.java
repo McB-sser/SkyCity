@@ -186,24 +186,29 @@ public class CoreMenuListener implements Listener {
     private void handleCoreMenuClick(InventoryClickEvent event, Player player, CoreService.CoreInventoryHolder holder) {
         if (event.getClickedInventory() == null) return;
         boolean inTop = event.getClickedInventory().equals(event.getView().getTopInventory());
-        if (inTop && event.getRawSlot() != 11 && event.getRawSlot() != 13 && event.getRawSlot() != 15 && event.getRawSlot() != 16 && !CORE_INPUT_SLOTS.contains(event.getRawSlot())) event.setCancelled(true);
+        if (inTop && event.getRawSlot() != 4 && event.getRawSlot() != 11 && event.getRawSlot() != 13 && event.getRawSlot() != 15 && event.getRawSlot() != 31 && event.getRawSlot() != 45 && event.getRawSlot() != 53 && !CORE_INPUT_SLOTS.contains(event.getRawSlot())) event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
         var coreLocation = holder.coreLocation();
-        if (inTop && event.getRawSlot() == 11) {
+        if (inTop && event.getRawSlot() == 13) {
             event.setCancelled(true);
             if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
                 player.sendMessage(ChatColor.RED + "Keine Rechte.");
                 return;
             }
-            if (event.isShiftClick()) {
-                player.openInventory(coreService.createIslandBlocksMenu(island, 0, "core"));
-            } else {
-                player.openInventory(coreService.createBlockValueMenu(island, 0, "core"));
-            }
+            player.openInventory(coreService.createBlockValueMenu(island, 0, "core"));
             return;
         }
-        if (inTop && event.getRawSlot() == 16) {
+        if (inTop && event.getRawSlot() == 15) {
+            event.setCancelled(true);
+            if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
+                player.sendMessage(ChatColor.RED + "Keine Rechte.");
+                return;
+            }
+            player.openInventory(coreService.createIslandBlocksMenu(island, 0, "core"));
+            return;
+        }
+        if (inTop && event.getRawSlot() == 31) {
             event.setCancelled(true);
             if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
                 player.sendMessage(ChatColor.RED + "Keine Rechte.");
@@ -217,7 +222,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createCoreMenu(player, island, coreLocation));
             return;
         }
-        if (inTop && event.getRawSlot() == 15) {
+        if (inTop && event.getRawSlot() == 53) {
             event.setCancelled(true);
             if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
                 player.sendMessage(ChatColor.RED + "Keine Rechte.");
@@ -228,7 +233,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createCoreMenu(player, island, coreLocation));
             return;
         }
-        if (inTop && event.getRawSlot() == 13) {
+        if (inTop && event.getRawSlot() == 11) {
             event.setCancelled(true);
             if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
                 player.sendMessage(ChatColor.RED + "Keine Rechte.");
@@ -236,6 +241,10 @@ public class CoreMenuListener implements Listener {
             }
             player.openInventory(coreService.createUpgradeProgressMenu(island, 0));
             return;
+        }
+        if (inTop && event.getRawSlot() == 45) {
+            event.setCancelled(true);
+            player.openInventory(coreService.createIslandMenu(player, island));
         }
     }
 
@@ -293,7 +302,7 @@ public class CoreMenuListener implements Listener {
             switch (event.getRawSlot()) {
                 case 11 -> player.performCommand("is create");
                 case 13 -> player.openInventory(coreService.createIslandOverviewMenu(player));
-                case 15 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0));
+                case 15 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "island"));
                 case 31 -> {
                     IslandData inviteIsland = islandService.getPendingMasterInviteIsland(player.getUniqueId());
                     if (inviteIsland != null) {
@@ -314,7 +323,7 @@ public class CoreMenuListener implements Listener {
             case 13 -> player.openInventory(coreService.createChunkSettingsMenu(player, island));
             case 15 -> player.openInventory(coreService.createParcelsMenu(player, island));
             case 29 -> player.openInventory(coreService.createIslandShopMenu(player, island));
-            case 31 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0));
+            case 31 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "island"));
             case 33 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             default -> {
             }
@@ -461,8 +470,6 @@ public class CoreMenuListener implements Listener {
         boolean canManagePermissions = islandService.isIslandOwner(island, player.getUniqueId()) || player.isOp();
         switch (event.getRawSlot()) {
             case 10 -> player.openInventory(coreService.createCoreMenu(player, island));
-            case 11 -> player.openInventory(coreService.createIslandBlocksMenu(island, 0, "island"));
-            case 12 -> player.openInventory(coreService.createBlockValueMenu(island, 0, "island"));
             case 13 -> {
                 island.setIslandSpawn(player.getLocation().clone());
                 islandService.save();
@@ -484,11 +491,6 @@ public class CoreMenuListener implements Listener {
                     return;
                 }
                 coreService.beginIslandWarpInput(player, island);
-            }
-            case 19 -> {
-                int relX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
-                int relZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
-                player.openInventory(coreService.createBiomeMenu(player, island, 0, relX, relZ, 0));
             }
             case 20 -> {
                 if (!canManagePermissions) {
@@ -836,7 +838,7 @@ public class CoreMenuListener implements Listener {
                 player.sendMessage(ChatColor.GRAY + "Setze Pos1/Pos2 und nutze /is plot create.");
                 player.openInventory(coreService.createParcelsMenu(player, island));
             }
-            case 16 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "parcels"));
+            case 16 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "parcels", "parcels"));
             case 40 -> player.openInventory(coreService.createIslandMenu(player, island));
             default -> {
             }
@@ -1026,7 +1028,11 @@ public class CoreMenuListener implements Listener {
                 return;
         }
         if (raw == 45) {
-            player.openInventory(coreService.createIslandMenu(player, island));
+            if ("chunks".equalsIgnoreCase(holder.backTarget())) {
+                player.openInventory(coreService.createChunkSettingsMenu(player, island));
+            } else {
+                player.openInventory(coreService.createIslandMenu(player, island));
+            }
         } else if (raw == 48 && mode == CoreService.ChunkMapMode.ALL && page > 0) {
             player.openInventory(coreService.createChunkMapMenu(player, island, page - 1, mode));
         } else if (raw == 50 && mode == CoreService.ChunkMapMode.ALL) {
@@ -1956,27 +1962,37 @@ public class CoreMenuListener implements Listener {
     private void handleTeleportMenuClick(InventoryClickEvent event, Player player, CoreService.TeleportInventoryHolder holder) {
         event.setCancelled(true);
         if (event.getRawSlot() == 49) {
-            IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
-            if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
-            else {
-                player.closeInventory();
-                sendNoIslandHelp(player);
+            if ("parcels".equalsIgnoreCase(holder.backTarget())) {
+                IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
+                if (own != null) {
+                    player.openInventory(coreService.createParcelsMenu(player, own));
+                } else {
+                    player.closeInventory();
+                    sendNoIslandHelp(player);
+                }
+            } else {
+                IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
+                if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
+                else {
+                    player.closeInventory();
+                    sendNoIslandHelp(player);
+                }
             }
             return;
         }
         if (event.getRawSlot() == 48 && holder.page() > 0) {
-            player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), holder.page() - 1, holder.filter()));
+            player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), holder.page() - 1, holder.filter(), holder.backTarget()));
             return;
         }
         if (event.getRawSlot() == 50) {
-            player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), holder.page() + 1, holder.filter()));
+            player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), holder.page() + 1, holder.filter(), holder.backTarget()));
             return;
         }
-        if (event.getRawSlot() == 45) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all")); return; }
-        if (event.getRawSlot() == 46) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "islands")); return; }
-        if (event.getRawSlot() == 47) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "parcels")); return; }
-        if (event.getRawSlot() == 51) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "mine")); return; }
-        if (event.getRawSlot() == 52) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "warps")); return; }
+        if (event.getRawSlot() == 45) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", holder.backTarget())); return; }
+        if (event.getRawSlot() == 46) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "islands", holder.backTarget())); return; }
+        if (event.getRawSlot() == 47) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "parcels", holder.backTarget())); return; }
+        if (event.getRawSlot() == 51) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "mine", holder.backTarget())); return; }
+        if (event.getRawSlot() == 52) { player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "warps", holder.backTarget())); return; }
         if (event.getRawSlot() < 0 || event.getRawSlot() > 44) return;
         if (event.getCurrentItem() == null || !event.getCurrentItem().hasItemMeta() || event.getCurrentItem().getItemMeta().getLore() == null) return;
         for (String line : event.getCurrentItem().getItemMeta().getLore()) {
