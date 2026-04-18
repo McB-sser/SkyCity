@@ -671,7 +671,7 @@ public class CoreService {
          )
       );
       inv.setItem(
-         31,
+         40,
          this.named(
             Material.EXPERIENCE_BOTTLE,
             ChatColor.AQUA + "Erfahrungsspeicher",
@@ -707,6 +707,17 @@ public class CoreService {
                ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.displayModeLabel(mode),
                ChatColor.YELLOW + "Klick: umschalten",
                ChatColor.GRAY + "Alles / Nur Titel / Inselinfos / Upgrade / Aus"
+            )
+         )
+      );
+      inv.setItem(
+         45,
+         this.named(
+            Material.CARTOGRAPHY_TABLE,
+            ChatColor.GREEN + "Inselhauptmen\u00fc",
+            List.of(
+               ChatColor.GRAY + "Zur\u00fcck zum Inselmen\u00fc",
+               ChatColor.YELLOW + "Klick = /is Men\u00fc \u00f6ffnen"
             )
          )
       );
@@ -1010,7 +1021,7 @@ public class CoreService {
       inv.setItem(
          45,
          this.named(
-            Material.MAP,
+            Material.CARTOGRAPHY_TABLE,
             ChatColor.GREEN + "Inselhauptmen\u00fc",
             List.of(
                ChatColor.GRAY + "Zur\u00fcck zum Inselmen\u00fc",
@@ -1074,24 +1085,13 @@ public class CoreService {
    public Inventory createIslandMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(island.getOwner()), 54, "SkyCity Insel");
       this.fillWithPanes(inv);
-      inv.setItem(10, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(11, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel", List.of(ChatColor.GRAY + "Spawn, Titel, Rechte, Core", ChatColor.YELLOW + "Klick = Inselmen\u00fc")));
-      inv.setItem(12, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(13, this.named(Material.MAP, ChatColor.YELLOW + "Chunks", List.of(ChatColor.GRAY + "Freischalten, Karte, Grenzen", ChatColor.YELLOW + "Klick = Chunkmen\u00fc")));
-      inv.setItem(14, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(15, this.named(Material.NAME_TAG, ChatColor.GOLD + "Grundst\u00fccke", List.of(ChatColor.GRAY + "GS, Rechte, Bans, PvP", ChatColor.YELLOW + "Klick = Grundst\u00fccks-Men\u00fc")));
-      inv.setItem(16, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(19, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(20, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(29, this.named(Material.EMERALD, ChatColor.GREEN + "Insel-Shop", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
-      inv.setItem(31, this.named(Material.COMPASS, ChatColor.AQUA + "Teleport-Men\u00fc", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
-      inv.setItem(33, this.named(Material.CARTOGRAPHY_TABLE, ChatColor.GOLD + "Insel\u00fcbersicht", List.of(ChatColor.GRAY + "Inseln rund um deine Insel", ChatColor.YELLOW + "Klick = Karte \u00f6ffnen")));
-      inv.setItem(36, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(37, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(38, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(39, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(40, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(44, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
+      inv.setItem(4, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank", ChatColor.YELLOW + "Klick = Core \u00f6ffnen")));
+      inv.setItem(20, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel", List.of(ChatColor.GRAY + "Spawn, Titel und Rechte", ChatColor.YELLOW + "Klick = Inselmen\u00fc")));
+      inv.setItem(22, this.named(Material.MAP, ChatColor.YELLOW + "Chunks", List.of(ChatColor.GRAY + "Freischalten, Karte, Grenzen", ChatColor.YELLOW + "Klick = Chunkmen\u00fc")));
+      inv.setItem(24, this.named(Material.NAME_TAG, ChatColor.GOLD + "Grundst\u00fccke", List.of(ChatColor.GRAY + "GS, Rechte, Bans, PvP", ChatColor.YELLOW + "Klick = Grundst\u00fccks-Men\u00fc")));
+      inv.setItem(38, this.named(Material.EMERALD, ChatColor.GREEN + "Insel-Shop", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
+      inv.setItem(40, this.named(Material.COMPASS, ChatColor.AQUA + "Teleport-Men\u00fc", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
+      inv.setItem(42, this.named(Material.CARTOGRAPHY_TABLE, ChatColor.GOLD + "Insel\u00fcbersicht", List.of(ChatColor.GRAY + "Inseln rund um deine Insel", ChatColor.YELLOW + "Klick = Karte \u00f6ffnen")));
       return inv;
    }
 
@@ -1431,19 +1431,18 @@ public class CoreService {
    }
 
    public Inventory createIslandSettingsMenu(Player viewer, IslandData island) {
-      Inventory inv = Bukkit.createInventory(new IslandSettingsInventoryHolder(island.getOwner()), 45, "Insel");
+      Inventory inv = Bukkit.createInventory(new IslandSettingsInventoryHolder(island.getOwner()), 54, "Insel");
       this.fillWithPanes(inv);
       boolean canManagePermissions = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || viewer.isOp());
       if (System.currentTimeMillis() >= 0L) {
-         inv.setItem(10, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core \u00f6ffnen", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank")));
-         inv.setItem(13, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
-         inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
+         inv.setItem(11, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
+         inv.setItem(13, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
          inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
          if (canManagePermissions) {
-            inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
+            inv.setItem(29, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
          }
-         inv.setItem(24, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
-         inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+         inv.setItem(31, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
          return inv;
       }
       IslandService.IslandTimeMode timeMode = this.islandService.getIslandTimeMode(island);

@@ -186,7 +186,7 @@ public class CoreMenuListener implements Listener {
     private void handleCoreMenuClick(InventoryClickEvent event, Player player, CoreService.CoreInventoryHolder holder) {
         if (event.getClickedInventory() == null) return;
         boolean inTop = event.getClickedInventory().equals(event.getView().getTopInventory());
-        if (inTop && event.getRawSlot() != 4 && event.getRawSlot() != 11 && event.getRawSlot() != 13 && event.getRawSlot() != 15 && event.getRawSlot() != 31 && event.getRawSlot() != 45 && event.getRawSlot() != 53 && !CORE_INPUT_SLOTS.contains(event.getRawSlot())) event.setCancelled(true);
+        if (inTop && event.getRawSlot() != 4 && event.getRawSlot() != 11 && event.getRawSlot() != 13 && event.getRawSlot() != 15 && event.getRawSlot() != 40 && event.getRawSlot() != 45 && event.getRawSlot() != 53 && !CORE_INPUT_SLOTS.contains(event.getRawSlot())) event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
         var coreLocation = holder.coreLocation();
@@ -208,7 +208,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createIslandBlocksMenu(island, 0, "core"));
             return;
         }
-        if (inTop && event.getRawSlot() == 31) {
+        if (inTop && event.getRawSlot() == 40) {
             event.setCancelled(true);
             if (!islandService.hasContainerAccess(player.getUniqueId(), island)) {
                 player.sendMessage(ChatColor.RED + "Keine Rechte.");
@@ -319,12 +319,13 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
         switch (event.getRawSlot()) {
-            case 11 -> player.openInventory(coreService.createIslandSettingsMenu(player, island));
-            case 13 -> player.openInventory(coreService.createChunkSettingsMenu(player, island));
-            case 15 -> player.openInventory(coreService.createParcelsMenu(player, island));
-            case 29 -> player.openInventory(coreService.createIslandShopMenu(player, island));
-            case 31 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "island"));
-            case 33 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
+            case 4 -> player.openInventory(coreService.createCoreMenu(player, island));
+            case 20 -> player.openInventory(coreService.createIslandSettingsMenu(player, island));
+            case 22 -> player.openInventory(coreService.createChunkSettingsMenu(player, island));
+            case 24 -> player.openInventory(coreService.createParcelsMenu(player, island));
+            case 38 -> player.openInventory(coreService.createIslandShopMenu(player, island));
+            case 40 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "island"));
+            case 42 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             default -> {
             }
         }
@@ -466,17 +467,16 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
         if (event.getClickedInventory() == null || !event.getClickedInventory().equals(event.getView().getTopInventory())) return;
-        if (event.getRawSlot() != 40 && (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)) return;
+        if (event.getRawSlot() != 49 && (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)) return;
         boolean canManagePermissions = islandService.isIslandOwner(island, player.getUniqueId()) || player.isOp();
         switch (event.getRawSlot()) {
-            case 10 -> player.openInventory(coreService.createCoreMenu(player, island));
-            case 13 -> {
+            case 11 -> {
                 island.setIslandSpawn(player.getLocation().clone());
                 islandService.save();
                 player.sendMessage(ChatColor.GREEN + "Inselspawn gesetzt.");
                 player.openInventory(coreService.createIslandSettingsMenu(player, island));
             }
-            case 14 -> {
+            case 13 -> {
                 if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
                     player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
                     player.openInventory(coreService.createIslandSettingsMenu(player, island));
@@ -492,15 +492,15 @@ public class CoreMenuListener implements Listener {
                 }
                 coreService.beginIslandWarpInput(player, island);
             }
-            case 20 -> {
+            case 29 -> {
                 if (!canManagePermissions) {
                     player.openInventory(coreService.createIslandSettingsMenu(player, island));
                     return;
                 }
                 player.openInventory(coreService.createPermissionsHubMenu(player, island));
             }
-            case 24 -> player.openInventory(coreService.createVisitorSettingsMenu(island));
-            case 40 -> player.openInventory(coreService.createIslandMenu(player, island));
+            case 31 -> player.openInventory(coreService.createVisitorSettingsMenu(island));
+            case 49 -> player.openInventory(coreService.createIslandMenu(player, island));
             default -> {
             }
         }
