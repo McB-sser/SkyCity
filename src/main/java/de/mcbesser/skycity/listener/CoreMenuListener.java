@@ -55,6 +55,53 @@ public class CoreMenuListener implements Listener {
         this.playerListener = playerListener;
     }
 
+    private int accessSettingIndex(int rawSlot) {
+        for (int i = 0; i < CoreService.ACCESS_SETTING_SLOTS.length; i++) {
+            if (CoreService.ACCESS_SETTING_SLOTS[i] == rawSlot) {
+                return i;
+            }
+        }
+        return switch (rawSlot) {
+            case 27 -> 18;
+            case 28 -> 19;
+            case 29 -> 20;
+            case 30 -> 21;
+            case 31 -> 22;
+            default -> -1;
+        };
+    }
+
+    private boolean toggleAccessSetting(de.mcbesser.skycity.model.AccessSettings settings, int settingIndex) {
+        if (settings == null) return false;
+        switch (settingIndex) {
+            case 0 -> settings.setDoors(!settings.isDoors());
+            case 1 -> settings.setTrapdoors(!settings.isTrapdoors());
+            case 2 -> settings.setFenceGates(!settings.isFenceGates());
+            case 3 -> settings.setButtons(!settings.isButtons());
+            case 4 -> settings.setLevers(!settings.isLevers());
+            case 5 -> settings.setPressurePlates(!settings.isPressurePlates());
+            case 6 -> settings.setContainers(!settings.isContainers());
+            case 7 -> settings.setFarmUse(!settings.isFarmUse());
+            case 8 -> settings.setRide(!settings.isRide());
+            case 9 -> settings.setLadderPlace(!settings.isLadderPlace());
+            case 10 -> settings.setTeleport(!settings.isTeleport());
+            case 11 -> settings.setLadderBreak(!settings.isLadderBreak());
+            case 12 -> settings.setLeavesPlace(!settings.isLeavesPlace());
+            case 13 -> settings.setLeavesBreak(!settings.isLeavesBreak());
+            case 14 -> settings.setRedstoneUse(!settings.isRedstoneUse());
+            case 15 -> settings.setBuckets(!settings.isBuckets());
+            case 16 -> settings.setDecorations(!settings.isDecorations());
+            case 17 -> settings.setVillagers(!settings.isVillagers());
+            case 18 -> settings.setVehicleDestroy(!settings.isVehicleDestroy());
+            case 19 -> settings.setSnowPlace(!settings.isSnowPlace());
+            case 20 -> settings.setSnowBreak(!settings.isSnowBreak());
+            case 21 -> settings.setBannerPlace(!settings.isBannerPlace());
+            case 22 -> settings.setBannerBreak(!settings.isBannerBreak());
+            default -> { return false; }
+        }
+        return true;
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -240,6 +287,16 @@ public class CoreMenuListener implements Listener {
 
     private void handleIslandMenuClick(InventoryClickEvent event, Player player, UUID islandOwner) {
         event.setCancelled(true);
+        if (islandOwner == null) {
+            switch (event.getRawSlot()) {
+                case 11 -> player.performCommand("is create");
+                case 13 -> player.openInventory(coreService.createIslandOverviewMenu(player));
+                case 15 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0));
+                default -> {
+                }
+            }
+            return;
+        }
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
         switch (event.getRawSlot()) {
@@ -263,8 +320,7 @@ public class CoreMenuListener implements Listener {
             if (ownIsland != null) {
                 player.openInventory(coreService.createIslandMenu(player, ownIsland));
             } else {
-                player.closeInventory();
-                sendNoIslandHelp(player);
+                player.openInventory(coreService.createIslandMenu(player));
             }
             return;
         }
@@ -1243,35 +1299,12 @@ public class CoreMenuListener implements Listener {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null || !islandService.isIslandOwner(island, player.getUniqueId())) return;
-        switch (event.getRawSlot()) {
-            case 10 -> island.getIslandVisitorSettings().setDoors(!island.getIslandVisitorSettings().isDoors());
-            case 11 -> island.getIslandVisitorSettings().setTrapdoors(!island.getIslandVisitorSettings().isTrapdoors());
-            case 12 -> island.getIslandVisitorSettings().setFenceGates(!island.getIslandVisitorSettings().isFenceGates());
-            case 13 -> island.getIslandVisitorSettings().setButtons(!island.getIslandVisitorSettings().isButtons());
-            case 14 -> island.getIslandVisitorSettings().setLevers(!island.getIslandVisitorSettings().isLevers());
-            case 15 -> island.getIslandVisitorSettings().setPressurePlates(!island.getIslandVisitorSettings().isPressurePlates());
-            case 16 -> island.getIslandVisitorSettings().setContainers(!island.getIslandVisitorSettings().isContainers());
-            case 19 -> island.getIslandVisitorSettings().setFarmUse(!island.getIslandVisitorSettings().isFarmUse());
-            case 20 -> island.getIslandVisitorSettings().setRide(!island.getIslandVisitorSettings().isRide());
-            case 21 -> island.getIslandVisitorSettings().setLadderPlace(!island.getIslandVisitorSettings().isLadderPlace());
-            case 22 -> island.getIslandVisitorSettings().setTeleport(!island.getIslandVisitorSettings().isTeleport());
-            case 23 -> island.getIslandVisitorSettings().setLadderBreak(!island.getIslandVisitorSettings().isLadderBreak());
-            case 24 -> island.getIslandVisitorSettings().setLeavesPlace(!island.getIslandVisitorSettings().isLeavesPlace());
-            case 25 -> island.getIslandVisitorSettings().setLeavesBreak(!island.getIslandVisitorSettings().isLeavesBreak());
-            case 28 -> island.getIslandVisitorSettings().setRedstoneUse(!island.getIslandVisitorSettings().isRedstoneUse());
-            case 29 -> island.getIslandVisitorSettings().setBuckets(!island.getIslandVisitorSettings().isBuckets());
-            case 30 -> island.getIslandVisitorSettings().setDecorations(!island.getIslandVisitorSettings().isDecorations());
-            case 31 -> island.getIslandVisitorSettings().setVillagers(!island.getIslandVisitorSettings().isVillagers());
-            case 32 -> island.getIslandVisitorSettings().setVehicleDestroy(!island.getIslandVisitorSettings().isVehicleDestroy());
-            case 33 -> island.getIslandVisitorSettings().setSnowPlace(!island.getIslandVisitorSettings().isSnowPlace());
-            case 34 -> island.getIslandVisitorSettings().setSnowBreak(!island.getIslandVisitorSettings().isSnowBreak());
-            case 35 -> island.getIslandVisitorSettings().setBannerPlace(!island.getIslandVisitorSettings().isBannerPlace());
-            case 36 -> island.getIslandVisitorSettings().setBannerBreak(!island.getIslandVisitorSettings().isBannerBreak());
-            case 40 -> {
-                player.openInventory(coreService.createIslandMenu(player, island));
-                return;
-            }
-            default -> { return; }
+        if (event.getRawSlot() == 44) {
+            player.openInventory(coreService.createIslandMenu(player, island));
+            return;
+        }
+        if (!toggleAccessSetting(island.getIslandVisitorSettings(), accessSettingIndex(event.getRawSlot()))) {
+            return;
         }
         islandService.save();
         player.openInventory(coreService.createVisitorSettingsMenu(island));
@@ -1846,35 +1879,12 @@ public class CoreMenuListener implements Listener {
         if (island == null) return;
         var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
         if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) return;
-        switch (event.getRawSlot()) {
-            case 10 -> parcel.getVisitorSettings().setDoors(!parcel.getVisitorSettings().isDoors());
-            case 11 -> parcel.getVisitorSettings().setTrapdoors(!parcel.getVisitorSettings().isTrapdoors());
-            case 12 -> parcel.getVisitorSettings().setFenceGates(!parcel.getVisitorSettings().isFenceGates());
-            case 13 -> parcel.getVisitorSettings().setButtons(!parcel.getVisitorSettings().isButtons());
-            case 14 -> parcel.getVisitorSettings().setLevers(!parcel.getVisitorSettings().isLevers());
-            case 15 -> parcel.getVisitorSettings().setPressurePlates(!parcel.getVisitorSettings().isPressurePlates());
-            case 16 -> parcel.getVisitorSettings().setContainers(!parcel.getVisitorSettings().isContainers());
-            case 19 -> parcel.getVisitorSettings().setFarmUse(!parcel.getVisitorSettings().isFarmUse());
-            case 20 -> parcel.getVisitorSettings().setRide(!parcel.getVisitorSettings().isRide());
-            case 21 -> parcel.getVisitorSettings().setLadderPlace(!parcel.getVisitorSettings().isLadderPlace());
-            case 22 -> parcel.getVisitorSettings().setTeleport(!parcel.getVisitorSettings().isTeleport());
-            case 23 -> parcel.getVisitorSettings().setLadderBreak(!parcel.getVisitorSettings().isLadderBreak());
-            case 24 -> parcel.getVisitorSettings().setLeavesPlace(!parcel.getVisitorSettings().isLeavesPlace());
-            case 25 -> parcel.getVisitorSettings().setLeavesBreak(!parcel.getVisitorSettings().isLeavesBreak());
-            case 28 -> parcel.getVisitorSettings().setRedstoneUse(!parcel.getVisitorSettings().isRedstoneUse());
-            case 29 -> parcel.getVisitorSettings().setBuckets(!parcel.getVisitorSettings().isBuckets());
-            case 30 -> parcel.getVisitorSettings().setDecorations(!parcel.getVisitorSettings().isDecorations());
-            case 31 -> parcel.getVisitorSettings().setVillagers(!parcel.getVisitorSettings().isVillagers());
-            case 32 -> parcel.getVisitorSettings().setVehicleDestroy(!parcel.getVisitorSettings().isVehicleDestroy());
-            case 33 -> parcel.getVisitorSettings().setSnowPlace(!parcel.getVisitorSettings().isSnowPlace());
-            case 34 -> parcel.getVisitorSettings().setSnowBreak(!parcel.getVisitorSettings().isSnowBreak());
-            case 35 -> parcel.getVisitorSettings().setBannerPlace(!parcel.getVisitorSettings().isBannerPlace());
-            case 36 -> parcel.getVisitorSettings().setBannerBreak(!parcel.getVisitorSettings().isBannerBreak());
-            case 40 -> {
-                openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
-                return;
-            }
-            default -> { return; }
+        if (event.getRawSlot() == 44) {
+            openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+            return;
+        }
+        if (!toggleAccessSetting(parcel.getVisitorSettings(), accessSettingIndex(event.getRawSlot()))) {
+            return;
         }
         islandService.save();
         player.openInventory(coreService.createParcelVisitorSettingsMenu(island, holder.relChunkX(), holder.relChunkZ()));
@@ -1886,38 +1896,20 @@ public class CoreMenuListener implements Listener {
         if (island == null) return;
         var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
         if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) return;
+        if (event.getRawSlot() == 44) {
+            openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+            return;
+        }
+        if (toggleAccessSetting(parcel.getMemberSettings(), accessSettingIndex(event.getRawSlot()))) {
+            islandService.save();
+            player.openInventory(coreService.createParcelMemberSettingsMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            return;
+        }
         switch (event.getRawSlot()) {
-            case 10 -> parcel.getMemberSettings().setDoors(!parcel.getMemberSettings().isDoors());
-            case 11 -> parcel.getMemberSettings().setTrapdoors(!parcel.getMemberSettings().isTrapdoors());
-            case 12 -> parcel.getMemberSettings().setFenceGates(!parcel.getMemberSettings().isFenceGates());
-            case 13 -> parcel.getMemberSettings().setButtons(!parcel.getMemberSettings().isButtons());
-            case 14 -> parcel.getMemberSettings().setLevers(!parcel.getMemberSettings().isLevers());
-            case 15 -> parcel.getMemberSettings().setPressurePlates(!parcel.getMemberSettings().isPressurePlates());
-            case 16 -> parcel.getMemberSettings().setContainers(!parcel.getMemberSettings().isContainers());
-            case 19 -> parcel.getMemberSettings().setFarmUse(!parcel.getMemberSettings().isFarmUse());
-            case 20 -> parcel.getMemberSettings().setRide(!parcel.getMemberSettings().isRide());
-            case 21 -> parcel.getMemberSettings().setLadderPlace(!parcel.getMemberSettings().isLadderPlace());
-            case 22 -> parcel.getMemberSettings().setTeleport(!parcel.getMemberSettings().isTeleport());
-            case 23 -> parcel.getMemberSettings().setLadderBreak(!parcel.getMemberSettings().isLadderBreak());
-            case 24 -> parcel.getMemberSettings().setLeavesPlace(!parcel.getMemberSettings().isLeavesPlace());
-            case 25 -> parcel.getMemberSettings().setLeavesBreak(!parcel.getMemberSettings().isLeavesBreak());
-            case 28 -> parcel.getMemberSettings().setRedstoneUse(!parcel.getMemberSettings().isRedstoneUse());
-            case 29 -> parcel.getMemberSettings().setBuckets(!parcel.getMemberSettings().isBuckets());
-            case 30 -> parcel.getMemberSettings().setDecorations(!parcel.getMemberSettings().isDecorations());
-            case 31 -> parcel.getMemberSettings().setVillagers(!parcel.getMemberSettings().isVillagers());
-            case 32 -> parcel.getMemberSettings().setVehicleDestroy(!parcel.getMemberSettings().isVehicleDestroy());
-            case 33 -> parcel.getMemberSettings().setSnowPlace(!parcel.getMemberSettings().isSnowPlace());
-            case 34 -> parcel.getMemberSettings().setSnowBreak(!parcel.getMemberSettings().isSnowBreak());
-            case 35 -> parcel.getMemberSettings().setBannerPlace(!parcel.getMemberSettings().isBannerPlace());
-            case 36 -> parcel.getMemberSettings().setBannerBreak(!parcel.getMemberSettings().isBannerBreak());
-            case 37 -> parcel.setMemberAnimalBreed(!parcel.isMemberAnimalBreed());
-            case 38 -> parcel.setMemberAnimalKill(!parcel.isMemberAnimalKill());
-            case 39 -> parcel.setMemberAnimalKeepTwo(!parcel.isMemberAnimalKeepTwo());
-            case 40 -> parcel.setMemberAnimalShear(!parcel.isMemberAnimalShear());
-            case 44 -> {
-                openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
-                return;
-            }
+            case 36 -> parcel.setMemberAnimalBreed(!parcel.isMemberAnimalBreed());
+            case 37 -> parcel.setMemberAnimalKill(!parcel.isMemberAnimalKill());
+            case 38 -> parcel.setMemberAnimalKeepTwo(!parcel.isMemberAnimalKeepTwo());
+            case 39 -> parcel.setMemberAnimalShear(!parcel.isMemberAnimalShear());
             default -> { return; }
         }
         islandService.save();

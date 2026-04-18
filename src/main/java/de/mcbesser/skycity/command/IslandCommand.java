@@ -56,7 +56,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         IslandData island = resolveCommandIsland(player, sub, personalIsland);
         if ("create".equals(sub)) {
             if (personalIsland != null) {
-                player.sendMessage(ChatColor.YELLOW + "Du hast bereits eine Insel oder bist Member.");
+                player.sendMessage(ChatColor.YELLOW + "Du hast bereits eine eigene Insel oder bist auf einer Insel Master.");
                 player.openInventory(coreService.createIslandMenu(player, personalIsland));
                 return true;
             }
@@ -105,7 +105,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (island == null) {
-            sendNoIslandHelp(player);
+            if (args.length == 0) {
+                player.openInventory(coreService.createIslandMenu(player));
+            } else {
+                sendNoIslandHelp(player);
+            }
             return true;
         }
         if (args.length == 0) {
@@ -782,9 +786,10 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
 
     private void sendNoIslandHelp(Player player) {
         player.sendMessage(ChatColor.RED + "Du hast noch keine Insel und bist auf keiner Insel Member.");
-        player.sendMessage(ChatColor.YELLOW + "Nutze /is create, um eine Insel zu erstellen.");
-        player.sendMessage(ChatColor.GRAY + "Oder nutze " + ChatColor.AQUA + "/is islands" + ChatColor.GRAY + ", um freie Slots in deiner N\u00e4he zu claimen.");
-        player.sendMessage(ChatColor.GRAY + "Danach kommst du mit /is oder /is home direkt dorthin.");
+        player.sendMessage(ChatColor.YELLOW + "Nutze " + ChatColor.AQUA + "/is create" + ChatColor.YELLOW + ", um direkt eine Insel zu erstellen.");
+        player.sendMessage(ChatColor.GRAY + "Oder nutze " + ChatColor.AQUA + "/is islands" + ChatColor.GRAY + ", um freie Orte selbst zu w\u00e4hlen.");
+        player.sendMessage(ChatColor.GRAY + "Das ist praktisch, wenn du bewusst neben jemandem wohnen m\u00f6chtest.");
+        player.sendMessage(ChatColor.GRAY + "Mit " + ChatColor.AQUA + "/is" + ChatColor.GRAY + " \u00f6ffnest du trotzdem schon dein Anf\u00e4nger-Men\u00fc mit Teleport und Insel\u00fcbersicht.");
     }
 }
 

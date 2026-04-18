@@ -1727,6 +1727,15 @@ public class IslandService {
         return island != null && playerId != null && (isIslandMaster(island, playerId) || island.getOwners().contains(playerId));
     }
 
+    public boolean isIslandAssociated(IslandData island, UUID playerId) {
+        return island != null && playerId != null
+                && (isIslandOwner(island, playerId) || hasAnyMemberPermission(island, playerId));
+    }
+
+    public boolean hasAnyIslandAssociation(UUID playerId) {
+        return playerId != null && islands.values().stream().anyMatch(island -> isIslandAssociated(island, playerId));
+    }
+
     public boolean isPrimaryMaster(IslandData island, UUID playerId) {
         return island != null && playerId != null && island.getOwner().equals(playerId);
     }

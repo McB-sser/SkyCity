@@ -68,6 +68,7 @@ public class CoreService {
    public static final String CORE_MENU_TITLE = "SkyCity Core";
    public static final String ISLAND_MENU_TITLE = "SkyCity Insel";
    public static final int[] INPUT_SLOTS = new int[]{27, 28, 29, 30, 31, 32, 33, 34, 35};
+   public static final int[] ACCESS_SETTING_SLOTS = new int[]{9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
    private static final List<Integer> GRID_SLOTS = List.of(
       0,
       1,
@@ -974,6 +975,48 @@ public class CoreService {
       return null;
    }
 
+   public Inventory createIslandMenu(Player viewer) {
+      Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(null), 54, "SkyCity Insel");
+      this.fillWithPanes(inv);
+      inv.setItem(
+         11,
+         this.named(
+            Material.GRASS_BLOCK,
+            ChatColor.GREEN + "Insel erstellen",
+            List.of(
+               ChatColor.GRAY + "Startet die Erstellung sofort",
+               ChatColor.YELLOW + "Klick = /is create"
+            )
+         )
+      );
+      inv.setItem(
+         13,
+         this.named(
+            Material.CARTOGRAPHY_TABLE,
+            ChatColor.GOLD + "Freie Inselorte",
+            List.of(
+               ChatColor.GRAY + "Zeigt freie Slots in deiner N\u00e4he",
+               ChatColor.GRAY + "Du kannst deinen Ort selbst ausw\u00e4hlen",
+               ChatColor.GRAY + "praktisch, wenn du neben jemandem sein m\u00f6chtest",
+               ChatColor.YELLOW + "Klick = /is islands"
+            )
+         )
+      );
+      inv.setItem(
+         15,
+         this.named(
+            Material.COMPASS,
+            ChatColor.AQUA + "Teleport-Men\u00fc",
+            List.of(
+               ChatColor.GRAY + "Nutzbare Teleports ansehen",
+               ChatColor.YELLOW + "Klick = Teleport-Men\u00fc \u00f6ffnen"
+            )
+         )
+      );
+      inv.setItem(31, this.named(Material.BARRIER, ChatColor.RED + "Noch keine Insel", List.of(ChatColor.GRAY + "Weitere Insel-Funktionen werden angezeigt,", ChatColor.GRAY + "sobald du eine Insel hast oder Member bist.")));
+      return inv;
+   }
+
    public Inventory createIslandMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(island.getOwner()), 54, "SkyCity Insel");
       this.fillWithPanes(inv);
@@ -1842,8 +1885,16 @@ public class CoreService {
    public Inventory createVisitorSettingsMenu(IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.VisitorSettingsInventoryHolder(island.getOwner()), 45, "Besucherrechte Insel");
       this.fillWithPanes(inv);
+      inv.setItem(4, this.named(Material.WRITABLE_BOOK, ChatColor.GOLD + "Besucherrechte", List.of(
+         ChatColor.GRAY + "Hier legst du fest, was fremde Spieler",
+         ChatColor.GRAY + "auf deiner Insel benutzen oder ausf\u00fchren d\u00fcrfen.",
+         ChatColor.GRAY + "Gruppen: Zug\u00e4nge, Interaktion und Spezialrechte"
+      )));
       this.fillSettings(inv, island.getIslandVisitorSettings());
-      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+      inv.setItem(37, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Zug\u00e4nge", List.of(ChatColor.GRAY + "T\u00fcren, Fallt\u00fcren, Tore und Beh\u00e4lter")));
+      inv.setItem(38, this.named(Material.COMPOSTER, ChatColor.YELLOW + "Interaktion", List.of(ChatColor.GRAY + "Farmen, Reiten, Leitern, Laub und Teleport")));
+      inv.setItem(39, this.named(Material.REDSTONE, ChatColor.YELLOW + "Spezialrechte", List.of(ChatColor.GRAY + "Redstone, Eimer, Deko, Dorfbewohner, Schnee und Banner")));
+      inv.setItem(44, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       return inv;
    }
 
@@ -2248,10 +2299,18 @@ public class CoreService {
       this.fillWithPanes(inv);
       ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
       if (parcel != null) {
+         inv.setItem(4, this.named(Material.WRITABLE_BOOK, ChatColor.GOLD + "Besucherrechte Grundst\u00fcck", List.of(
+            ChatColor.GRAY + "Hier legst du fest, was fremde Spieler",
+            ChatColor.GRAY + "auf diesem Grundst\u00fcck benutzen oder ausf\u00fchren d\u00fcrfen.",
+            ChatColor.GRAY + "Gruppen: Zug\u00e4nge, Interaktion und Spezialrechte"
+         )));
          this.fillSettings(inv, parcel.getVisitorSettings());
+         inv.setItem(37, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Zug\u00e4nge", List.of(ChatColor.GRAY + "T\u00fcren, Fallt\u00fcren, Tore und Beh\u00e4lter")));
+         inv.setItem(38, this.named(Material.COMPOSTER, ChatColor.YELLOW + "Interaktion", List.of(ChatColor.GRAY + "Farmen, Reiten, Leitern, Laub und Teleport")));
+         inv.setItem(39, this.named(Material.REDSTONE, ChatColor.YELLOW + "Spezialrechte", List.of(ChatColor.GRAY + "Redstone, Eimer, Deko, Dorfbewohner, Schnee und Banner")));
       }
 
-      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+      inv.setItem(44, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       return inv;
    }
 
@@ -2260,11 +2319,16 @@ public class CoreService {
       this.fillWithPanes(inv);
       ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
       if (parcel != null) {
+         inv.setItem(4, this.named(Material.WRITABLE_BOOK, ChatColor.GOLD + "Mitgliedsrechte Grundst\u00fcck", List.of(
+            ChatColor.GRAY + "Hier legst du fest, was Mitglieder",
+            ChatColor.GRAY + "auf diesem Grundst\u00fcck benutzen oder ausf\u00fchren d\u00fcrfen.",
+            ChatColor.GRAY + "Unten findest du zus\u00e4tzlich die Tierrechte."
+         )));
          this.fillSettings(inv, parcel.getMemberSettings());
-         inv.setItem(37, this.toggleItem(Material.WHEAT, "Tiere vermehren", parcel.isMemberAnimalBreed()));
-         inv.setItem(38, this.toggleItem(Material.IRON_SWORD, "Tiere t\u00f6ten", parcel.isMemberAnimalKill()));
-         inv.setItem(39, this.toggleItem(Material.TOTEM_OF_UNDYING, "2 Tiere behalten", parcel.isMemberAnimalKeepTwo()));
-         inv.setItem(40, this.toggleItem(Material.SHEARS, "Scheren", parcel.isMemberAnimalShear()));
+         inv.setItem(36, this.toggleItem(Material.WHEAT, "Tiere vermehren", parcel.isMemberAnimalBreed()));
+         inv.setItem(37, this.toggleItem(Material.IRON_SWORD, "Tiere t\u00f6ten", parcel.isMemberAnimalKill()));
+         inv.setItem(38, this.toggleItem(Material.TOTEM_OF_UNDYING, "Zwei Tiere behalten", parcel.isMemberAnimalKeepTwo()));
+         inv.setItem(39, this.toggleItem(Material.SHEARS, "Tiere scheren", parcel.isMemberAnimalShear()));
       }
       inv.setItem(44, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
       return inv;
@@ -2378,29 +2442,29 @@ public class CoreService {
    }
 
    private void fillSettings(Inventory inv, AccessSettings settings) {
-      inv.setItem(10, this.toggleItem(Material.OAK_DOOR, "T\u00fcren", settings.isDoors()));
-      inv.setItem(11, this.toggleItem(Material.OAK_TRAPDOOR, "Trapdoors", settings.isTrapdoors()));
-      inv.setItem(12, this.toggleItem(Material.OAK_FENCE_GATE, "Zauntore", settings.isFenceGates()));
-      inv.setItem(13, this.toggleItem(Material.STONE_BUTTON, "Buttons", settings.isButtons()));
-      inv.setItem(14, this.toggleItem(Material.LEVER, "Hebel", settings.isLevers()));
-      inv.setItem(15, this.toggleItem(Material.STONE_PRESSURE_PLATE, "Druckplatten", settings.isPressurePlates()));
-      inv.setItem(16, this.toggleItem(Material.CHEST, "Container", settings.isContainers()));
-      inv.setItem(19, this.toggleItem(Material.COMPOSTER, "Nutzung/Utility", settings.isFarmUse()));
-      inv.setItem(20, this.toggleItem(Material.SADDLE, "Reiten", settings.isRide()));
-      inv.setItem(21, this.toggleItem(Material.LADDER, "Leiter setzen", settings.isLadderPlace()));
-      inv.setItem(22, this.toggleItem(Material.ENDER_PEARL, "Teleport", settings.isTeleport()));
-      inv.setItem(23, this.toggleItem(Material.IRON_PICKAXE, "Leiter abbauen", settings.isLadderBreak()));
-      inv.setItem(24, this.toggleItem(Material.OAK_LEAVES, "Laub setzen", settings.isLeavesPlace()));
-      inv.setItem(25, this.toggleItem(Material.SHEARS, "Laub abbauen", settings.isLeavesBreak()));
-      inv.setItem(28, this.toggleItem(Material.REDSTONE, "Redstone", settings.isRedstoneUse()));
-      inv.setItem(29, this.toggleItem(Material.WATER_BUCKET, "Buckets", settings.isBuckets()));
-      inv.setItem(30, this.toggleItem(Material.ITEM_FRAME, "Deko/Frames", settings.isDecorations()));
-      inv.setItem(31, this.toggleItem(Material.EMERALD, "Villager", settings.isVillagers()));
-      inv.setItem(32, this.toggleItem(Material.CHEST_MINECART, "Fahrzeuge zerst\u00f6ren", settings.isVehicleDestroy()));
-      inv.setItem(33, this.toggleItem(Material.SNOW_BLOCK, "Schnee setzen", settings.isSnowPlace()));
-      inv.setItem(34, this.toggleItem(Material.IRON_SHOVEL, "Schnee abbauen", settings.isSnowBreak()));
-      inv.setItem(35, this.toggleItem(Material.WHITE_BANNER, "Banner setzen", settings.isBannerPlace()));
-      inv.setItem(36, this.toggleItem(Material.STONE_AXE, "Banner abbauen", settings.isBannerBreak()));
+      inv.setItem(ACCESS_SETTING_SLOTS[0], this.toggleItem(Material.OAK_DOOR, "T\u00fcren", settings.isDoors()));
+      inv.setItem(ACCESS_SETTING_SLOTS[1], this.toggleItem(Material.OAK_TRAPDOOR, "Fallt\u00fcren", settings.isTrapdoors()));
+      inv.setItem(ACCESS_SETTING_SLOTS[2], this.toggleItem(Material.OAK_FENCE_GATE, "Zauntore", settings.isFenceGates()));
+      inv.setItem(ACCESS_SETTING_SLOTS[3], this.toggleItem(Material.STONE_BUTTON, "Kn\u00f6pfe", settings.isButtons()));
+      inv.setItem(ACCESS_SETTING_SLOTS[4], this.toggleItem(Material.LEVER, "Hebel", settings.isLevers()));
+      inv.setItem(ACCESS_SETTING_SLOTS[5], this.toggleItem(Material.STONE_PRESSURE_PLATE, "Druckplatten", settings.isPressurePlates()));
+      inv.setItem(ACCESS_SETTING_SLOTS[6], this.toggleItem(Material.CHEST, "Beh\u00e4lter", settings.isContainers()));
+      inv.setItem(ACCESS_SETTING_SLOTS[7], this.toggleItem(Material.COMPOSTER, "Farmen nutzen", settings.isFarmUse()));
+      inv.setItem(ACCESS_SETTING_SLOTS[8], this.toggleItem(Material.SADDLE, "Reiten", settings.isRide()));
+      inv.setItem(ACCESS_SETTING_SLOTS[9], this.toggleItem(Material.LADDER, "Leiter setzen", settings.isLadderPlace()));
+      inv.setItem(ACCESS_SETTING_SLOTS[10], this.toggleItem(Material.ENDER_PEARL, "Teleportation", settings.isTeleport()));
+      inv.setItem(ACCESS_SETTING_SLOTS[11], this.toggleItem(Material.IRON_PICKAXE, "Leiter abbauen", settings.isLadderBreak()));
+      inv.setItem(ACCESS_SETTING_SLOTS[12], this.toggleItem(Material.OAK_LEAVES, "Laub setzen", settings.isLeavesPlace()));
+      inv.setItem(ACCESS_SETTING_SLOTS[13], this.toggleItem(Material.SHEARS, "Laub abbauen", settings.isLeavesBreak()));
+      inv.setItem(ACCESS_SETTING_SLOTS[14], this.toggleItem(Material.REDSTONE, "Redstone nutzen", settings.isRedstoneUse()));
+      inv.setItem(ACCESS_SETTING_SLOTS[15], this.toggleItem(Material.WATER_BUCKET, "Eimer", settings.isBuckets()));
+      inv.setItem(ACCESS_SETTING_SLOTS[16], this.toggleItem(Material.ITEM_FRAME, "Deko und Rahmen", settings.isDecorations()));
+      inv.setItem(ACCESS_SETTING_SLOTS[17], this.toggleItem(Material.EMERALD, "Dorfbewohner", settings.isVillagers()));
+      inv.setItem(27, this.toggleItem(Material.CHEST_MINECART, "Fahrzeuge zerst\u00f6ren", settings.isVehicleDestroy()));
+      inv.setItem(28, this.toggleItem(Material.SNOW_BLOCK, "Schnee setzen", settings.isSnowPlace()));
+      inv.setItem(29, this.toggleItem(Material.IRON_SHOVEL, "Schnee abbauen", settings.isSnowBreak()));
+      inv.setItem(30, this.toggleItem(Material.WHITE_BANNER, "Banner setzen", settings.isBannerPlace()));
+      inv.setItem(31, this.toggleItem(Material.STONE_AXE, "Banner abbauen", settings.isBannerBreak()));
    }
 
    public Inventory createParcelModerationMenu(Player viewer, IslandData island, int relX, int relZ, CoreService.ParcelModerationAction action, int page) {

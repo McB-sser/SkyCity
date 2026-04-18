@@ -1587,6 +1587,9 @@ public class PlayerListener implements Listener {
     private void startIslandCreateHintMessages(Player player) {
         UUID playerId = player.getUniqueId();
         stopIslandCreateHintMessages(playerId);
+        if (islandService.hasAnyIslandAssociation(playerId)) {
+            return;
+        }
         sendIslandCreateHint(player);
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
             Player live = plugin.getServer().getPlayer(playerId);
@@ -1594,7 +1597,7 @@ public class PlayerListener implements Listener {
                 stopIslandCreateHintMessages(playerId);
                 return;
             }
-            if (islandService.getIsland(playerId).isPresent()) {
+            if (islandService.hasAnyIslandAssociation(playerId)) {
                 stopIslandCreateHintMessages(playerId);
                 return;
             }
@@ -2987,14 +2990,21 @@ public class PlayerListener implements Listener {
 
     private void sendIslandCreateHint(Player player) {
         player.sendMessage(ChatColor.YELLOW + "Du hast noch keine Insel und bist auf keiner Insel Member.");
-        player.sendMessage(ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is create" + ChatColor.GRAY + " zum Erstellen.");
-        player.sendMessage(ChatColor.GRAY + "Danach kommst du mit " + ChatColor.AQUA + "/is" + ChatColor.GRAY + " oder " + ChatColor.AQUA + "/is home" + ChatColor.GRAY + " direkt zur Insel.");
+        player.sendMessage(ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is create" + ChatColor.GRAY + " zum direkten Erstellen.");
+        player.sendMessage(ChatColor.GRAY + "Oder nutze " + ChatColor.AQUA + "/is islands" + ChatColor.GRAY + ", um freie Orte selbst zu w\u00e4hlen.");
+        player.sendMessage(ChatColor.GRAY + "Das ist praktisch, wenn du bewusst neben jemandem wohnen m\u00f6chtest.");
+        player.sendMessage(ChatColor.GRAY + "Mit " + ChatColor.AQUA + "/is" + ChatColor.GRAY + " \u00f6ffnest du dein Anf\u00e4nger-Men\u00fc.");
         player.sendMessage(ChatColor.GRAY + "Oder klicke hier:");
-        TextComponent clickable = new TextComponent(ChatColor.GOLD + "" + ChatColor.BOLD + "[Insel erstellen]");
-        clickable.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/is create"));
-        clickable.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+        TextComponent createClickable = new TextComponent(ChatColor.GOLD + "" + ChatColor.BOLD + "[Insel erstellen]");
+        createClickable.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/is create"));
+        createClickable.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new ComponentBuilder(ChatColor.YELLOW + "Klick zum Erstellen deiner Insel").create()));
-        player.spigot().sendMessage(clickable);
+        TextComponent separator = new TextComponent(ChatColor.GRAY + " ");
+        TextComponent islandsClickable = new TextComponent(ChatColor.AQUA + "" + ChatColor.BOLD + "[Freie Inselorte]");
+        islandsClickable.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/is islands"));
+        islandsClickable.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                new ComponentBuilder(ChatColor.YELLOW + "Freie Slots ansehen und Ort selbst ausw\u00e4hlen").create()));
+        player.spigot().sendMessage(createClickable, separator, islandsClickable);
     }
 
     private void tickIslandActionbar() {
