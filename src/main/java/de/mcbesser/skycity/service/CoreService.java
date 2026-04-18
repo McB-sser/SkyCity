@@ -3995,19 +3995,140 @@ public class CoreService {
 
    public void sendUpgradeStatusChat(Player player, IslandData island) {
       if (player != null && island != null) {
-         String title = island.getTitle() != null && !island.getTitle().isBlank() ? ChatColor.stripColor(island.getTitle()) : "Core";
-         player.sendMessage("" + ChatColor.GOLD + ChatColor.BOLD + title);
-
-         for (String line : this.buildCoreSummaryLore(island)) {
-            player.sendMessage(this.sanitizeLegacyText(line));
-         }
-
-         player.sendMessage(" ");
-
-         for (String line : this.buildUpgradeLore(island)) {
-            player.sendMessage(this.sanitizeLegacyText(line));
-         }
+         net.md_5.bungee.api.chat.TextComponent prefix = new net.md_5.bungee.api.chat.TextComponent(ChatColor.GOLD + "[SkyCity] " + ChatColor.GREEN + "[Core] ");
+         net.md_5.bungee.api.chat.TextComponent islandInfo = this.buildHoverAnchor(
+            ChatColor.YELLOW + "Insel: " + ChatColor.AQUA + "[Informationen] ",
+            this.buildCoreSummaryLore(island)
+         );
+         net.md_5.bungee.api.chat.TextComponent techtreeInfo = this.buildHoverAnchor(
+            ChatColor.YELLOW + "Techtree: " + ChatColor.AQUA + "[Anzeigepfad / Forderungen] ",
+            this.buildTechtreeHoverLore(island)
+         );
+         net.md_5.bungee.api.chat.TextComponent rewardInfo = this.buildHoverAnchor(
+            ChatColor.YELLOW + "Belohnung: " + ChatColor.AQUA + "[Ansehen] ",
+            this.buildRewardHoverLore(island)
+         );
+         net.md_5.bungee.api.chat.TextComponent stageInfo = this.buildHoverAnchor(
+            ChatColor.YELLOW + "Stufen: " + ChatColor.AQUA + "[Ansehen]",
+            this.buildStageHoverLore(island)
+         );
+         player.spigot().sendMessage(prefix, islandInfo, techtreeInfo, rewardInfo, stageInfo);
       }
+   }
+
+   private net.md_5.bungee.api.chat.TextComponent buildHoverAnchor(String label, List<String> hoverLines) {
+      net.md_5.bungee.api.chat.TextComponent component = new net.md_5.bungee.api.chat.TextComponent(label);
+      List<String> sanitized = new ArrayList<>();
+      for (String line : hoverLines) {
+         String clean = this.sanitizeLegacyText(line);
+         String plain = ChatColor.stripColor(clean);
+         if (plain == null || plain.isBlank()) continue;
+         sanitized.add(clean);
+      }
+      if (!sanitized.isEmpty()) {
+         ComponentBuilder hoverBuilder = new ComponentBuilder("");
+         boolean first = true;
+         for (String line : sanitized) {
+            if (!first) hoverBuilder.append("\n");
+            hoverBuilder.append(net.md_5.bungee.api.chat.TextComponent.fromLegacyText(line));
+            first = false;
+         }
+         component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverBuilder.create()));
+      }
+      return component;
+   }
+
+   private List<String> buildTechtreeHoverLore(IslandData island) {
+      List<String> lines = new ArrayList<>();
+      if (this.islandService.isMilestonePinned(island)) {
+         lines.add(ChatColor.GOLD + "Anzeige");
+         lines.add(ChatColor.WHITE + "Meilensteinpfad");
+         lines.add(" ");
+         IslandService.MilestoneRequirement next = this.islandService.getNextMilestoneRequirement(island);
+         if (next == null) {
+            lines.add(ChatColor.GREEN + "Meilensteinpfad abgeschlossen");
+            return lines;
+         }
+         long currentIslandLevel = this.islandService.calculateIslandLevel(island);
+         lines.add(ChatColor.GOLD + "Upgrade-Forderungen");
+         lines.add(ChatColor.GREEN + "Insel-Level: " + colorizeRequirement(currentIslandLevel >= next.islandLevel()) + currentIslandLevel + ChatColor.WHITE + "/" + next.islandLevel());
+         lines.add(ChatColor.GREEN + "Erfahrung: " + colorizeRequirement(island.getStoredExperience() >= next.experience()) + island.getStoredExperience() + ChatColor.WHITE + "/" + next.experience());
+         for (Entry<Material, Integer> entry : next.materials().entrySet()) {
+            int current = island.getProgress(entry.getKey());
+            lines.add(ChatColor.GREEN + this.materialDisplayNameDe(entry.getKey()) + ": " + colorizeRequirement(current >= entry.getValue()) + current + ChatColor.WHITE + "/" + entry.getValue());
+         }
+         return lines;
+      }
+      IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
+      lines.add(ChatColor.GOLD + "Anzeige");
+      lines.add(ChatColor.WHITE + pinned.displayName());
+      lines.add(" ");
+      IslandService.UpgradeRequirement requirement = this.islandService.getNextUpgradeRequirement(island, pinned);
+      if (requirement == null) {
+         lines.add(ChatColor.RED + (this.islandService.getUpgradeTier(island, pinned) >= pinned.maxTier() ? "Maximal ausgebaut" : "Nächste Stufe erst nach Meilenstein"));
+         return lines;
+      }
+      lines.add(ChatColor.GOLD + "Upgrade-Forderungen");
+      lines.add(ChatColor.GREEN + "Insel-Level: " + colorizeRequirement(this.islandService.calculateIslandLevel(island) >= requirement.islandLevel()) + this.islandService.calculateIslandLevel(island) + ChatColor.WHITE + "/" + requirement.islandLevel());
+      lines.add(ChatColor.GREEN + "Erfahrung: " + colorizeRequirement(island.getStoredExperience() >= requirement.experience()) + island.getStoredExperience() + ChatColor.WHITE + "/" + requirement.experience());
+      for (Entry<Material, Integer> entry : requirement.materials().entrySet()) {
+         int current = island.getProgress(entry.getKey());
+         lines.add(ChatColor.GREEN + this.materialDisplayNameDe(entry.getKey()) + ": " + colorizeRequirement(current >= entry.getValue()) + current + ChatColor.WHITE + "/" + entry.getValue());
+      }
+      return lines;
+   }
+
+   private List<String> buildRewardHoverLore(IslandData island) {
+      List<String> lines = new ArrayList<>();
+      lines.add(ChatColor.GOLD + "Belohnung");
+      if (this.islandService.isMilestonePinned(island)) {
+         IslandService.MilestoneRequirement next = this.islandService.getNextMilestoneRequirement(island);
+         if (next == null) {
+            lines.add(ChatColor.GREEN + "Keine weitere Belohnung offen");
+            return lines;
+         }
+         int freeChunksAfterLevelUp = island.getAvailableChunkUnlocks() + next.chunkUnlocksGranted();
+         int totalChunksAfterLevelUp = island.getUnlockedChunks().size() + island.getAvailableChunkUnlocks() + next.chunkUnlocksGranted();
+         lines.add(ChatColor.AQUA + "+" + next.chunkUnlocksGranted() + " freie Chunks");
+         lines.add(ChatColor.GRAY + "Danach frei: " + ChatColor.WHITE + freeChunksAfterLevelUp + ChatColor.DARK_GRAY + " (gesamt " + totalChunksAfterLevelUp + "/" + this.islandService.getTotalIslandChunkCount() + ")");
+         return lines;
+      }
+      IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
+      IslandService.UpgradeRequirement requirement = this.islandService.getNextUpgradeRequirement(island, pinned);
+      if (requirement == null) {
+         lines.add(ChatColor.GREEN + "Keine weitere Belohnung offen");
+         return lines;
+      }
+      addUpgradeRewardLore(lines, island, pinned, requirement);
+      return lines;
+   }
+
+   private List<String> buildStageHoverLore(IslandData island) {
+      List<String> lines = new ArrayList<>();
+      lines.add(ChatColor.GOLD + "Stufen");
+      lines.add(ChatColor.GREEN + "Meilensteine: " + ChatColor.WHITE + Math.max(0, island.getLevel() - 1));
+      if (this.islandService.isMilestonePinned(island)) {
+         int currentMilestone = Math.max(0, island.getLevel() - 1);
+         int maxMilestone = Math.max(0, this.islandService.getLevelDefinitions().size() - 1);
+         lines.add(ChatColor.GREEN + "Aktuelle Stufe: " + ChatColor.WHITE + currentMilestone + ChatColor.DARK_GRAY + "/" + maxMilestone);
+         lines.add(" ");
+         lines.add(ChatColor.GOLD + "Neue Maximale Stufen");
+         int nextMilestoneLevel = Math.max(0, island.getLevel());
+         for (IslandService.UpgradeBranch branch : IslandService.UpgradeBranch.values()) {
+            int newCap = this.islandService.getUnlockedUpgradeTierCapForMilestone(nextMilestoneLevel, branch);
+            if (newCap > 0) {
+               lines.add(ChatColor.GRAY + branch.displayName() + ": " + ChatColor.WHITE + "Stufe " + newCap);
+            }
+         }
+         return lines;
+      }
+      IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
+      int currentTier = this.islandService.getUpgradeTier(island, pinned);
+      int cap = this.islandService.getUnlockedUpgradeTierCap(island, pinned);
+      lines.add(ChatColor.GREEN + "Anzeigepfad: " + ChatColor.WHITE + pinned.displayName());
+      lines.add(ChatColor.GREEN + "Aktuelle Stufe: " + ChatColor.WHITE + currentTier + ChatColor.DARK_GRAY + "/" + pinned.maxTier());
+      lines.add(ChatColor.GREEN + "Freigeschaltete Max-Stufe: " + ChatColor.WHITE + cap);
+      return lines;
    }
 
    public void sendCurrentChunkStatusWithUnlock(Player player, IslandData island) {

@@ -60,7 +60,6 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.YELLOW + "Deine Insel wird gerade vorbereitet. Bitte warte kurz.");
             return true;
         }
-        stopGenerationStatusMessages(player.getUniqueId());
         IslandData personalIsland = islandService.getIsland(player.getUniqueId()).orElse(null);
         IslandData island = resolveCommandIsland(player, sub, personalIsland);
         if ("create".equals(sub)) {
