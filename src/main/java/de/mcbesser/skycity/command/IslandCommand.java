@@ -296,11 +296,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + (target.getName() == null ? "?" : target.getName()) + ".");
                 Player online = Bukkit.getPlayer(target.getUniqueId());
                 if (online != null) {
-                    online.sendMessage(ChatColor.GOLD + player.getName() + " m\u00f6chte dich als Master auf seine Insel einladen.");
-                    online.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept zum Best\u00e4tigen.");
-                    online.sendMessage(ChatColor.RED + "WICHTIG: Als Master kannst du nur 1 Insel haben.");
-                    online.sendMessage(ChatColor.RED + "Wenn du aktuell Master einer anderen Insel bist, verl\u00e4sst du diese beim Annehmen.");
-                    online.sendMessage(ChatColor.RED + "Falls dort danach kein Master mehr \u00fcbrig bleibt, wird diese Insel gel\u00f6scht.");
+                    sendMasterInviteMessage(online, player.getName());
                 }
             }
             case "masteraccept" -> {
@@ -790,6 +786,17 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GRAY + "Oder nutze " + ChatColor.AQUA + "/is islands" + ChatColor.GRAY + ", um freie Orte selbst zu w\u00e4hlen.");
         player.sendMessage(ChatColor.GRAY + "Das ist praktisch, wenn du bewusst neben jemandem wohnen m\u00f6chtest.");
         player.sendMessage(ChatColor.GRAY + "Mit " + ChatColor.AQUA + "/is" + ChatColor.GRAY + " \u00f6ffnest du trotzdem schon dein Anf\u00e4nger-Men\u00fc mit Teleport und Insel\u00fcbersicht.");
+    }
+
+    private void sendMasterInviteMessage(Player target, String inviterName) {
+        target.sendMessage("");
+        target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "ACHTUNG: MASTER-EINLADUNG ERHALTEN!");
+        target.sendMessage(ChatColor.RED + inviterName + " hat dich eingeladen, Master seiner Insel zu werden.");
+        target.sendMessage(ChatColor.YELLOW + "Annehmen: /is masteraccept oder im Men\u00fc unter Insel > Berechtigungen > Master-Rechte.");
+        target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "WICHTIG: DU KANNST NUR AUF EINER INSEL MASTER SEIN!");
+        target.sendMessage(ChatColor.RED + "Wenn du bereits Master einer anderen Insel bist, verl\u00e4sst du sie beim Annehmen.");
+        target.sendMessage(ChatColor.RED + "Bleibt dort danach kein Master mehr \u00fcbrig, wird diese Insel gel\u00f6scht.");
+        target.sendMessage("");
     }
 }
 

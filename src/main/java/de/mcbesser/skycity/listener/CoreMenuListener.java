@@ -611,15 +611,9 @@ public class CoreMenuListener implements Listener {
                 islandService.queueMasterInvite(island, player.getUniqueId(), targetId);
                 Player tPlayer = target.getPlayer();
                 if (tPlayer != null) {
-                    tPlayer.sendMessage("");
-                    tPlayer.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "ACHTUNG: MASTER-EINLADUNG ERHALTEN!");
-                    tPlayer.sendMessage(ChatColor.RED + player.getName() + " hat dich eingeladen, Master seiner Insel zu werden.");
-                    tPlayer.sendMessage(ChatColor.RED + "Gehe in deine EIGENEN Insel-Einstellungen -> Berechtigungen -> Master-Rechte, um sie anzunehmen!");
-                    tPlayer.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "WENN DU ANNNIMMST, WIRD DEINE EIGENE INSEL UNWIDERRUFLICH GEL\u00d6SCHT!");
-                    tPlayer.sendMessage(ChatColor.RED + "Du kannst nur EINER Insel als Master/Owner angeh\u00f6ren.");
-                    tPlayer.sendMessage("");
+                    sendMasterInviteMessage(tPlayer, player.getName());
                 }
-                player.sendMessage(ChatColor.GREEN + "Master-Einladung verschickt.");
+                player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + (target.getName() == null ? "?" : target.getName()) + ".");
                 player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), true, holder.searchFilter(), holder.page()));
             } else if ("OWNER".equals(holder.role())) {
                 if (!islandService.canAddOwner(island, player.getUniqueId()) && !player.isOp()) {
@@ -2148,10 +2142,20 @@ public class CoreMenuListener implements Listener {
         String targetName = target != null ? target.getName() : String.valueOf(targetId);
         player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + targetName + ".");
         if (target != null) {
-            target.sendMessage(ChatColor.GOLD + player.getName() + " m\u00f6chte dich als Master einladen.");
-            target.sendMessage(ChatColor.YELLOW + "Nutze /is masteraccept zum Best\u00e4tigen.");
+            sendMasterInviteMessage(target, player.getName());
         }
         player.openInventory(coreService.createIslandMasterInviteMenu(player, island, holder.page()));
+    }
+
+    private void sendMasterInviteMessage(Player target, String inviterName) {
+        target.sendMessage("");
+        target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "ACHTUNG: MASTER-EINLADUNG ERHALTEN!");
+        target.sendMessage(ChatColor.RED + inviterName + " hat dich eingeladen, Master seiner Insel zu werden.");
+        target.sendMessage(ChatColor.YELLOW + "Annehmen: /is masteraccept oder im Men\u00fc unter Insel > Berechtigungen > Master-Rechte.");
+        target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "WICHTIG: DU KANNST NUR AUF EINER INSEL MASTER SEIN!");
+        target.sendMessage(ChatColor.RED + "Wenn du bereits Master einer anderen Insel bist, verl\u00e4sst du sie beim Annehmen.");
+        target.sendMessage(ChatColor.RED + "Bleibt dort danach kein Master mehr \u00fcbrig, wird diese Insel gel\u00f6scht.");
+        target.sendMessage("");
     }
 
     private void handleParcelMembersMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelMembersInventoryHolder holder) {
