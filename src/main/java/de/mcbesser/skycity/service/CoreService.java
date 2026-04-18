@@ -65,6 +65,7 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 public class CoreService {
+   public static final String CORE_RECIPE_KEY = "skycity_core";
    public static final String CORE_MENU_TITLE = "SkyCity Core";
    public static final String ISLAND_MENU_TITLE = "SkyCity Insel";
    public static final int[] INPUT_SLOTS = new int[]{27, 28, 29, 30, 31, 32, 33, 34, 35};
@@ -534,13 +535,17 @@ public class CoreService {
    }
 
    public void registerRecipe() {
-      NamespacedKey key = new NamespacedKey(this.plugin, "skycity_core");
+      NamespacedKey key = this.getRecipeKey();
       ShapedRecipe recipe = new ShapedRecipe(key, this.createCoreItem());
       recipe.shape(new String[]{"CCC", "CSC", "CCC"});
       recipe.setIngredient('C', Material.COBBLESTONE);
       recipe.setIngredient('S', Material.CHEST);
       Bukkit.removeRecipe(key);
       Bukkit.addRecipe(recipe);
+   }
+
+   public NamespacedKey getRecipeKey() {
+      return new NamespacedKey(this.plugin, CORE_RECIPE_KEY);
    }
 
    public ItemStack createCoreItem() {

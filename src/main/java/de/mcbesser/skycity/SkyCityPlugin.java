@@ -181,6 +181,10 @@ public class SkyCityPlugin extends JavaPlugin {
         islandService.startPregenerationTask();
         islandService.ensureSpawnPlotAndSpawnPlatform();
         coreService.registerRecipe();
+        NamespacedKey coreRecipeKey = coreService.getRecipeKey();
+        for (var player : Bukkit.getOnlinePlayers()) {
+            player.discoverRecipe(coreRecipeKey);
+        }
         if (playerListener != null) {
             playerListener.resetAllParcelCtfStates();
         }

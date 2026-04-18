@@ -171,6 +171,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        event.getPlayer().discoverRecipe(coreService.getRecipeKey());
         islandService.markIslandActivity(event.getPlayer().getUniqueId());
         stopPreparationStatusMessages(event.getPlayer().getUniqueId());
         stopIslandCreateHintMessages(event.getPlayer().getUniqueId());
