@@ -1657,6 +1657,8 @@ public class CoreService {
             List.of(ChatColor.GRAY + "Gespeichert: " + ChatColor.WHITE + stored)
          )
       );
+      inv.setItem(9, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Umgebung", List.of(ChatColor.GRAY + "Biom, Wetter und Zeit")));
+      inv.setItem(27, this.named(Material.BLAZE_POWDER, ChatColor.LIGHT_PURPLE + "Hilfen & Boosts", List.of(ChatColor.GRAY + "Wachstum, Nachtsicht und XP-Flaschen")));
       long biomeChunkCost = this.islandService.getBiomeChangeCost(false);
       long biomeIslandCost = this.islandService.getBiomeChangeCost(true);
       inv.setItem(
@@ -1674,7 +1676,7 @@ public class CoreService {
       );
       long timeCost = this.islandService.getTimeModeChangeCost();
       inv.setItem(
-         12,
+         14,
          this.named(
             Material.CLOCK,
             ChatColor.GOLD + "Zeitmodus w\u00e4hlen",
@@ -1686,7 +1688,7 @@ public class CoreService {
          )
       );
       inv.setItem(
-         14,
+         29,
          this.named(
             Material.WHEAT,
             ChatColor.GREEN + "Wachstumsboost Chunk " + displayX + ":" + displayZ,
@@ -1716,7 +1718,7 @@ public class CoreService {
          )
       );
       inv.setItem(
-         16,
+         33,
          this.named(
             Material.HONEY_BOTTLE,
             ChatColor.LIGHT_PURPLE + "XP-Flaschen abf\u00fcllen",
@@ -1734,7 +1736,7 @@ public class CoreService {
       boolean chunkNightVision = this.islandService.isChunkNightVisionEnabled(island, relX, relZ);
       boolean islandNightVision = this.islandService.isIslandNightVisionEnabled(island);
       inv.setItem(
-         30,
+         31,
          this.named(
             Material.ENDER_EYE,
             ChatColor.AQUA + "Nachtsicht",
@@ -1939,6 +1941,34 @@ public class CoreService {
       String title = parcel == null ? ("Grundst\u00fcck " + displayX + ":" + displayZ) : ("Grundst\u00fcck " + this.islandService.getParcelDisplayName(parcel));
       Inventory inv = Bukkit.createInventory(new CoreService.ParcelInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 54, title);
       this.fillWithPanes(inv);
+      if (System.currentTimeMillis() >= 0L) {
+         boolean unlocked = this.islandService.isChunkUnlocked(island, relX, relZ);
+         if (!unlocked) {
+            inv.setItem(22, this.named(Material.BARRIER, ChatColor.RED + "Chunk ist gesperrt", List.of()));
+            return inv;
+         }
+         if (parcel == null) {
+            inv.setItem(
+               22,
+               this.named(
+                  Material.STICK,
+                  ChatColor.GOLD + "Grundst\u00fccks-Stab holen",
+                  List.of(ChatColor.GRAY + "Freie Quader setzen statt Chunk-Claim", ChatColor.YELLOW + "Klick = Stab erhalten")
+               )
+            );
+            inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+            return inv;
+         }
+         inv.setItem(4, this.named(Material.NAME_TAG, ChatColor.GOLD + this.islandService.getParcelDisplayName(parcel), List.of(ChatColor.GRAY + "Chunk: " + displayX + ":" + displayZ, ChatColor.GRAY + "Allgemeine GS-Verwaltung")));
+         inv.setItem(10, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "GS-Spawn setzen", List.of(ChatColor.GRAY + "Setzt Spawn auf deine Position")));
+         inv.setItem(12, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Spielerverwaltung", List.of(ChatColor.GRAY + "Owner, Member, Rechte, Kick und Ban", ChatColor.YELLOW + "Klick = Untermen\u00fc")));
+         inv.setItem(14, this.named(Material.ANVIL, ChatColor.YELLOW + "GS umbenennen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getParcelDisplayName(parcel), ChatColor.YELLOW + "Klick = Name im Chat setzen")));
+         inv.setItem(16, this.named(Material.EMERALD, ChatColor.AQUA + "GS-Shop", List.of(ChatColor.GRAY + "Biom, Wetter, Zeit und Nachtsicht", ChatColor.GRAY + "F\u00fcr Master, Owner oder Plot-Owner", ChatColor.YELLOW + "Klick = \u00f6ffnen")));
+         inv.setItem(30, this.named(Material.KNOWLEDGE_BOOK, ChatColor.GOLD + "Plot-Markt", List.of(ChatColor.GRAY + "Verkauf und Vermietung", ChatColor.YELLOW + "Klick = Markt-Men\u00fc")));
+         inv.setItem(32, this.named(Material.DIAMOND_SWORD, ChatColor.RED + "Kampf & Games", List.of(ChatColor.GRAY + "PvP, PvE, CTF, Countdown", ChatColor.YELLOW + "Klick = Kampf-Men\u00fc")));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
+         return inv;
+      }
       boolean unlocked = this.islandService.isChunkUnlocked(island, relX, relZ);
       if (!unlocked) {
          inv.setItem(22, this.named(Material.BARRIER, ChatColor.RED + "Chunk ist gesperrt", List.of()));
@@ -2006,6 +2036,63 @@ public class CoreService {
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
          return inv;
       }
+   }
+
+   public Inventory createParcelCombatMenu(IslandData island, int relX, int relZ) {
+      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      Inventory inv = Bukkit.createInventory(new ParcelCombatInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 54, "GS Kampf & Games");
+      this.fillWithPanes(inv);
+      if (parcel == null) {
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fcck")));
+         return inv;
+      }
+      long now = System.currentTimeMillis();
+      boolean countdownActive = parcel.getCountdownEndsAt() > now;
+      boolean countdownPrestart = countdownActive && parcel.getCountdownStartAt() > now;
+      String countdownStatus = countdownActive
+         ? (countdownPrestart
+            ? ChatColor.GOLD + "Start in " + formatSecondsShort((int)Math.max(1L, (parcel.getCountdownStartAt() - now + 999L) / 1000L))
+            : ChatColor.AQUA + "lÃ¤uft: " + formatSecondsShort((int)Math.max(0L, (parcel.getCountdownEndsAt() - now + 999L) / 1000L)))
+         : ChatColor.GREEN + "bereit";
+      inv.setItem(4, this.named(Material.DIAMOND_SWORD, ChatColor.RED + "Kampf & Games", List.of(ChatColor.GRAY + "PvP, PvE, Games und Eventfunktionen")));
+      inv.setItem(10, this.named(parcel.isGamesEnabled() ? Material.TOTEM_OF_UNDYING : Material.GRAY_DYE, (parcel.isGamesEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "GS-Games", List.of(ChatColor.GRAY + "Zone wie PvP, aber ohne Spielerschaden", ChatColor.GRAY + "Status: " + (parcel.isGamesEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(12, this.named(parcel.isPvpEnabled() ? Material.DIAMOND_SWORD : Material.WOODEN_SWORD, (parcel.isPvpEnabled() ? ChatColor.RED : ChatColor.GRAY) + "GS-PvP", List.of(ChatColor.GRAY + "PvP mit Zustimmung / Whitelist", ChatColor.GRAY + "Status: " + (parcel.isPvpEnabled() ? ChatColor.RED + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(14, this.named(parcel.isPveEnabled() ? Material.NETHER_STAR : Material.GRAY_WOOL, (parcel.isPveEnabled() ? ChatColor.DARK_GREEN : ChatColor.GRAY) + "GS-PvE", List.of(ChatColor.GRAY + "Aktiviert Wellenkampf auf diesem GS", ChatColor.GRAY + "Skaliert mit Grundfl\u00e4che und Spielerzahl", ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(16, this.named(parcel.isCtfEnabled() ? Material.WHITE_BANNER : Material.GRAY_BANNER, (parcel.isCtfEnabled() ? ChatColor.GOLD : ChatColor.GRAY) + "Capture The Flag", List.of(ChatColor.GRAY + "Target + Banner = Flaggenbasis", ChatColor.GRAY + "Wolle + Shelf = Capture-Checkpoint", ChatColor.GRAY + "Status: " + (parcel.isCtfEnabled() ? ChatColor.GOLD + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(19, this.named(Material.PLAYER_HEAD, ChatColor.RED + "PvP-Whitelist", List.of(ChatColor.GRAY + "Erlaubte PvP-Spieler verwalten", ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+      inv.setItem(21, this.named(parcel.isPvpCompassEnabled() ? Material.COMPASS : Material.RECOVERY_COMPASS, (parcel.isPvpCompassEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "PvP-Kompass", List.of(ChatColor.GRAY + "Ortung anderer Spieler in PvP", ChatColor.GRAY + "Status: " + (parcel.isPvpCompassEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.RED + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(23, this.named(Material.GOLD_NUGGET, ChatColor.YELLOW + "PvP-Rangliste resetten", List.of(ChatColor.GRAY + "Kills auf diesem GS zur\u00fccksetzen", ChatColor.YELLOW + "Klick = resetten")));
+      inv.setItem(25, this.named(Material.TARGET, ChatColor.YELLOW + "CTF resetten", List.of(ChatColor.GRAY + "Alle getragenen / gesetzten Flaggen zur\u00fccksetzen", ChatColor.YELLOW + "Klick = resetten")));
+      inv.setItem(28, this.named(parcel.isSnowballFightEnabled() ? Material.SNOWBALL : Material.GRAY_DYE, (parcel.isSnowballFightEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "Schneeballschlacht", List.of(ChatColor.GRAY + "Magische SchneebÃ¤lle geben Team-Punkte", ChatColor.GRAY + "Status: " + (parcel.isSnowballFightEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(30, this.named(Material.SNOW_BLOCK, ChatColor.YELLOW + "Schneeballpunkte resetten", List.of(ChatColor.GRAY + "Setzt nur die Schneeball-Teamwertung zurÃ¼ck", ChatColor.YELLOW + "Klick = resetten")));
+      inv.setItem(40, this.named(Material.CLOCK, ChatColor.AQUA + "Countdown-BossBar", List.of(ChatColor.GRAY + "Dauer: " + ChatColor.WHITE + formatSecondsShort(parcel.getCountdownDurationSeconds()), ChatColor.GRAY + "Status: " + countdownStatus, ChatColor.GRAY + "Beim Start kommt 3-2-1-Los als Title")));
+      inv.setItem(41, this.named(Material.RED_CONCRETE, ChatColor.RED + "Zeit verringern", List.of(ChatColor.GRAY + "Links: -30 Sekunden", ChatColor.GRAY + "Shift: -5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
+      inv.setItem(42, this.named(Material.LIME_CONCRETE, ChatColor.GREEN + "Zeit erh\u00f6hen", List.of(ChatColor.GRAY + "Links: +30 Sekunden", ChatColor.GRAY + "Shift: +5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
+      inv.setItem(43, this.named(Material.BELL, ChatColor.GOLD + "Countdown starten", List.of(ChatColor.GRAY + "Zeigt BossBar im Parcel", ChatColor.GRAY + "Startet mit Title-Countdown", ChatColor.YELLOW + "Klick = starten")));
+      inv.setItem(44, this.named(Material.BARRIER, ChatColor.RED + "Countdown stoppen", List.of(ChatColor.GRAY + "Laufenden Countdown abbrechen", ChatColor.GRAY + "BossBar sofort ausblenden", ChatColor.YELLOW + "Klick = stoppen")));
+      inv.setItem(50, this.named(Material.BOOK, ChatColor.GOLD + "PvE-Anleitung", List.of(ChatColor.GRAY + "1) Wei\u00dfe Wolle = Startzone", ChatColor.GRAY + "2) Ausgang nur an der Startzonen-Seite", ChatColor.GRAY + "3) Ausgang darf breiter sein, wenn zusammenh\u00e4ngend", ChatColor.GRAY + "4) Innen + aussen 3 hoch frei", ChatColor.GRAY + "5) LIGHT_GRAY = Zombie-Familie mit Varianten", ChatColor.GRAY + "6) GREEN = Spinnen, YELLOW = Skelette, ORANGE = W\u00fcste", ChatColor.GRAY + "7) BLUE = Hafen, RED = Sprengtrupp, BLACK = Nachtwache")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fcck")));
+      return inv;
+   }
+
+   public Inventory createParcelPlayerManagementMenu(IslandData island, int relX, int relZ) {
+      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      Inventory inv = Bukkit.createInventory(new ParcelPlayerManagementInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 45, "GS Spielerverwaltung");
+      this.fillWithPanes(inv);
+      if (parcel == null) {
+         inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fcck")));
+         return inv;
+      }
+      inv.setItem(4, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Spielerverwaltung", List.of(ChatColor.GRAY + "Rollen, Rechte und Moderation f\u00fcr dieses GS")));
+      inv.setItem(10, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Plot-Owner vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+      inv.setItem(12, this.named(Material.NAME_TAG, ChatColor.AQUA + "Plot-Member vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+      inv.setItem(14, this.named(Material.BOOK, ChatColor.YELLOW + "Memberrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Plot-Member")));
+      inv.setItem(16, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Fremde")));
+      inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+      inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+      inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
+      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fcck")));
+      return inv;
    }
 
    private ParcelData resolveParcelForMenu(Player player, IslandData island, int relX, int relZ) {
@@ -5223,6 +5310,18 @@ public class CoreService {
    }
 
    public static record ParcelMarketInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, boolean rentMode) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record ParcelCombatInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, String parcelKey) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record ParcelPlayerManagementInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, String parcelKey) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

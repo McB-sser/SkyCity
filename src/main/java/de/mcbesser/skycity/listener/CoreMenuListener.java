@@ -134,6 +134,10 @@ public class CoreMenuListener implements Listener {
             handleParcelMemberSettingsClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelMarketInventoryHolder holder) {
             handleParcelMarketMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelCombatInventoryHolder holder) {
+            handleParcelCombatMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.ParcelPlayerManagementInventoryHolder holder) {
+            handleParcelPlayerManagementMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.TeleportInventoryHolder holder) {
             handleTeleportMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.PermissionsHubInventoryHolder holder) {
@@ -846,68 +850,7 @@ public class CoreMenuListener implements Listener {
     }
 
     private void openParcelMenu(Player player, IslandData island, int relX, int relZ) {
-        Inventory inventory = coreService.createParcelMenu(player, island, relX, relZ);
-        var parcel = islandService.getParcel(island, relX, relZ);
-        if (parcel != null) {
-            inventory.setItem(20, namedItem(
-                    Material.KNOWLEDGE_BOOK,
-                    ChatColor.GOLD + "Plot-Markt",
-                    java.util.List.of(
-                            ChatColor.GRAY + "Verkauf / Miete festlegen",
-                            ChatColor.YELLOW + "Klick = \u00f6ffnen"
-                    )));
-            inventory.setItem(22, namedItem(
-                    Material.ANVIL,
-                    ChatColor.GOLD + "GS umbenennen",
-                    java.util.List.of(
-                            ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + islandService.getParcelDisplayName(parcel),
-                            ChatColor.YELLOW + "Klick = Name im Chat setzen"
-                    )));
-            inventory.setItem(34, namedItem(
-                    parcel.isPvpEnabled() ? Material.DIAMOND_SWORD : Material.WOODEN_SWORD,
-                    (parcel.isPvpEnabled() ? ChatColor.RED : ChatColor.GRAY) + "GS-PvP",
-                    java.util.List.of(
-                            ChatColor.GRAY + "Status: " + (parcel.isPvpEnabled() ? ChatColor.RED + "aktiv" : ChatColor.GREEN + "aus"),
-                            ChatColor.GRAY + "PvP wird erst beim Betreten aktiv",
-                            ChatColor.YELLOW + "Klick = umschalten"
-                    )));
-            inventory.setItem(36, namedItem(
-                    Material.PAPER,
-                    ChatColor.GOLD + "PvP-Rangliste resetten",
-                    java.util.List.of(
-                            ChatColor.GRAY + "Kills auf diesem GS zur\u00fccksetzen",
-                            ChatColor.YELLOW + "Nur f\u00fcr Plot-Owner"
-                    )));
-            inventory.setItem(38, namedItem(
-                    Material.IRON_SWORD,
-                    ChatColor.RED + "PvP-Whitelist",
-                    java.util.List.of(
-                            ChatColor.GRAY + "Zul\u00e4ssige PvP-Spieler verwalten",
-                            ChatColor.YELLOW + "Klick = GUI \u00f6ffnen"
-                    )));
-            inventory.setItem(35, namedItem(
-                    parcel.isPveEnabled() ? Material.NETHER_STAR : Material.GRAY_WOOL,
-                    (parcel.isPveEnabled() ? ChatColor.DARK_GREEN : ChatColor.GRAY) + "GS-PvE",
-                    java.util.List.of(
-                            ChatColor.GRAY + "Status: " + (parcel.isPveEnabled() ? ChatColor.DARK_GREEN + "aktiv" : ChatColor.GREEN + "aus"),
-                            ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone, andere Wolle = Spawner",
-                            ChatColor.GRAY + "Gro\u00dfe Zone = mehr Mobs, Wellen und St\u00e4rke",
-                            ChatColor.YELLOW + "Klick = umschalten"
-                    )));
-            inventory.setItem(37, namedItem(
-                    Material.BOOK,
-                    ChatColor.GOLD + "PvE-Anleitung",
-                    java.util.List.of(
-                            ChatColor.GRAY + "1) Wei\u00dfe Wolle = Startzone",
-                            ChatColor.GRAY + "2) Ausgang nur an der Startzonen-Seite",
-                            ChatColor.GRAY + "3) Ausgang darf breiter sein, wenn zusammenh\u00e4ngend",
-                            ChatColor.GRAY + "4) Innen + aussen 3 hoch frei",
-                            ChatColor.GRAY + "5) LIGHT_GRAY = Zombie-Familie mit Varianten",
-                            ChatColor.GRAY + "6) GREEN = Spinnen, YELLOW = Skelette, ORANGE = W\u00fcste",
-                            ChatColor.GRAY + "7) BLUE = Hafen, RED = Sprengtrupp, BLACK = Nachtwache"
-                    )));
-        }
-        player.openInventory(inventory);
+        player.openInventory(coreService.createParcelMenu(player, island, relX, relZ));
     }
 
     private boolean openParcelMarketInRentMode(ParcelData parcel) {
@@ -1120,7 +1063,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createBiomeMenu(player, island, 0, holder.relChunkX(), holder.relChunkZ(), 0));
             return;
         }
-        if (raw == 12) {
+        if (raw == 14) {
             if (!canUseIslandShop(player, island)) {
                 return;
             }
@@ -1134,7 +1077,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createWeatherShopMenu(island, "shop"));
             return;
         }
-        if (raw == 14) {
+        if (raw == 29) {
             if (!canUseIslandShop(player, island)) {
                 return;
             }
@@ -1147,7 +1090,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createIslandShopMenu(player, island));
             return;
         }
-        if (raw == 16) {
+        if (raw == 33) {
             if (!canUseIslandShop(player, island)) {
                 return;
             }
@@ -1156,7 +1099,7 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createIslandShopMenu(player, island));
             return;
         }
-        if (raw == 30) {
+        if (raw == 31) {
             if (!canUseIslandShop(player, island)) {
                 return;
             }
@@ -1360,6 +1303,59 @@ public class CoreMenuListener implements Listener {
         var targetParcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
         boolean hasParcelAccess = targetParcel != null && islandService.isParcelUser(island, targetParcel, player.getUniqueId());
         if (!islandService.hasBuildAccess(player.getUniqueId(), island) && !hasParcelAccess) return;
+        if (System.currentTimeMillis() >= 0L) {
+            switch (event.getRawSlot()) {
+                case 10 -> {
+                    if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
+                        targetParcel.setSpawn(player.getLocation().clone());
+                        islandService.save();
+                        player.sendMessage(ChatColor.GREEN + "GS-Spawn gesetzt.");
+                    }
+                }
+                case 12 -> {
+                    if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
+                        player.openInventory(coreService.createParcelPlayerManagementMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                        return;
+                    }
+                }
+                case 14 -> {
+                    if (targetParcel == null) {
+                        player.getInventory().addItem(islandService.createPlotWand());
+                        player.sendMessage(ChatColor.GREEN + "Grundst\u00fccks-Stab erhalten.");
+                        player.sendMessage(ChatColor.GRAY + "Setze Pos1/Pos2 und nutze /is plot create.");
+                    } else if (islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
+                        coreService.beginParcelRenameInput(player, island, targetParcel);
+                        return;
+                    }
+                }
+                case 16 -> {
+                    if (targetParcel != null && canUseParcelShop(player, island, targetParcel)) {
+                        player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                        return;
+                    }
+                }
+                case 30 -> {
+                    if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
+                        player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), openParcelMarketInRentMode(targetParcel)));
+                        return;
+                    }
+                }
+                case 32 -> {
+                    if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
+                        player.openInventory(coreService.createParcelCombatMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                        return;
+                    }
+                }
+                case 49 -> {
+                    player.openInventory(coreService.createIslandMenu(player, island));
+                    return;
+                }
+                default -> {
+                }
+            }
+            openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+            return;
+        }
         switch (event.getRawSlot()) {
             case 22 -> {
                 var parcel = targetParcel;
@@ -1615,6 +1611,169 @@ public class CoreMenuListener implements Listener {
             default -> {
             }
         }
+    }
+
+    private void handleParcelCombatMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelCombatInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) return;
+        switch (event.getRawSlot()) {
+            case 10 -> {
+                boolean enabled = !parcel.isGamesEnabled();
+                if (islandService.setParcelGames(island, parcel, player.getUniqueId(), enabled)) {
+                    if (!enabled) playerListener.resetParcelSnowballFight(island, parcel);
+                    player.sendMessage((enabled ? ChatColor.AQUA : ChatColor.GREEN) + "GS-Games " + (enabled ? "aktiviert." : "deaktiviert."));
+                }
+            }
+            case 12 -> {
+                boolean enabled = !parcel.isPvpEnabled();
+                if (islandService.setParcelPvp(island, parcel, player.getUniqueId(), enabled)) {
+                    player.sendMessage((enabled ? ChatColor.RED : ChatColor.GREEN) + "GS-PvP " + (enabled ? "aktiviert." : "deaktiviert."));
+                    broadcastSkyCityChat(ChatColor.GOLD + player.getName() + ChatColor.GRAY + " hat GS-PvP auf " + islandService.getParcelDisplayName(parcel) + " " + (enabled ? ChatColor.RED + "aktiviert" : ChatColor.GREEN + "deaktiviert") + ChatColor.GRAY + ".");
+                }
+            }
+            case 14 -> {
+                boolean enabled = !parcel.isPveEnabled();
+                if (enabled) {
+                    var validation = islandService.validateParcelPve(island, parcel);
+                    if (validation.isPresent()) {
+                        player.sendMessage(ChatColor.RED + validation.get());
+                        return;
+                    }
+                }
+                if (islandService.setParcelPve(island, parcel, player.getUniqueId(), enabled)) {
+                    player.sendMessage((enabled ? ChatColor.DARK_GREEN : ChatColor.GREEN) + "GS-PvE " + (enabled ? "aktiviert." : "deaktiviert."));
+                }
+            }
+            case 16 -> {
+                boolean enabled = !parcel.isCtfEnabled();
+                if (enabled && !parcel.isGamesEnabled()) {
+                    player.sendMessage(ChatColor.RED + "CTF ben\u00f6tigt zuerst GS-Games.");
+                    return;
+                }
+                if (islandService.setParcelCtfEnabled(island, parcel, player.getUniqueId(), enabled)) {
+                    playerListener.resetParcelCtf(island, parcel);
+                    player.sendMessage((enabled ? ChatColor.GOLD : ChatColor.GREEN) + "Capture The Flag " + (enabled ? "aktiviert." : "deaktiviert."));
+                }
+            }
+            case 19 -> {
+                player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.PVP, 0));
+                return;
+            }
+            case 21 -> {
+                boolean enabled = !parcel.isPvpCompassEnabled();
+                if (islandService.setParcelPvpCompassEnabled(island, parcel, player.getUniqueId(), enabled)) {
+                    player.sendMessage((enabled ? ChatColor.AQUA : ChatColor.RED) + "PvP-Kompass " + (enabled ? "aktiviert." : "deaktiviert."));
+                }
+            }
+            case 23 -> {
+                if (islandService.resetParcelPvpStats(island, parcel, player.getUniqueId())) {
+                    player.sendMessage(ChatColor.YELLOW + "GS-PvP-Rangliste wurde zur\u00fcckgesetzt.");
+                    broadcastSkyCityChat(ChatColor.GOLD + player.getName() + ChatColor.GRAY + " hat die PvP-Rangliste von " + islandService.getParcelDisplayName(parcel) + " zur\u00fcckgesetzt.");
+                } else {
+                    player.sendMessage(ChatColor.GRAY + "Es gibt noch keine PvP-Eintr\u00e4ge auf diesem GS.");
+                }
+            }
+            case 25 -> {
+                playerListener.resetParcelCtf(island, parcel);
+                player.sendMessage(ChatColor.YELLOW + "CTF wurde zur\u00fcckgesetzt.");
+            }
+            case 28 -> {
+                boolean enabled = !parcel.isSnowballFightEnabled();
+                if (enabled && !parcel.isGamesEnabled()) {
+                    player.sendMessage(ChatColor.RED + "Schneeballschlacht ben\u00f6tigt zuerst GS-Games.");
+                    return;
+                }
+                if (islandService.setParcelSnowballFightEnabled(island, parcel, player.getUniqueId(), enabled)) {
+                    if (!enabled) playerListener.resetParcelSnowballFight(island, parcel);
+                    player.sendMessage((enabled ? ChatColor.AQUA : ChatColor.GREEN) + "Schneeballschlacht " + (enabled ? "aktiviert." : "deaktiviert."));
+                }
+            }
+            case 30 -> {
+                playerListener.resetParcelSnowballFight(island, parcel);
+                player.sendMessage(ChatColor.YELLOW + "Schneeball-Teamwertung wurde zur\u00fcckgesetzt.");
+            }
+            case 41 -> {
+                int delta = event.isShiftClick() ? -300 : -30;
+                int targetSeconds = parcel.getCountdownDurationSeconds() + delta;
+                if (islandService.setParcelCountdownDurationSeconds(island, parcel, player.getUniqueId(), targetSeconds)) {
+                    player.sendMessage(ChatColor.YELLOW + "Countdown-Zeit: " + ChatColor.WHITE + formatParcelCountdownSeconds(parcel.getCountdownDurationSeconds()));
+                }
+            }
+            case 42 -> {
+                int delta = event.isShiftClick() ? 300 : 30;
+                int targetSeconds = parcel.getCountdownDurationSeconds() + delta;
+                if (islandService.setParcelCountdownDurationSeconds(island, parcel, player.getUniqueId(), targetSeconds)) {
+                    player.sendMessage(ChatColor.YELLOW + "Countdown-Zeit: " + ChatColor.WHITE + formatParcelCountdownSeconds(parcel.getCountdownDurationSeconds()));
+                }
+            }
+            case 43 -> {
+                if (islandService.startParcelCountdown(island, parcel, player.getUniqueId())) {
+                    playerListener.startParcelCountdown(island, parcel);
+                    player.sendMessage(ChatColor.GOLD + "Parcel-Countdown gestartet.");
+                }
+            }
+            case 44 -> {
+                if (islandService.stopParcelCountdown(island, parcel, player.getUniqueId())) {
+                    playerListener.stopParcelCountdown(island, parcel);
+                    player.sendMessage(ChatColor.RED + "Parcel-Countdown gestoppt.");
+                }
+            }
+            case 49 -> {
+                openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+                return;
+            }
+            default -> {
+            }
+        }
+        player.openInventory(coreService.createParcelCombatMenu(island, holder.relChunkX(), holder.relChunkZ()));
+    }
+
+    private void handleParcelPlayerManagementMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelPlayerManagementInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) return;
+        ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
+        if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) return;
+        switch (event.getRawSlot()) {
+            case 10 -> {
+                player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.OWNER, 0));
+                return;
+            }
+            case 12 -> {
+                player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), IslandService.ParcelRole.MEMBER, 0));
+                return;
+            }
+            case 14 -> {
+                player.openInventory(coreService.createParcelMemberSettingsMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                return;
+            }
+            case 16 -> {
+                player.openInventory(coreService.createParcelVisitorSettingsMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                return;
+            }
+            case 28 -> {
+                player.openInventory(coreService.createParcelModerationMenu(player, island, holder.relChunkX(), holder.relChunkZ(), CoreService.ParcelModerationAction.KICK, 0));
+                return;
+            }
+            case 30 -> {
+                player.openInventory(coreService.createParcelModerationMenu(player, island, holder.relChunkX(), holder.relChunkZ(), CoreService.ParcelModerationAction.BAN, 0));
+                return;
+            }
+            case 32 -> {
+                player.openInventory(coreService.createParcelModerationMenu(player, island, holder.relChunkX(), holder.relChunkZ(), CoreService.ParcelModerationAction.UNBAN, 0));
+                return;
+            }
+            case 40 -> {
+                openParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ());
+                return;
+            }
+            default -> {
+            }
+        }
+        player.openInventory(coreService.createParcelPlayerManagementMenu(island, holder.relChunkX(), holder.relChunkZ()));
     }
 
     private void handleParcelBiomeMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelBiomeInventoryHolder holder) {
@@ -2431,6 +2590,8 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelMemberSettingsInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelMarketInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelCombatInventoryHolder
+                || top.getHolder() instanceof CoreService.ParcelPlayerManagementInventoryHolder
                 || top.getHolder() instanceof CoreService.TeleportInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandTrustMembersInventoryHolder
                 || top.getHolder() instanceof CoreService.SelfPermissionConfirmInventoryHolder
