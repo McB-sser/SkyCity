@@ -1752,11 +1752,12 @@ public class IslandService {
         island.setPoints(Math.max(0L, island.getPoints() + amount));
     }
 
-    public void queueMasterInvite(IslandData island, UUID inviter, UUID target) {
-        if (island == null || inviter == null || target == null) return;
-        if (!isIslandMaster(island, inviter)) return;
-        if (isIslandMaster(island, target)) return;
+    public boolean queueMasterInvite(IslandData island, UUID inviter, UUID target) {
+        if (island == null || inviter == null || target == null) return false;
+        if (!isIslandMaster(island, inviter) && !Bukkit.getOfflinePlayer(inviter).isOp()) return false;
+        if (isIslandMaster(island, target)) return false;
         pendingMasterInvites.put(target, island.getOwner());
+        return true;
     }
 
     public IslandData getPendingMasterInviteIsland(UUID target) {

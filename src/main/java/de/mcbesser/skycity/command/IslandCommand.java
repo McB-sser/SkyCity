@@ -29,6 +29,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
     private final ParticlePreviewService particlePreviewService;
     private final Map<UUID, Integer> generationStatusTasks = new HashMap<>();
     private final Map<UUID, Integer> initialTeleportTasks = new HashMap<>();
+    private final Map<UUID, PendingSelfDowngradeConfirmation> pendingSelfDowngradeConfirmations = new HashMap<>();
 
     public IslandCommand(SkyCityPlugin plugin, IslandService islandService, CoreService coreService, ParticlePreviewService particlePreviewService) {
         this.plugin = plugin;
@@ -47,6 +48,14 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return handleWarpCommand(player, args);
         }
         String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
+        if ("confirm".equals(sub)) {
+            handleConfirmCommand(player);
+            return true;
+        }
+        if ("cancel".equals(sub)) {
+            handleCancelConfirmCommand(player);
+            return true;
+        }
         if (islandService.isIslandCreationPending(player.getUniqueId())) {
             player.sendMessage(ChatColor.YELLOW + "Deine Insel wird gerade vorbereitet. Bitte warte kurz.");
             return true;
@@ -292,7 +301,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.RED + "Du bist bereits Master.");
                     return;
                 }
-                islandService.queueMasterInvite(island, player.getUniqueId(), target.getUniqueId());
+                boolean queued = islandService.queueMasterInvite(island, player.getUniqueId(), target.getUniqueId());
+                if (!queued) {
+                    player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                    return;
+                }
                 player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + (target.getName() == null ? "?" : target.getName()) + ".");
                 Player online = Bukkit.getPlayer(target.getUniqueId());
                 if (online != null) {
@@ -314,15 +327,13 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 if (inviteIsland.getIslandSpawn() != null) player.teleport(inviteIsland.getIslandSpawn());
             }
             case "masterleave" -> {
-                if (islandService.leaveMasterRole(player.getUniqueId())) {
-                    stopGenerationStatusMessages(player.getUniqueId());
-                    stopInitialTeleportTask(player.getUniqueId());
-                    player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
-                    player.teleport(islandService.getSpawnLocation());
-                    sendNoIslandHelp(player);
-                } else {
-                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master eingetragen oder bist nicht Master.");
-                }
+                requestSelfDowngradeConfirmation(
+                        player,
+                        island,
+                        PendingSelfDowngradeAction.MASTER_LEAVE,
+                        null,
+                        "Du wirst deinen Master-Rang auf " + islandService.getIslandTitleDisplay(island) + " verlieren."
+                );
             }
             default -> {
             }
@@ -347,7 +358,17 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 boolean changed = islandService.grantOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-                player.sendMessage(changed ? ChatColor.GREEN + "Owner hinzugef\u00fcgt." : ChatColor.YELLOW + "Keine \u00c4nderung.");
+                if (!changed) {
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
+                    return;
+                }
+                String islandName = islandService.getIslandTitleDisplay(island);
+                String targetName = target.getName() == null ? "?" : target.getName();
+                player.sendMessage(ChatColor.GREEN + "Owner-Rechte an " + targetName + " auf " + islandName + " vergeben.");
+                Player online = Bukkit.getPlayer(target.getUniqueId());
+                if (online != null) {
+                    online.sendMessage(ChatColor.GREEN + player.getName() + " hat dir auf " + islandName + " Owner-Rechte gegeben.");
+                }
             }
             case "remove" -> {
                 boolean selfRemove = target.getUniqueId().equals(player.getUniqueId());
@@ -363,10 +384,28 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.RED + "Dieser Spieler ist auf dieser Insel kein Owner.");
                     return;
                 }
+                String islandName = islandService.getIslandTitleDisplay(island);
+                String targetName = target.getName() == null ? "?" : target.getName();
+                if (selfRemove) {
+                    requestSelfDowngradeConfirmation(
+                            player,
+                            island,
+                            PendingSelfDowngradeAction.OWNER_SELF_REMOVE,
+                            null,
+                            "Du wirst deine Owner-Rechte auf " + islandName + " verlieren."
+                    );
+                    return;
+                }
                 boolean changed = islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-                player.sendMessage(changed
-                        ? (selfRemove ? ChatColor.YELLOW + "Du bist als Owner ausgetragen." : ChatColor.YELLOW + "Owner entfernt.")
-                        : ChatColor.RED + "Owner konnte auf dieser Insel nicht entfernt werden.");
+                if (!changed) {
+                    player.sendMessage(ChatColor.RED + "Owner konnte auf dieser Insel nicht entfernt werden.");
+                    return;
+                }
+                player.sendMessage(ChatColor.YELLOW + "Owner-Rechte von " + targetName + " auf " + islandName + " entfernt.");
+                Player online = Bukkit.getPlayer(target.getUniqueId());
+                if (online != null) {
+                    online.sendMessage(ChatColor.RED + player.getName() + " hat dir auf " + islandName + " die Owner-Rechte entzogen.");
+                }
             }
             default -> player.sendMessage(ChatColor.RED + "Nutze /is owner <add|remove> <spieler>");
         }
@@ -570,12 +609,31 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                         return;
                     }
                 }
-                boolean changed = islandService.revokeMemberPermission(island, target.getUniqueId(), permission);
-                if (!changed) {
+                String permissionName = switch (permission) {
+                    case BUILD -> "Bauen";
+                    case CONTAINER -> "Kisten";
+                    case REDSTONE -> "Redstone";
+                    case ALL -> "alle Member-Rechte";
+                };
+                boolean hasPermission = switch (permission) {
+                    case BUILD -> island.getMemberBuildAccess().contains(target.getUniqueId());
+                    case CONTAINER -> island.getMemberContainerAccess().contains(target.getUniqueId());
+                    case REDSTONE -> island.getMemberRedstoneAccess().contains(target.getUniqueId());
+                    case ALL -> island.getMemberBuildAccess().contains(target.getUniqueId())
+                            || island.getMemberContainerAccess().contains(target.getUniqueId())
+                            || island.getMemberRedstoneAccess().contains(target.getUniqueId());
+                };
+                if (!hasPermission) {
                     player.sendMessage(ChatColor.YELLOW + "Du hast auf dieser Insel dieses Member-Recht nicht.");
                     return;
                 }
-                player.sendMessage(ChatColor.YELLOW + "Du bist als Member ausgetragen: " + permission.name().toLowerCase(Locale.ROOT));
+                requestSelfDowngradeConfirmation(
+                        player,
+                        island,
+                        PendingSelfDowngradeAction.MEMBER_SELF_REMOVE,
+                        permission,
+                        "Du wirst dir auf " + islandService.getIslandTitleDisplay(island) + " " + permissionName + " entziehen."
+                );
                 return;
             }
         }
@@ -612,9 +670,25 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
             return;
         }
+        String islandName = islandService.getIslandTitleDisplay(island);
+        String targetName = target.getName() == null ? "?" : target.getName();
+        String permissionName = switch (permission) {
+            case BUILD -> "Bauen";
+            case CONTAINER -> "Kisten";
+            case REDSTONE -> "Redstone";
+            case ALL -> "Vollzugriff";
+        };
         player.sendMessage((grant ? ChatColor.GREEN : ChatColor.YELLOW)
-                + (grant ? "Member-Recht vergeben: " : "Member-Recht entfernt: ")
-                + permission.name().toLowerCase(Locale.ROOT) + " f\u00fcr " + target.getName());
+                + permissionName + "-Recht "
+                + (grant ? "an " : "von ")
+                + targetName + " auf " + islandName + " "
+                + (grant ? "vergeben." : "entfernt."));
+        Player online = Bukkit.getPlayer(target.getUniqueId());
+        if (online != null) {
+            online.sendMessage((grant ? ChatColor.GREEN : ChatColor.RED)
+                    + player.getName() + " hat dir auf " + islandName + " das Recht " + permissionName + " "
+                    + (grant ? "gegeben." : "entzogen."));
+        }
     }
 
     @Override
@@ -631,7 +705,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 1) {
             if (!(sender instanceof Player player)) return List.of("create", "home", "islands");
-            List<String> suggestions = new ArrayList<>(List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masteraccept", "masterleave", "kick", "ban", "unban", "pkick", "pban", "punban", "plot"));
+            List<String> suggestions = new ArrayList<>(List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "confirm", "cancel", "masteraccept", "masterleave", "kick", "ban", "unban", "pkick", "pban", "punban", "plot"));
             IslandData island = resolveCommandIsland(player, "", islandService.getIsland(player.getUniqueId()).orElse(null));
             if (island != null) {
                 if (islandService.canInviteMaster(island, player.getUniqueId())) suggestions.add("masterinvite");
@@ -798,6 +872,81 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         target.sendMessage(ChatColor.RED + "Bleibt dort danach kein Master mehr \u00fcbrig, wird diese Insel gel\u00f6scht.");
         target.sendMessage("");
     }
+
+    private void requestSelfDowngradeConfirmation(Player player, IslandData island, PendingSelfDowngradeAction action, IslandService.TrustPermission permission, String warning) {
+        pendingSelfDowngradeConfirmations.put(
+                player.getUniqueId(),
+                new PendingSelfDowngradeConfirmation(island.getOwner(), action, permission, System.currentTimeMillis() + 15000L)
+        );
+        player.sendMessage(ChatColor.DARK_RED + "Best\u00e4tigung erforderlich.");
+        player.sendMessage(ChatColor.RED + warning);
+        player.sendMessage(ChatColor.YELLOW + "Best\u00e4tigen: /is confirm");
+        player.sendMessage(ChatColor.GRAY + "Abbrechen: /is cancel");
+    }
+
+    private void handleConfirmCommand(Player player) {
+        PendingSelfDowngradeConfirmation pending = pendingSelfDowngradeConfirmations.remove(player.getUniqueId());
+        if (pending == null || pending.expiresAt() < System.currentTimeMillis()) {
+            player.sendMessage(ChatColor.RED + "Keine offene Best\u00e4tigung.");
+            return;
+        }
+        IslandData island = islandService.getIsland(pending.islandOwner()).orElse(null);
+        if (island == null) {
+            player.sendMessage(ChatColor.RED + "Die betroffene Insel wurde nicht mehr gefunden.");
+            return;
+        }
+        switch (pending.action()) {
+            case MASTER_LEAVE -> {
+                if (islandService.leaveMasterRole(player.getUniqueId())) {
+                    stopGenerationStatusMessages(player.getUniqueId());
+                    stopInitialTeleportTask(player.getUniqueId());
+                    player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
+                    player.teleport(islandService.getSpawnLocation());
+                    sendNoIslandHelp(player);
+                } else {
+                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master eingetragen oder bist nicht Master.");
+                }
+            }
+            case OWNER_SELF_REMOVE -> {
+                if (islandService.revokeOwnerRole(island, player.getUniqueId(), player.getUniqueId())) {
+                    player.sendMessage(ChatColor.YELLOW + "Du hast dich auf " + islandService.getIslandTitleDisplay(island) + " als Owner ausgetragen.");
+                } else {
+                    player.sendMessage(ChatColor.RED + "Owner konnte auf dieser Insel nicht entfernt werden.");
+                }
+            }
+            case MEMBER_SELF_REMOVE -> {
+                IslandService.TrustPermission permission = pending.permission() == null ? IslandService.TrustPermission.ALL : pending.permission();
+                boolean changed = islandService.revokeMemberPermission(island, player.getUniqueId(), permission);
+                if (!changed) {
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
+                    return;
+                }
+                String permissionName = switch (permission) {
+                    case BUILD -> "Bauen";
+                    case CONTAINER -> "Kisten";
+                    case REDSTONE -> "Redstone";
+                    case ALL -> "alle Member-Rechte";
+                };
+                player.sendMessage(ChatColor.YELLOW + "Du hast dir auf " + islandService.getIslandTitleDisplay(island) + " " + permissionName + " entzogen.");
+            }
+        }
+    }
+
+    private void handleCancelConfirmCommand(Player player) {
+        if (pendingSelfDowngradeConfirmations.remove(player.getUniqueId()) != null) {
+            player.sendMessage(ChatColor.YELLOW + "Best\u00e4tigung abgebrochen.");
+        } else {
+            player.sendMessage(ChatColor.RED + "Keine offene Best\u00e4tigung.");
+        }
+    }
+
+    private enum PendingSelfDowngradeAction {
+        MASTER_LEAVE,
+        OWNER_SELF_REMOVE,
+        MEMBER_SELF_REMOVE
+    }
+
+    private record PendingSelfDowngradeConfirmation(UUID islandOwner, PendingSelfDowngradeAction action, IslandService.TrustPermission permission, long expiresAt) {}
 }
 
 

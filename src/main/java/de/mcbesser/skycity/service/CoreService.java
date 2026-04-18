@@ -978,6 +978,7 @@ public class CoreService {
    public Inventory createIslandMenu(Player viewer) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(null), 54, "SkyCity Insel");
       this.fillWithPanes(inv);
+      IslandData pendingInviteIsland = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId());
       inv.setItem(
          11,
          this.named(
@@ -1013,7 +1014,21 @@ public class CoreService {
             )
          )
       );
-      inv.setItem(31, this.named(Material.BARRIER, ChatColor.RED + "Noch keine Insel", List.of(ChatColor.GRAY + "Weitere Insel-Funktionen werden angezeigt,", ChatColor.GRAY + "sobald du eine Insel hast oder Member bist.")));
+      if (pendingInviteIsland != null) {
+         inv.setItem(
+            31,
+            this.named(
+               Material.NETHER_STAR,
+               ChatColor.GOLD + "Master-Einladung",
+               List.of(
+                  ChatColor.GRAY + "Offene Einladung f\u00fcr " + this.islandService.getIslandTitleDisplay(pendingInviteIsland),
+                  ChatColor.YELLOW + "Klick = Master-Men\u00fc \u00f6ffnen"
+               )
+            )
+         );
+      } else {
+         inv.setItem(31, this.named(Material.BARRIER, ChatColor.RED + "Noch keine Insel", List.of(ChatColor.GRAY + "Weitere Insel-Funktionen werden angezeigt,", ChatColor.GRAY + "sobald du eine Insel hast oder Member bist.")));
+      }
       return inv;
    }
 
@@ -2877,6 +2892,48 @@ public class CoreService {
       inv.setItem(15, this.named(hasRedstone ? Material.REDSTONE_TORCH : Material.REDSTONE, (hasRedstone ? ChatColor.GREEN : ChatColor.RED) + "Redstone", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
       inv.setItem(17, this.named(Material.BARRIER, ChatColor.RED + "Member entfernen", List.of(ChatColor.GRAY + "Nimmt alle Member-Rechte", ChatColor.YELLOW + "Klick = Entfernen")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Liste")));
+      return inv;
+   }
+
+   public Inventory createSelfPermissionConfirmMenu(IslandData island, UUID targetPlayer, String action, String permission, String returnView, int page, String filter) {
+      Inventory inv = Bukkit.createInventory(new SelfPermissionConfirmInventoryHolder(island.getOwner(), targetPlayer, action, permission, returnView, page, filter), 27, "Best\u00e4tigung");
+      this.fillWithPanes(inv);
+      String islandName = this.islandService.getIslandTitleDisplay(island);
+      List<String> infoLore = new ArrayList<>();
+      infoLore.add(ChatColor.GRAY + "Insel: " + ChatColor.WHITE + islandName);
+      switch (action) {
+         case "MASTER_LEAVE" -> {
+            inv.setItem(4, this.named(Material.NETHER_STAR, ChatColor.DARK_RED + "Master-Rang verlieren", List.of(
+               ChatColor.GRAY + "Du tr\u00e4gst dich als Master selbst aus.",
+               ChatColor.GRAY + "Danach verlierst du diese Rechte auf der Insel."
+            )));
+            infoLore.add(ChatColor.RED + "Du verlierst deinen Master-Rang.");
+         }
+         case "OWNER_SELF_REMOVE" -> {
+            inv.setItem(4, this.named(Material.WRITABLE_BOOK, ChatColor.DARK_RED + "Owner-Rechte verlieren", List.of(
+               ChatColor.GRAY + "Du tr\u00e4gst dich als Owner selbst aus.",
+               ChatColor.GRAY + "Danach bleiben dir nur niedrigere Rechte."
+            )));
+            infoLore.add(ChatColor.RED + "Du verlierst deine Owner-Rechte.");
+         }
+         case "MEMBER_SELF_REVOKE" -> {
+            String permissionName = permission == null ? "Rechte" : switch (permission) {
+               case "BUILD" -> "Bauen";
+               case "CONTAINER" -> "Kisten";
+               case "REDSTONE" -> "Redstone";
+               case "ALL" -> "alle Member-Rechte";
+               default -> permission;
+            };
+            inv.setItem(4, this.named(Material.BARRIER, ChatColor.DARK_RED + "Eigene Rechte entfernen", List.of(
+               ChatColor.GRAY + "Du entfernst dir selbst " + permissionName + ".",
+               ChatColor.GRAY + "Danach kannst du diese Funktion nicht mehr nutzen."
+            )));
+            infoLore.add(ChatColor.RED + "Du verlierst: " + permissionName);
+         }
+      }
+      inv.setItem(11, this.named(Material.PAPER, ChatColor.GOLD + "Folge", infoLore));
+      inv.setItem(13, this.named(Material.LIME_DYE, ChatColor.GREEN + "Ja, best\u00e4tigen", List.of(ChatColor.YELLOW + "Klick = wirklich ausf\u00fchren")));
+      inv.setItem(15, this.named(Material.GRAY_DYE, ChatColor.YELLOW + "Abbrechen", List.of(ChatColor.GRAY + "Zur\u00fcck ohne \u00c4nderung")));
       return inv;
    }
 
@@ -5116,6 +5173,9 @@ public class CoreService {
       public Inventory getInventory() { return null; }
    }
    public static record PermissionMemberDetailInventoryHolder(UUID islandOwner, UUID targetPlayer) implements InventoryHolder {
+      public Inventory getInventory() { return null; }
+   }
+   public static record SelfPermissionConfirmInventoryHolder(UUID islandOwner, UUID targetPlayer, String action, String permission, String returnView, int page, String filter) implements InventoryHolder {
       public Inventory getInventory() { return null; }
    }
 
