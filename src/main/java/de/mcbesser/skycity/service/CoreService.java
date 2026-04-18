@@ -2873,7 +2873,7 @@ public class CoreService {
       inv.setItem(4, createPlayerHead(t, ChatColor.GOLD + (t.getName() != null ? t.getName() : "Unbekannt"), List.of()));
       inv.setItem(9, this.named(Material.EMERALD, ChatColor.GREEN + "Alle Rechte vergeben", List.of(ChatColor.GRAY + "Gibt dem Member", ChatColor.GRAY + "alle verf\u00fcgbaren Rechte", ChatColor.YELLOW + "Klick = Zuweisen")));
       inv.setItem(11, this.named(hasBuild ? Material.DIAMOND_PICKAXE : Material.WOODEN_PICKAXE, (hasBuild ? ChatColor.GREEN : ChatColor.RED) + "Bauen", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
-      inv.setItem(13, this.named(hasContainer ? Material.TRAPPED_CHEST : Material.CHEST, (hasContainer ? ChatColor.GREEN : ChatColor.RED) + "Kisten", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
+      inv.setItem(13, this.named(hasContainer ? Material.OXIDIZED_COPPER_CHEST : Material.CHEST, (hasContainer ? ChatColor.GREEN : ChatColor.RED) + "Kisten", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
       inv.setItem(15, this.named(hasRedstone ? Material.REDSTONE_TORCH : Material.REDSTONE, (hasRedstone ? ChatColor.GREEN : ChatColor.RED) + "Redstone", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
       inv.setItem(17, this.named(Material.BARRIER, ChatColor.RED + "Member entfernen", List.of(ChatColor.GRAY + "Nimmt alle Member-Rechte", ChatColor.YELLOW + "Klick = Entfernen")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Liste")));
