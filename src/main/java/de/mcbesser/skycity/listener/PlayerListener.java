@@ -606,7 +606,7 @@ public class PlayerListener implements Listener {
             player.removeMetadata(PVP_TEAM_WOOL_METADATA, plugin);
             return;
         }
-        Material wool = findWoolMarker(location);
+        Material wool = findTeamSelectableWoolMarker(location);
         if (!isWool(wool)) return;
         Material previousWool = parcelPvpTeamWool.put(playerId, wool);
         parcelPvpTeamRespawns.put(playerId, centeredSpawn(locationForTouchedWool(location, wool)));
@@ -676,7 +676,7 @@ public class PlayerListener implements Listener {
 
     private Location locationForTouchedWool(Location location, Material woolType) {
         if (location == null || location.getWorld() == null || woolType == null) return location;
-        Block woolBlock = findTouchedWoolBlock(location);
+        Block woolBlock = findTeamSelectableWoolBlock(location);
         if (woolBlock != null && woolBlock.getType() == woolType) return woolBlock.getLocation();
         return location;
     }
@@ -1016,6 +1016,11 @@ public class PlayerListener implements Listener {
         return woolBlock == null ? null : woolBlock.getType();
     }
 
+    private Material findTeamSelectableWoolMarker(Location location) {
+        Block woolBlock = findTeamSelectableWoolBlock(location);
+        return woolBlock == null ? null : woolBlock.getType();
+    }
+
     private Material woolFromBlock(Block block) {
         if (block == null) return null;
         return isWool(block.getType()) ? block.getType() : null;
@@ -1024,11 +1029,23 @@ public class PlayerListener implements Listener {
     private Block findTouchedWoolBlock(Location location) {
         if (location == null || location.getWorld() == null) return null;
         Block feet = location.getBlock();
+        if (isWool(feet.getType())) return feet;
+        Block below = feet.getRelative(0, -1, 0);
+        if (isWool(below.getType())) return below;
+        Block belowTwo = feet.getRelative(0, -2, 0);
+        if (isSolidWoolBridgeBlock(below)) {
+            if (isWool(belowTwo.getType())) return belowTwo;
+        }
+        return null;
+    }
+
+    private Block findTeamSelectableWoolBlock(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        Block feet = location.getBlock();
         if (isTeamSelectableWool(feet)) return feet;
-        
-        // Only allow changing teams if the space the player is standing in is empty (AIR),
-        // or if they are standing directly on a half block (slab/stairs).
-        // This prevents team changes if items like torches, carpets, or grass are placed on the wool.
+
+        // Team changes should only happen on exposed wool, or through slabs/stairs above it.
+        // Checkpoint and lava rescue logic uses the more tolerant wool lookup above.
         Material feetType = feet.getType();
         if (!feetType.isAir() && !feetType.name().endsWith("_SLAB") && !feetType.name().endsWith("_STAIRS")) {
             return null;
