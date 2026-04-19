@@ -164,10 +164,6 @@ public class ProtectionListener implements Listener {
         Block block = event.getBlock();
         if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
         if (event.getNewState().getType() != Material.SNOW) return;
-        if (islandService.isInSpawnPlot(block.getLocation())) {
-            event.setCancelled(true);
-            return;
-        }
         IslandData island = islandService.getIslandAt(block.getLocation());
         if (island == null) return;
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
@@ -185,7 +181,6 @@ public class ProtectionListener implements Listener {
         for (Player player : world.getPlayers()) {
             if (player == null || !player.isOnline()) continue;
             Location center = player.getLocation();
-            if (islandService.isInSpawnPlot(center)) continue;
             IslandData island = islandService.getIslandAt(center);
             if (island == null) continue;
             for (int i = 0; i < 4; i++) {
@@ -199,7 +194,6 @@ public class ProtectionListener implements Listener {
     private void simulateSnowAt(World world, IslandData originIsland, int x, int z) {
         if (world == null || originIsland == null) return;
         Location probe = new Location(world, x + 0.5, SkyWorldService.SPAWN_Y, z + 0.5);
-        if (islandService.isInSpawnPlot(probe)) return;
         IslandData island = islandService.getIslandAt(probe);
         if (island == null || !island.getOwner().equals(originIsland.getOwner())) return;
         ParcelData parcel = islandService.getParcelAt(island, probe);
@@ -265,11 +259,6 @@ public class ProtectionListener implements Listener {
             if (island != null) {
                 islandService.onTrackedBlockPlaced(island, block);
             }
-            return;
-        }
-        if (islandService.isInSpawnPlot(block.getLocation())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Spawn ist gesch\u00fctzt.");
             return;
         }
         IslandData island = islandService.getIslandAt(block.getLocation());
@@ -359,8 +348,17 @@ public class ProtectionListener implements Listener {
         playerListener.invalidateStructureCaches(block.getLocation(), type);
 
         if (coreService.isCoreItem(event.getItemInHand())) {
+            if (islandService.isSpawnIsland(island)) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Am Spawn gibt es keinen Core.");
+                return;
+            }
             coreService.markPlacedCore(block, island.getOwner());
-            island.setCoreLocation(block.getLocation());
+            if (island.getCoreLocation() == null) {
+                island.setCoreLocation(block.getLocation());
+            } else {
+                island.addCoreLocation(block.getLocation());
+            }
             islandService.save();
             coreService.refreshCoreDisplay(island);
         }
@@ -379,10 +377,6 @@ public class ProtectionListener implements Listener {
             if (island != null) {
                 islandService.onTrackedBlockBroken(island, block);
             }
-            return;
-        }
-        if (islandService.isInSpawnPlot(block.getLocation())) {
-            event.setCancelled(true);
             return;
         }
         IslandData island = islandService.getIslandAt(block.getLocation());
@@ -427,11 +421,9 @@ public class ProtectionListener implements Listener {
             }
             block.setType(Material.AIR, false);
             block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), coreService.createCoreItem());
-            if (island.getCoreLocation() != null && island.getCoreLocation().getBlock().equals(block)) {
-                island.setCoreLocation(null);
-                islandService.save();
-            }
-            coreService.removeCoreDisplays(island);
+            island.removeCoreLocation(block.getLocation());
+            islandService.save();
+            coreService.refreshCoreDisplay(island);
             islandService.markIslandActivity(player.getUniqueId());
             return;
         }
@@ -1465,11 +1457,6 @@ public class ProtectionListener implements Listener {
         if (item != null && item.getType() == Material.ARMOR_STAND) {
             if (player.isOp()) return;
             Location placeLocation = block.getRelative(event.getBlockFace()).getLocation();
-            if (islandService.isInSpawnPlot(placeLocation)) {
-                event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Spawn ist gesch\u00fctzt.");
-                return;
-            }
             IslandData island = islandService.getIslandAt(placeLocation);
             if (island == null) {
                 event.setCancelled(true);
@@ -1517,11 +1504,6 @@ public class ProtectionListener implements Listener {
             Location placeLocation = isMinecartItem(item.getType())
                     ? block.getLocation()
                     : block.getRelative(event.getBlockFace()).getLocation();
-            if (islandService.isInSpawnPlot(placeLocation)) {
-                event.setCancelled(true);
-                player.sendMessage(ChatColor.RED + "Spawn ist gesch\u00fctzt.");
-                return;
-            }
             IslandData island = islandService.getIslandAt(placeLocation);
             if (island == null) {
                 event.setCancelled(true);
@@ -1765,10 +1747,6 @@ public class ProtectionListener implements Listener {
     public void onVehicleCreate(VehicleCreateEvent event) {
         Vehicle vehicle = event.getVehicle();
         if (!skyWorldService.isSkyCityWorld(vehicle.getWorld())) return;
-        if (islandService.isInSpawnPlot(vehicle.getLocation())) {
-            event.setCancelled(true);
-            return;
-        }
         IslandData island = islandService.getIslandAt(vehicle.getLocation());
         if (island == null) {
             event.setCancelled(true);

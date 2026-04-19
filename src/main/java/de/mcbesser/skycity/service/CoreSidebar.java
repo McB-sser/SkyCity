@@ -155,7 +155,7 @@ public final class CoreSidebar {
             return null;
         }
         IslandData island = islandService.getIslandAt(target.getLocation());
-        if (island == null || island.getCoreLocation() == null || !sameBlock(island.getCoreLocation(), target.getLocation())) {
+        if (island == null || island.getCoreLocations().stream().noneMatch(coreLocation -> sameBlock(coreLocation, target.getLocation()))) {
             return null;
         }
         return island == null ? null : new LookedCore(island);

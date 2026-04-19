@@ -3047,18 +3047,6 @@ public class PlayerListener implements Listener {
             updateParcelPvpTeam(player, player.getLocation());
             updateParcelCountdownState(player, player.getLocation());
             updateParcelPveState(player, player.getLocation());
-            if (islandService.isInSpawnPlot(player.getLocation())) {
-                applyIslandTimeMode(player, null);
-                applyIslandWeather(player, null);
-                applyIslandNightVision(player, null);
-                String timeSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + getWorldTimeIcon(player.getWorld());
-                showIslandBossBar(player, ChatColor.GOLD + "Spawn"
-                        + timeSegment
-                        + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps)
-                        + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "SkyCity");
-                removeChunkEffectBossBar(player);
-                continue;
-            }
             IslandData island = islandService.getIslandAt(player.getLocation());
             if (island == null) {
                 applyIslandTimeMode(player, null);
@@ -3237,7 +3225,7 @@ public class PlayerListener implements Listener {
     private void applyIslandNightVision(Player player, IslandData island) {
         if (player == null) return;
         boolean shouldHaveNightVision = false;
-        if (island != null && skyWorldService.isSkyCityWorld(player.getWorld()) && !islandService.isInSpawnPlot(player.getLocation())) {
+        if (island != null && skyWorldService.isSkyCityWorld(player.getWorld())) {
             ParcelData parcel = islandService.getParcelAt(island, player.getLocation());
             if (parcel != null && islandService.isParcelNightVisionEnabled(parcel)) {
                 shouldHaveNightVision = true;
@@ -3368,10 +3356,10 @@ public class PlayerListener implements Listener {
 
     private String computeIslandPresenceState(Location location) {
         if (location == null || location.getWorld() == null || !skyWorldService.isSkyCityWorld(location.getWorld())) return null;
-        if (islandService.isInSpawnPlot(location)) return "spawn";
         IslandData island = islandService.getIslandAt(location);
-        if (island == null) return "skycity";
-        return "island:" + island.getOwner();
+        if (island != null) return "island:" + island.getOwner();
+        if (islandService.isInSpawnPlot(location)) return "spawn";
+        return "skycity";
     }
 
     private boolean isAllowedExternalWorld(String worldName) {

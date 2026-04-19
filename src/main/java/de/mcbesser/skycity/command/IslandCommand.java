@@ -280,6 +280,10 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
 
     private void handleMasterCommands(Player player, IslandData island, String[] args) {
         String sub = args[0].toLowerCase(Locale.ROOT);
+        if (islandService.isSpawnIsland(island)) {
+            player.sendMessage(ChatColor.RED + "Am Spawn gibt es keine Master-Rechte.");
+            return;
+        }
         switch (sub) {
             case "masterinvite" -> {
                 if (island == null) {

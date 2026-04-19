@@ -349,6 +349,7 @@ public class IslandService {
 
     private static final int ISLAND_CHUNKS = 64;
     private static final int TOTAL_CHUNKS = 4096;
+    private static final UUID SPAWN_ISLAND_OWNER = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final long ONE_YEAR_MS = 365L * 24L * 60L * 60L * 1000L;
     private static final long ONE_DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long INACTIVITY_WARNING_30_DAYS_MS = 30L * ONE_DAY_MS;
@@ -467,6 +468,7 @@ public class IslandService {
         }
         loadNitriteData();
         loadCleanupReservations();
+        ensureSpawnIsland();
     }
 
     private void loadLegacyYamlData() {
@@ -1273,6 +1275,7 @@ public class IslandService {
     }
 
     public void ensureSpawnPlotAndSpawnPlatform() {
+        ensureSpawnIsland();
         World world = skyWorldService.getWorld();
         for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) {
             world.getBlockAt(x, SkyWorldService.SPAWN_Y, z).setType(Material.BEDROCK, false);
@@ -1282,6 +1285,44 @@ public class IslandService {
             }
         }
         world.setSpawnLocation(0, SkyWorldService.SPAWN_Y + 1, 0);
+    }
+
+    private void ensureSpawnIsland() {
+        IslandData island = islands.get(SPAWN_ISLAND_OWNER);
+        boolean created = false;
+        if (island == null) {
+            island = new IslandData(SPAWN_ISLAND_OWNER);
+            islands.put(SPAWN_ISLAND_OWNER, island);
+            created = true;
+        }
+
+        island.setGridX(0);
+        island.setGridZ(0);
+        island.setTitle("Spawn");
+        if (island.getIslandSpawn() == null) {
+            island.setIslandSpawn(getSpawnLocation());
+        }
+        if (island.getPoints() <= 0L) {
+            island.setPoints(1L);
+        }
+        if (island.getLastActiveAt() <= 0L) {
+            island.setLastActiveAt(System.currentTimeMillis());
+        }
+        island.getMasters().clear();
+        island.getIslandVisitorSettings().setTeleport(true);
+        island.getUnlockedChunks().add(chunkKey(CENTER_A, CENTER_A));
+        island.getUnlockedChunks().add(chunkKey(CENTER_A, CENTER_B));
+        island.getUnlockedChunks().add(chunkKey(CENTER_B, CENTER_A));
+        island.getUnlockedChunks().add(chunkKey(CENTER_B, CENTER_B));
+        ensureChunkTemplateGenerated(island, CENTER_A, CENTER_A);
+        ensureChunkTemplateGenerated(island, CENTER_A, CENTER_B);
+        ensureChunkTemplateGenerated(island, CENTER_B, CENTER_A);
+        ensureChunkTemplateGenerated(island, CENTER_B, CENTER_B);
+        refreshGrowthBoostTracking(island);
+        rebuildPlacementCaches(island);
+        if (created) {
+            save();
+        }
     }
 
     public IslandData getOrCreateIsland(UUID owner) {
@@ -1539,6 +1580,7 @@ public class IslandService {
 
     public String getIslandTitleDisplay(IslandData island) {
         if (island == null) return "Unbekannte Insel";
+        if (isSpawnIsland(island)) return "Spawn";
         String raw = island.getTitle();
         if (raw != null && !raw.isBlank()) return raw;
         String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
@@ -1547,6 +1589,7 @@ public class IslandService {
 
     public String getIslandWarpDisplay(IslandData island) {
         if (island == null) return "Unbekannter Warp";
+        if (isSpawnIsland(island) && (island.getWarpName() == null || island.getWarpName().isBlank())) return "Spawn";
         String raw = island.getWarpName();
         if (raw != null && !raw.isBlank()) return raw.trim();
         return getIslandTitleDisplay(island);
@@ -1567,6 +1610,7 @@ public class IslandService {
 
     public String getIslandMasterDisplay(IslandData island) {
         if (island == null) return "?";
+        if (isSpawnIsland(island)) return "Kein Master";
         String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
         String primary = ownerName == null || ownerName.isBlank() ? "?" : ownerName;
         int extraMasters = island.getMasters().size();
@@ -1575,6 +1619,7 @@ public class IslandService {
 
     public String getIslandMasterDisplay(IslandData island, long rotationStep) {
         if (island == null) return "?";
+        if (isSpawnIsland(island)) return "Kein Master";
         List<String> names = new ArrayList<>();
         String ownerName = Bukkit.getOfflinePlayer(island.getOwner()).getName();
         names.add(ownerName == null || ownerName.isBlank() ? "?" : ownerName);
@@ -1720,11 +1765,15 @@ public class IslandService {
     }
 
     public boolean isIslandMaster(IslandData island, UUID playerId) {
+        if (isSpawnIsland(island)) return false;
         return island != null && playerId != null && (island.getOwner().equals(playerId) || island.getMasters().contains(playerId));
     }
 
     public boolean isIslandOwner(IslandData island, UUID playerId) {
-        return island != null && playerId != null && (isIslandMaster(island, playerId) || island.getOwners().contains(playerId));
+        return island != null && playerId != null
+                && (isIslandMaster(island, playerId)
+                || island.getOwners().contains(playerId)
+                || (isSpawnIsland(island) && Bukkit.getOfflinePlayer(playerId).isOp()));
     }
 
     public boolean isIslandAssociated(IslandData island, UUID playerId) {
@@ -1737,6 +1786,7 @@ public class IslandService {
     }
 
     public boolean isPrimaryMaster(IslandData island, UUID playerId) {
+        if (isSpawnIsland(island)) return false;
         return island != null && playerId != null && island.getOwner().equals(playerId);
     }
 
@@ -1754,6 +1804,7 @@ public class IslandService {
 
     public boolean queueMasterInvite(IslandData island, UUID inviter, UUID target) {
         if (island == null || inviter == null || target == null) return false;
+        if (isSpawnIsland(island)) return false;
         if (!isIslandMaster(island, inviter) && !Bukkit.getOfflinePlayer(inviter).isOp()) return false;
         if (isIslandMaster(island, target)) return false;
         pendingMasterInvites.put(target, island.getOwner());
@@ -1775,6 +1826,7 @@ public class IslandService {
         if (primaryOwner == null) return false;
         IslandData island = islands.get(primaryOwner);
         if (island == null) return false;
+        if (isSpawnIsland(island)) return false;
         if (target.equals(primaryOwner)) return false;
 
         // Master darf nur auf einer Insel sein. Owner/Member auf anderen Inseln bleiben erhalten.
@@ -1798,6 +1850,7 @@ public class IslandService {
     public boolean leaveMasterRole(UUID playerId) {
         IslandData island = getIsland(playerId).orElse(null);
         if (island == null) return false;
+        if (isSpawnIsland(island)) return false;
         if (!isIslandMaster(island, playerId)) return false;
         removeMasterFromIsland(island, playerId, false);
         return true;
@@ -1805,6 +1858,7 @@ public class IslandService {
 
     public boolean leaveMasterRole(IslandData island, UUID playerId) {
         if (island == null || playerId == null) return false;
+        if (isSpawnIsland(island)) return false;
         if (!island.getMasters().contains(playerId)) return false;
         removeMasterFromIsland(island, playerId, false);
         return true;
@@ -1812,6 +1866,7 @@ public class IslandService {
 
     private IslandData removeMasterFromIsland(IslandData island, UUID playerId, boolean createReplacementForMastersIfDelete) {
         if (island == null || playerId == null) return island;
+        if (isSpawnIsland(island)) return island;
         if (island.getMasters().remove(playerId)) {
             island.setLastActiveAt(System.currentTimeMillis());
             save();
@@ -1962,7 +2017,7 @@ public class IslandService {
 
     public IslandData getIslandAt(Location location) {
         if (location == null || location.getWorld() == null || !skyWorldService.isSkyCityWorld(location.getWorld())) return null;
-        if (isInSpawnPlot(location)) return null;
+        if (isInSpawnPlot(location)) return islands.get(SPAWN_ISLAND_OWNER);
         int gridX = gridXFromLocation(location);
         int gridZ = gridZFromLocation(location);
         for (IslandData island : islands.values()) {
@@ -2041,6 +2096,7 @@ public class IslandService {
     }
 
     public boolean canInviteMaster(IslandData island, UUID actor) {
+        if (isSpawnIsland(island)) return false;
         return isIslandMaster(island, actor);
     }
 
@@ -2049,6 +2105,7 @@ public class IslandService {
     }
 
     public boolean canRemoveOwner(IslandData island, UUID actor) {
+        if (isSpawnIsland(island)) return isIslandOwner(island, actor);
         return isIslandMaster(island, actor);
     }
 
@@ -2156,10 +2213,12 @@ public class IslandService {
     }
 
     public boolean isChunkUnlocked(IslandData island, Location location) {
+        if (isSpawnIsland(island)) return true;
         return isChunkUnlocked(island, relativeChunkX(island, location.getChunk().getX()), relativeChunkZ(island, location.getChunk().getZ()));
     }
 
     public boolean isChunkUnlocked(IslandData island, int relX, int relZ) {
+        if (isSpawnIsland(island)) return true;
         if (relX < 0 || relX >= ISLAND_CHUNKS || relZ < 0 || relZ >= ISLAND_CHUNKS) return false;
         return island.getUnlockedChunks().contains(chunkKey(relX, relZ));
     }
@@ -2177,7 +2236,7 @@ public class IslandService {
         if (relX < 0 || relX >= ISLAND_CHUNKS || relZ < 0 || relZ >= ISLAND_CHUNKS) return ChunkUnlockResult.OUT_OF_BOUNDS;
         String key = chunkKey(relX, relZ);
         if (island.getUnlockedChunks().contains(key)) return ChunkUnlockResult.ALREADY_UNLOCKED;
-        if (island.getAvailableChunkUnlocks() <= 0) return ChunkUnlockResult.NO_UNLOCKS_LEFT;
+        if (!isSpawnIsland(island) && island.getAvailableChunkUnlocks() <= 0) return ChunkUnlockResult.NO_UNLOCKS_LEFT;
 
         Set<UUID> requiredNeighbors = getRequiredNeighborApprovals(island, relX, relZ);
         if (!requiredNeighbors.isEmpty()) {
@@ -2195,7 +2254,9 @@ public class IslandService {
         }
 
         island.getUnlockedChunks().add(key);
-        island.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks() - 1);
+        if (!isSpawnIsland(island)) {
+            island.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks() - 1);
+        }
         ensureChunkTemplateGenerated(island, relX, relZ);
         pendingBorderUnlockRequests.remove(borderRequestKey(island.getOwner(), relX, relZ));
         island.setLastActiveAt(System.currentTimeMillis());
@@ -2273,7 +2334,9 @@ public class IslandService {
     private UUID findRequiredNeighborOwnerForApprover(Set<UUID> requiredNeighborOwners, UUID approver) {
         for (UUID neighborOwner : requiredNeighborOwners) {
             IslandData neighborIsland = islands.get(neighborOwner);
-            if (neighborIsland != null && isIslandMaster(neighborIsland, approver)) {
+            if (neighborIsland != null
+                    && (isIslandMaster(neighborIsland, approver)
+                    || (isSpawnIsland(neighborIsland) && isIslandOwner(neighborIsland, approver)))) {
                 return neighborOwner;
             }
         }
@@ -4185,7 +4248,7 @@ public class IslandService {
         if (island == null || !isChunkUnlocked(island, relChunkX, relChunkZ)) return false;
         if (isChunkNightVisionEnabled(island, relChunkX, relChunkZ)) return false;
         long cost = getNightVisionCost(false);
-        if (!spendStoredExperience(island, cost)) return false;
+        if (!isSpawnIsland(island) && !spendStoredExperience(island, cost)) return false;
         island.getNightVisionChunks().add(chunkKey(relChunkX, relChunkZ));
         island.setLastActiveAt(System.currentTimeMillis());
         save();
@@ -4194,7 +4257,7 @@ public class IslandService {
 
     public boolean buyParcelNightVision(IslandData island, ParcelData parcel, UUID actor) {
         if (!isParcelOwner(island, parcel, actor) || parcel == null || parcel.isNightVisionEnabled()) return false;
-        if (!spendStoredExperience(island, getNightVisionCost(false))) return false;
+        if (!isSpawnIsland(island) && !spendStoredExperience(island, getNightVisionCost(false))) return false;
         parcel.setNightVisionEnabled(true);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
@@ -4308,7 +4371,7 @@ public class IslandService {
     public boolean buyIslandNightVision(IslandData island) {
         if (island == null || island.isIslandNightVisionEnabled()) return false;
         long cost = getNightVisionCost(true);
-        if (!spendStoredExperience(island, cost)) return false;
+        if (!isSpawnIsland(island) && !spendStoredExperience(island, cost)) return false;
         island.setIslandNightVisionEnabled(true);
         island.setLastActiveAt(System.currentTimeMillis());
         save();
@@ -4467,7 +4530,7 @@ public class IslandService {
         long cost = getGrowthBoostCost(tier);
         long duration = getGrowthBoostDurationMillis(tier);
         if (cost <= 0L || duration <= 0L) return false;
-        if (!spendStoredExperience(island, cost)) return false;
+        if (!isSpawnIsland(island) && !spendStoredExperience(island, cost)) return false;
         String key = chunkKey(relChunkX, relChunkZ);
         long now = System.currentTimeMillis();
         long base = Math.max(now, island.getGrowthBoostUntil().getOrDefault(key, now));
@@ -4528,6 +4591,7 @@ public class IslandService {
     }
 
     public Location getSpawnLocation() { return new Location(skyWorldService.getWorld(), 0.5, SkyWorldService.SPAWN_Y + 1, 0.5); }
+    public boolean isSpawnIsland(IslandData island) { return island != null && SPAWN_ISLAND_OWNER.equals(island.getOwner()); }
     public ItemStack createPlotWand() {
         ItemStack wand = new ItemStack(Material.STICK);
         ItemMeta meta = wand.getItemMeta();
@@ -4651,6 +4715,7 @@ public class IslandService {
 
     public int getCurrentUpgradeLimit(IslandData island, UpgradeBranch branch) {
         if (island == null || branch == null) return 0;
+        if (isSpawnIsland(island)) return Integer.MAX_VALUE;
         return branch.baseLimit() + (getUpgradeTier(island, branch) * branch.step());
     }
 
@@ -4689,6 +4754,7 @@ public class IslandService {
 
     public UpgradeRequirement getNextUpgradeRequirement(IslandData island, UpgradeBranch branch) {
         if (island == null || branch == null) return null;
+        if (isSpawnIsland(island)) return null;
         int nextTier = getUpgradeTier(island, branch) + 1;
         if (nextTier > getUnlockedUpgradeTierCap(island, branch)) return null;
         if (nextTier > branch.maxTier()) return null;
@@ -4820,6 +4886,7 @@ public class IslandService {
     }
 
     public boolean unlockUpgrade(IslandData island, UpgradeBranch branch) {
+        if (isSpawnIsland(island)) return false;
         UpgradeRequirement requirement = getNextUpgradeRequirement(island, branch);
         if (requirement == null || !canUnlockUpgrade(island, branch)) return false;
         for (Map.Entry<Material, Integer> entry : requirement.materials().entrySet()) {
@@ -4836,6 +4903,7 @@ public class IslandService {
     }
 
     public boolean canLevelUp(IslandData island) {
+        if (isSpawnIsland(island)) return false;
         MilestoneRequirement next = getNextMilestoneRequirement(island);
         if (next == null) return false;
         if (calculateIslandLevel(island) < next.islandLevel()) return false;
@@ -4847,6 +4915,7 @@ public class IslandService {
     }
 
     public boolean levelUp(IslandData island) {
+        if (isSpawnIsland(island)) return false;
         MilestoneRequirement next = getNextMilestoneRequirement(island);
         if (next == null || !canLevelUp(island)) return false;
         for (Map.Entry<Material, Integer> req : next.materials().entrySet()) {
@@ -4866,6 +4935,7 @@ public class IslandService {
 
     public MilestoneRequirement getNextMilestoneRequirement(IslandData island) {
         if (island == null) return null;
+        if (isSpawnIsland(island)) return null;
         IslandLevelDefinition next = getNextLevelDef(island);
         if (next == null) return null;
         int milestone = Math.max(0, next.getLevel() - 1);
@@ -5881,8 +5951,7 @@ public class IslandService {
 
     public Optional<IslandData> findIslandByCoreLocation(Location location) {
         return islands.values().stream()
-                .filter(i -> i.getCoreLocation() != null)
-                .filter(i -> sameBlock(i.getCoreLocation(), location))
+                .filter(i -> i.getCoreLocations().stream().anyMatch(coreLocation -> sameBlock(coreLocation, location)))
                 .findFirst();
     }
 
@@ -6140,6 +6209,7 @@ public class IslandService {
                 .put("spawn", locationDocument(island.getIslandSpawn()))
                 .put("warp", locationDocument(island.getWarpLocation()))
                 .put("core", locationDocument(island.getCoreLocation()))
+                .put("cores", island.getCoreLocations().stream().map(this::locationDocument).toList())
                 .put("memberBuildAccess", stringify(island.getMemberBuildAccess()))
                 .put("memberContainerAccess", stringify(island.getMemberContainerAccess()))
                 .put("memberRedstoneAccess", stringify(island.getMemberRedstoneAccess()))
@@ -6294,6 +6364,12 @@ public class IslandService {
         island.setIslandSpawn(locationFromDocument(document.get("spawn", Document.class)));
         island.setWarpLocation(locationFromDocument(document.get("warp", Document.class)));
         island.setCoreLocation(locationFromDocument(document.get("core", Document.class)));
+        List<Document> coreDocuments = (List<Document>) document.get("cores", List.class);
+        if (coreDocuments != null) {
+            for (Document coreDocument : coreDocuments) {
+                island.addCoreLocation(locationFromDocument(coreDocument));
+            }
+        }
         addUuidStrings((List<String>) document.get("memberBuildAccess", List.class), island.getMemberBuildAccess());
         addUuidStrings((List<String>) document.get("trusted", List.class), island.getMemberBuildAccess());
         addUuidStrings((List<String>) document.get("memberContainerAccess", List.class), island.getMemberContainerAccess());

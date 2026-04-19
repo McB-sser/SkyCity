@@ -323,7 +323,11 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
         switch (event.getRawSlot()) {
-            case 4 -> player.openInventory(coreService.createCoreMenu(player, island));
+            case 4 -> {
+                if (!islandService.isSpawnIsland(island)) {
+                    player.openInventory(coreService.createCoreMenu(player, island));
+                }
+            }
             case 20 -> player.openInventory(coreService.createIslandSettingsMenu(player, island));
             case 22 -> player.openInventory(coreService.createChunkSettingsMenu(player, island));
             case 24 -> player.openInventory(coreService.createParcelsMenu(player, island));
@@ -519,6 +523,10 @@ public class CoreMenuListener implements Listener {
         if (event.getRawSlot() != 22 && isDecorativePane(event.getCurrentItem())) return;
         switch (event.getRawSlot()) {
             case 11 -> {
+                if (islandService.isSpawnIsland(island)) {
+                    player.openInventory(coreService.createPermissionsHubMenu(player, island));
+                    return;
+                }
                 boolean canOpenMasterMenu = islandService.isIslandOwner(island, player.getUniqueId())
                         || islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null
                         || player.isOp();
@@ -538,6 +546,12 @@ public class CoreMenuListener implements Listener {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null || !islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) return;
+        if (islandService.isSpawnIsland(island) && "MASTER".equals(holder.role())) {
+            if (event.getRawSlot() == 22) {
+                player.openInventory(coreService.createPermissionsHubMenu(player, island));
+            }
+            return;
+        }
         if (event.getClickedInventory() == null || !event.getClickedInventory().equals(event.getView().getTopInventory())) return;
         if (event.getRawSlot() != 22 && (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)) return;
         if (event.getRawSlot() != 22 && isDecorativePane(event.getCurrentItem())) return;
@@ -1003,28 +1017,29 @@ public class CoreMenuListener implements Listener {
                 }
                 if (event.getClick() == ClickType.SHIFT_RIGHT) {
                     long cost = islandService.getBiomeChangeCost(true);
-                    if (island.getStoredExperience() < cost) {
+                    if (!islandService.isSpawnIsland(island) && island.getStoredExperience() < cost) {
                         player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                         return;
                     }
-                    if (!islandService.spendStoredExperience(island, cost)) {
+                    if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
                         player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung.");
                         return;
                     }
                     int changed = islandService.setBiomeForIsland(island, biome, true);
                     player.sendMessage(ChatColor.GREEN + "Biom gesetzt: " + coreService.biomeDisplayNameDe(biome)
-                            + " f\u00fcr " + changed + " freigeschaltete Chunks. Kosten: " + cost);
+                            + " f\u00fcr " + changed + " freigeschaltete Chunks."
+                            + (islandService.isSpawnIsland(island) ? "" : " Kosten: " + cost));
                 } else {
                     if (!islandService.isChunkUnlocked(island, holder.relChunkX(), holder.relChunkZ())) {
                         player.sendMessage(ChatColor.RED + "Ziel-Chunk ist gesperrt.");
                         return;
                     }
                     long cost = islandService.getBiomeChangeCost(false);
-                    if (island.getStoredExperience() < cost) {
+                    if (!islandService.isSpawnIsland(island) && island.getStoredExperience() < cost) {
                         player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                         return;
                     }
-                    if (!islandService.spendStoredExperience(island, cost)) {
+                    if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
                         player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung.");
                         return;
                     }
@@ -1032,7 +1047,8 @@ public class CoreMenuListener implements Listener {
                     int displayX = islandService.displayChunkX(holder.relChunkX());
                     int displayZ = islandService.displayChunkZ(holder.relChunkZ());
                     player.sendMessage(ChatColor.GREEN + "Biom gesetzt: " + coreService.biomeDisplayNameDe(biome)
-                            + " f\u00fcr Chunk " + displayX + ":" + displayZ + ". Kosten: " + cost);
+                            + " f\u00fcr Chunk " + displayX + ":" + displayZ + "."
+                            + (islandService.isSpawnIsland(island) ? "" : " Kosten: " + cost));
                 }
                 triggerBiomeVisualReload(player, coreService.createBiomeMenu(player, island, holder.page(), holder.relChunkX(), holder.relChunkZ(), holder.returnPage()));
                 return;
@@ -1134,12 +1150,12 @@ public class CoreMenuListener implements Listener {
             return;
         }
         long cost = islandService.getTimeModeChangeCost();
-        if (!islandService.spendStoredExperience(island, cost)) {
+        if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
         islandService.setIslandTimeMode(island, target);
-        player.sendMessage(ChatColor.GREEN + "Zeitmodus gesetzt: " + islandService.islandTimeModeLabel(target) + " (Kosten: " + cost + ")");
+        player.sendMessage(ChatColor.GREEN + "Zeitmodus gesetzt: " + islandService.islandTimeModeLabel(target) + (islandService.isSpawnIsland(island) ? "" : " (Kosten: " + cost + ")"));
         player.openInventory(coreService.createTimeModeShopMenu(island, holder.backTarget()));
     }
 
@@ -1174,7 +1190,7 @@ public class CoreMenuListener implements Listener {
                 return;
             }
             long cost = islandService.getWeatherModeChangeCost();
-            if (!islandService.spendStoredExperience(island, cost)) {
+            if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
                 player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
                 return;
             }
@@ -1182,7 +1198,7 @@ public class CoreMenuListener implements Listener {
             if (snowTarget == IslandService.SnowWeatherMode.BLOCK) {
                 islandService.clearWeatherSnowForIsland(island);
             }
-            player.sendMessage(ChatColor.GREEN + "Schnee-Modus gesetzt: " + islandService.snowWeatherModeLabel(snowTarget) + " (Kosten: " + cost + ")");
+            player.sendMessage(ChatColor.GREEN + "Schnee-Modus gesetzt: " + islandService.snowWeatherModeLabel(snowTarget) + (islandService.isSpawnIsland(island) ? "" : " (Kosten: " + cost + ")"));
             player.openInventory(coreService.createWeatherShopMenu(island, holder.backTarget()));
             return;
         }
@@ -1194,12 +1210,12 @@ public class CoreMenuListener implements Listener {
             return;
         }
         long cost = islandService.getWeatherModeChangeCost();
-        if (!islandService.spendStoredExperience(island, cost)) {
+        if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
             return;
         }
         islandService.setIslandWeatherMode(island, target);
-        player.sendMessage(ChatColor.GREEN + "Wetter gesetzt: " + islandService.islandWeatherModeLabel(target) + " (Kosten: " + cost + ")");
+        player.sendMessage(ChatColor.GREEN + "Wetter gesetzt: " + islandService.islandWeatherModeLabel(target) + (islandService.isSpawnIsland(island) ? "" : " (Kosten: " + cost + ")"));
         player.openInventory(coreService.createWeatherShopMenu(island, holder.backTarget()));
     }
 
@@ -1221,7 +1237,7 @@ public class CoreMenuListener implements Listener {
                 player.sendMessage(ChatColor.RED + "Chunk-Nachtsicht konnte nicht gekauft werden.");
                 return;
             }
-            player.sendMessage(ChatColor.GREEN + "Chunk-Nachtsicht aktiviert. Kosten: " + cost);
+            player.sendMessage(ChatColor.GREEN + "Chunk-Nachtsicht aktiviert." + (islandService.isSpawnIsland(island) ? "" : " Kosten: " + cost));
             player.openInventory(coreService.createNightVisionShopMenu(player, island));
             return;
         }
@@ -1234,7 +1250,7 @@ public class CoreMenuListener implements Listener {
                 player.sendMessage(ChatColor.RED + "Inselweite Nachtsicht konnte nicht gekauft werden.");
                 return;
             }
-            player.sendMessage(ChatColor.GREEN + "Inselweite Nachtsicht aktiviert. Kosten: " + cost);
+            player.sendMessage(ChatColor.GREEN + "Inselweite Nachtsicht aktiviert." + (islandService.isSpawnIsland(island) ? "" : " Kosten: " + cost));
             player.openInventory(coreService.createNightVisionShopMenu(player, island));
             return;
         }
@@ -1268,7 +1284,9 @@ public class CoreMenuListener implements Listener {
         if (player.isOp() || islandService.isIslandOwner(island, player.getUniqueId())) {
             return true;
         }
-        player.sendMessage(ISLAND_SHOP_PERMISSION_MESSAGE);
+        player.sendMessage(islandService.isSpawnIsland(island)
+                ? ChatColor.RED + "Als Member kannst du am Spawn-Shop nichts \u00e4ndern. Nur Owner."
+                : ISLAND_SHOP_PERMISSION_MESSAGE);
         return false;
     }
 

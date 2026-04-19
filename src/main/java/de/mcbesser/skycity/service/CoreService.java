@@ -602,8 +602,8 @@ public class CoreService {
    }
 
    public void ensureCorePlaced(IslandData island) {
-      if (island.getCoreLocation() != null) {
-         Block b = island.getCoreLocation().getBlock();
+      for (Location coreLocation : this.getTrackedCoreLocations(island)) {
+         Block b = coreLocation.getBlock();
          if (b.getType().isAir()) {
             b.setType(Material.SHULKER_BOX, false);
          }
@@ -1090,7 +1090,11 @@ public class CoreService {
    public Inventory createIslandMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(island.getOwner()), 54, "SkyCity Insel");
       this.fillWithPanes(inv);
-      inv.setItem(4, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank", ChatColor.YELLOW + "Klick = Core \u00f6ffnen")));
+      if (this.islandService.isSpawnIsland(island)) {
+         inv.setItem(4, this.named(Material.BARRIER, ChatColor.RED + "Kein Tech-Tree", List.of(ChatColor.GRAY + "Am Spawn gibt es keinen Core,", ChatColor.GRAY + "keine Upgrades und keine Master-Rechte.")));
+      } else {
+         inv.setItem(4, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank", ChatColor.YELLOW + "Klick = Core \u00f6ffnen")));
+      }
       inv.setItem(20, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel", List.of(ChatColor.GRAY + "Spawn, Titel und Rechte", ChatColor.YELLOW + "Klick = Inselmen\u00fc")));
       inv.setItem(22, this.named(Material.MAP, ChatColor.YELLOW + "Chunks", List.of(ChatColor.GRAY + "Freischalten, Karte, Grenzen", ChatColor.YELLOW + "Klick = Chunkmen\u00fc")));
       inv.setItem(24, this.named(Material.NAME_TAG, ChatColor.GOLD + "Grundst\u00fccke", List.of(ChatColor.GRAY + "GS, Rechte, Bans, PvP", ChatColor.YELLOW + "Klick = Grundst\u00fccks-Men\u00fc")));
@@ -1439,12 +1443,15 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new IslandSettingsInventoryHolder(island.getOwner()), 54, "Insel");
       this.fillWithPanes(inv);
       boolean canManagePermissions = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || viewer.isOp());
+      String permissionLore = this.islandService.isSpawnIsland(island)
+         ? ChatColor.GRAY + "Owner und Member verwalten"
+         : ChatColor.GRAY + "Master, Owner und Member verwalten";
       if (System.currentTimeMillis() >= 0L) {
          inv.setItem(11, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
          inv.setItem(13, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
          inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
          if (canManagePermissions) {
-            inv.setItem(29, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
+            inv.setItem(29, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(permissionLore)));
          }
          inv.setItem(31, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
          inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
@@ -1547,7 +1554,10 @@ public class CoreService {
       int displayX = this.islandService.displayChunkX(relX);
       int displayZ = this.islandService.displayChunkZ(relZ);
       boolean currentUnlocked = this.islandService.isChunkUnlocked(island, relX, relZ);
-      inv.setItem(11, this.named(currentUnlocked ? Material.LIME_DYE : Material.TRIPWIRE_HOOK, (currentUnlocked ? ChatColor.GREEN : ChatColor.YELLOW) + "Aktuellen Chunk freischalten", List.of(ChatColor.GRAY + "Chunk: " + displayX + ":" + displayZ, ChatColor.GRAY + "Status: " + (currentUnlocked ? "bereits frei" : "gesperrt"), ChatColor.GRAY + "Freie Unlocks: " + island.getAvailableChunkUnlocks())));
+      String unlockLore = this.islandService.isSpawnIsland(island)
+         ? ChatColor.GRAY + "Freischaltung: " + ChatColor.WHITE + "manuell, ohne Kosten"
+         : ChatColor.GRAY + "Freie Unlocks: " + island.getAvailableChunkUnlocks();
+      inv.setItem(11, this.named(currentUnlocked ? Material.LIME_DYE : Material.TRIPWIRE_HOOK, (currentUnlocked ? ChatColor.GREEN : ChatColor.YELLOW) + "Aktuellen Chunk freischalten", List.of(ChatColor.GRAY + "Chunk: " + displayX + ":" + displayZ, ChatColor.GRAY + "Status: " + (currentUnlocked ? "bereits frei" : "gesperrt"), unlockLore)));
       inv.setItem(13, this.named(Material.MAP, ChatColor.YELLOW + "Chunk-Karte", List.of(ChatColor.GRAY + "\u00dcbersicht \u00fcber 64x64 Chunks")));
       inv.setItem(15, this.named(Material.BLAZE_POWDER, ChatColor.AQUA + "Chunkgrenzen anzeigen", List.of(ChatColor.GRAY + "Partikel an Chunkr\u00e4ndern", ChatColor.YELLOW + "Klick = an/aus umschalten")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
@@ -1617,6 +1627,10 @@ public class CoreService {
             }
 
             IslandData target = targetOptional.get();
+            if (this.islandService.isSpawnIsland(target)) {
+               inv.setItem(slot, this.named(Material.RED_WOOL, ChatColor.RED + "Spawn", List.of(ChatColor.GRAY + "Position: 0:0", ChatColor.GRAY + "Spawn-Insel mit Chunk-Unlocks, Rechten und Grundst\u00fccken")));
+               continue;
+            }
             boolean own = island != null && target.getOwner().equals(island.getOwner());
             boolean canTeleport = this.islandService.canTeleportToIsland(target, viewer.getUniqueId());
             Material material = own ? Material.LIME_WOOL : (canTeleport ? Material.ORANGE_WOOL : Material.RED_WOOL);
@@ -1649,9 +1663,11 @@ public class CoreService {
       int displayX = this.islandService.displayChunkX(relX);
       int displayZ = this.islandService.displayChunkZ(relZ);
       long stored = Math.max(0L, island.getStoredExperience());
+      boolean freeShop = this.islandService.isSpawnIsland(island);
       int activeTier = this.islandService.getGrowthBoostTier(island, relX, relZ);
       long remainingMs = this.islandService.getGrowthBoostRemainingMillis(island, relX, relZ);
       String activeBoost = activeTier <= 0 ? "kein Boost" : ("Stufe " + activeTier + " (" + this.formatMillisShort(remainingMs) + ")");
+      String shopRoleText = freeShop ? ChatColor.GRAY + "Nur Owner" : ChatColor.GRAY + "Nur Master oder Owner";
       Inventory inv = Bukkit.createInventory(new IslandShopInventoryHolder(island.getOwner(), relX, relZ), 45, "Insel-Shop");
       this.fillWithPanes(inv);
       inv.setItem(
@@ -1659,7 +1675,9 @@ public class CoreService {
          this.named(
             Material.EXPERIENCE_BOTTLE,
             ChatColor.AQUA + "Core-Erfahrung",
-            List.of(ChatColor.GRAY + "Gespeichert: " + ChatColor.WHITE + stored)
+            freeShop
+               ? List.of(ChatColor.GRAY + "Am Spawn sind Shop-Funktionen kostenlos.")
+               : List.of(ChatColor.GRAY + "Gespeichert: " + ChatColor.WHITE + stored)
          )
       );
       inv.setItem(9, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Umgebung", List.of(ChatColor.GRAY + "Biom, Wetter und Zeit")));
@@ -1669,42 +1687,42 @@ public class CoreService {
       inv.setItem(
          10,
          this.named(
-            Material.GRASS_BLOCK,
-            ChatColor.GREEN + "Biom umstellen",
-            List.of(
-               ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + biomeChunkCost,
-               ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + biomeIslandCost,
-               ChatColor.GRAY + "Nur Master oder Owner",
-               ChatColor.YELLOW + "Klick = Biom-Men\u00fc \u00f6ffnen"
-            )
+               Material.GRASS_BLOCK,
+               ChatColor.GREEN + "Biom umstellen",
+               List.of(
+                  ChatColor.GRAY + (freeShop ? "Kosten Chunk: " + ChatColor.GREEN + "kostenlos" : "Kosten Chunk: " + ChatColor.WHITE + biomeChunkCost),
+                  ChatColor.GRAY + (freeShop ? "Kosten Inselweit: " + ChatColor.GREEN + "kostenlos" : "Kosten Inselweit: " + ChatColor.WHITE + biomeIslandCost),
+                  shopRoleText,
+                  ChatColor.YELLOW + "Klick = Biom-Men\u00fc \u00f6ffnen"
+               )
          )
       );
       long timeCost = this.islandService.getTimeModeChangeCost();
       inv.setItem(
          14,
          this.named(
-            Material.CLOCK,
-            ChatColor.GOLD + "Zeitmodus w\u00e4hlen",
-            List.of(
-               ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(this.islandService.getIslandTimeMode(island)),
-               ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + timeCost + " Erfahrung",
-               ChatColor.YELLOW + "Klick = Modus-Shop \u00f6ffnen"
+               Material.CLOCK,
+               ChatColor.GOLD + "Zeitmodus w\u00e4hlen",
+               List.of(
+                  ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(this.islandService.getIslandTimeMode(island)),
+                  ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + timeCost + " Erfahrung"),
+                  ChatColor.YELLOW + "Klick = Modus-Shop \u00f6ffnen"
+               )
             )
-         )
       );
       inv.setItem(
          29,
          this.named(
-            Material.WHEAT,
-            ChatColor.GREEN + "Wachstumsboost Chunk " + displayX + ":" + displayZ,
-            List.of(
-               ChatColor.GRAY + "Aktiv: " + ChatColor.WHITE + activeBoost,
-               ChatColor.GRAY + "Wachstum Stufe 1: 30m, " + this.islandService.getGrowthBoostCost(1) + " XP",
-               ChatColor.GRAY + "Wachstum Stufe 2: 30m, " + this.islandService.getGrowthBoostCost(2) + " XP",
-               ChatColor.GRAY + "Wachstum Stufe 3: 30m, " + this.islandService.getGrowthBoostCost(3) + " XP",
-               ChatColor.GRAY + "Nur Master oder Owner",
-               ChatColor.YELLOW + "Linksklick: Wachstum Stufe 1",
-               ChatColor.YELLOW + "Rechtsklick: Wachstum Stufe 2",
+               Material.WHEAT,
+               ChatColor.GREEN + "Wachstumsboost Chunk " + displayX + ":" + displayZ,
+               List.of(
+                  ChatColor.GRAY + "Aktiv: " + ChatColor.WHITE + activeBoost,
+                  ChatColor.GRAY + "Wachstum Stufe 1: 30m, " + (freeShop ? "kostenlos" : this.islandService.getGrowthBoostCost(1) + " XP"),
+                  ChatColor.GRAY + "Wachstum Stufe 2: 30m, " + (freeShop ? "kostenlos" : this.islandService.getGrowthBoostCost(2) + " XP"),
+                  ChatColor.GRAY + "Wachstum Stufe 3: 30m, " + (freeShop ? "kostenlos" : this.islandService.getGrowthBoostCost(3) + " XP"),
+                  shopRoleText,
+                  ChatColor.YELLOW + "Linksklick: Wachstum Stufe 1",
+                  ChatColor.YELLOW + "Rechtsklick: Wachstum Stufe 2",
                ChatColor.YELLOW + "Shift-Rechtsklick: Wachstum Stufe 3"
             )
          )
@@ -1717,7 +1735,7 @@ public class CoreService {
             ChatColor.AQUA + "Wetter wählen",
             List.of(
                ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(this.islandService.getIslandWeatherMode(island)),
-               ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + weatherCost + " Erfahrung",
+               ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + weatherCost + " Erfahrung"),
                ChatColor.YELLOW + "Klick = Wetter-Shop öffnen"
             )
          )
@@ -1730,7 +1748,7 @@ public class CoreService {
             List.of(
                ChatColor.GRAY + "Pro Flasche: " + ChatColor.WHITE + this.islandService.getXpBottlePointsPerBottle() + " XP",
                ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getXpBottleCostPerBottle() + " XP (10% Verlust)",
-               ChatColor.GRAY + "Nur Master oder Owner",
+               shopRoleText,
                ChatColor.YELLOW + "Linksklick: 1 Flasche",
                ChatColor.YELLOW + "Shift-Klick: 16 Flaschen"
             )
@@ -1748,9 +1766,9 @@ public class CoreService {
             List.of(
                ChatColor.GRAY + "Chunk " + displayX + ":" + displayZ + ": " + ChatColor.WHITE + (chunkNightVision ? "AN" : "AUS"),
                ChatColor.GRAY + "Inselweit: " + ChatColor.WHITE + (islandNightVision ? "AN" : "AUS"),
-               ChatColor.GRAY + "Kosten Chunk: " + ChatColor.WHITE + nightVisionChunkCost,
-               ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + nightVisionIslandCost,
-               ChatColor.GRAY + "Nur Master oder Owner",
+               ChatColor.GRAY + (freeShop ? "Kosten Chunk: " + ChatColor.GREEN + "kostenlos" : "Kosten Chunk: " + ChatColor.WHITE + nightVisionChunkCost),
+               ChatColor.GRAY + (freeShop ? "Kosten Inselweit: " + ChatColor.GREEN + "kostenlos" : "Kosten Inselweit: " + ChatColor.WHITE + nightVisionIslandCost),
+               shopRoleText,
                ChatColor.YELLOW + "Klick = Nachtsicht-Shop \u00f6ffnen"
             )
          )
@@ -2743,6 +2761,13 @@ public class CoreService {
    }
 
    public Inventory createIslandMasterMenu(Player viewer, IslandData island) {
+      if (this.islandService.isSpawnIsland(island)) {
+         Inventory inv = Bukkit.createInventory(new CoreService.IslandMasterMenuInventoryHolder(island.getOwner()), 27, "Master-Rechte");
+         this.fillWithPanes(inv);
+         inv.setItem(13, this.named(Material.BARRIER, ChatColor.RED + "Kein Master am Spawn", List.of(ChatColor.GRAY + "Am Spawn werden nur Owner und Member verwaltet.")));
+         inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+         return inv;
+      }
       Inventory inv = Bukkit.createInventory(new CoreService.IslandMasterMenuInventoryHolder(island.getOwner()), 27, "Master-Rechte");
       this.fillWithPanes(inv);
       IslandData pendingInviteIsland = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId());
@@ -2810,11 +2835,12 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new PermissionsHubInventoryHolder(island.getOwner()), 27, "Berechtigungen");
       this.fillWithPanes(inv);
       boolean isOp = viewer != null && viewer.isOp();
+      boolean spawnIsland = this.islandService.isSpawnIsland(island);
       boolean canOpenMasterMenu = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null || isOp);
       boolean canInviteMasters = viewer != null && (this.islandService.canInviteMaster(island, viewer.getUniqueId()) || viewer.isOp());
       boolean canAddOwners = viewer != null && (this.islandService.canAddOwner(island, viewer.getUniqueId()) || viewer.isOp());
       boolean canManageMembers = viewer != null && (this.islandService.canManageMembers(island, viewer.getUniqueId()) || viewer.isOp());
-      if (canOpenMasterMenu) inv.setItem(11, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladungen annehmen oder als Master verwalten")));
+      if (!spawnIsland && canOpenMasterMenu) inv.setItem(11, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladungen annehmen oder als Master verwalten")));
       if (canAddOwners) inv.setItem(13, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner verwalten")));
       if (canManageMembers) inv.setItem(15, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Member-Rechte", List.of(ChatColor.GRAY + "Member verwalten")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Insel-Einstellungen")));
@@ -2825,6 +2851,11 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new PermissionsActionInventoryHolder(island.getOwner(), role), 27, role + " verwalten");
       this.fillWithPanes(inv);
       boolean isOp = viewer != null && viewer.isOp();
+      if (this.islandService.isSpawnIsland(island) && "MASTER".equals(role)) {
+         inv.setItem(13, this.named(Material.BARRIER, ChatColor.RED + "Kein Master am Spawn", List.of(ChatColor.GRAY + "Nutze stattdessen Owner- oder Member-Rechte.")));
+         inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Berechtigungen")));
+         return inv;
+      }
       boolean canAdd = viewer != null && switch (role) {
          case "MASTER" -> this.islandService.canInviteMaster(island, viewer.getUniqueId()) || isOp;
          case "OWNER" -> this.islandService.canAddOwner(island, viewer.getUniqueId()) || isOp;
@@ -3670,21 +3701,22 @@ public class CoreService {
    }
 
    private void updateDisplays(IslandData island) {
-      if (island.getCoreLocation() != null && island.getCoreLocation().getWorld() != null) {
-         this.processCoreShulkerBuffer(island);
-         Location coreTop = island.getCoreLocation().clone().add(0.5, 1.51, 0.5);
-         List<String> lines = this.buildCoreDisplayLines(island);
-         Set<String> activeTags = new java.util.HashSet<>();
+      Set<String> activeTags = new java.util.HashSet<>();
+      for (Location coreLocation : this.getTrackedCoreLocations(island)) {
+         this.processCoreShulkerBuffer(island, coreLocation);
+         Location coreTop = coreLocation.clone().add(0.5, 1.51, 0.5);
+         List<String> lines = this.buildCoreDisplayLines(island, coreLocation);
          double yOffset = 0.0;
          int lineIndex = 0;
+         String toggleTag = this.coreToggleTag(coreLocation);
 
-         this.ensureCoreToggleInteraction(coreTop, "skycity_core_toggle");
-         activeTags.add("skycity_core_toggle");
+         this.ensureCoreToggleInteraction(coreTop, toggleTag);
+         activeTags.add(toggleTag);
 
          for (int i = lines.size() - 1; i >= 0; i--) {
             String line = this.sanitizeLegacyText(lines.get(i));
             if (line != null && !line.isBlank()) {
-               String tag = "skycity_core_line_" + lineIndex;
+               String tag = this.coreLineTag(coreLocation, lineIndex);
                this.ensureCoreText(coreTop.clone().add(0.0, yOffset, 0.0), tag, line);
                activeTags.add(tag);
                yOffset += 0.28;
@@ -3693,11 +3725,10 @@ public class CoreService {
                yOffset += 0.18;
             }
          }
-
-         this.removeStaleCoreDisplays(island, activeTags);
       }
+      this.removeStaleCoreDisplays(island, activeTags);
       this.updateParcelOfferDisplays(island);
-      if (island.getCoreLocation() == null || island.getCoreLocation().getWorld() == null) {
+      if (this.getTrackedCoreLocations(island).isEmpty()) {
          this.removeCoreDisplays(island);
       }
    }
@@ -3754,9 +3785,9 @@ public class CoreService {
       return lines;
    }
 
-   private void processCoreShulkerBuffer(IslandData island) {
-      if (island != null && island.getCoreLocation() != null) {
-         Block block = island.getCoreLocation().getBlock();
+   private void processCoreShulkerBuffer(IslandData island, Location coreLocation) {
+      if (island != null && coreLocation != null) {
+         Block block = coreLocation.getBlock();
          if (block.getState() instanceof ShulkerBox shulker) {
             this.processCoreShulkerInventory(shulker.getInventory(), island, null);
          }
@@ -3935,9 +3966,9 @@ public class CoreService {
       }
    }
 
-   private List<String> buildCoreDisplayLines(IslandData island) {
+   private List<String> buildCoreDisplayLines(IslandData island, Location coreLocation) {
       List<String> lines = new ArrayList<>();
-      CoreService.CoreDisplayMode mode = this.getCoreDisplayMode(island, island == null ? null : island.getCoreLocation());
+      CoreService.CoreDisplayMode mode = this.getCoreDisplayMode(island, coreLocation);
       if (mode == CoreService.CoreDisplayMode.OFF) {
          return lines;
       } else {
@@ -4660,7 +4691,7 @@ public class CoreService {
 
    public boolean handleDisplayInteraction(Player player, Entity entity) {
       if (player == null || entity == null) return false;
-      boolean isUpgradeLine = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_") || tag.equals("skycity_core_toggle"));
+      boolean isUpgradeLine = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_") || tag.startsWith("skycity_core_toggle_"));
       if (!isUpgradeLine) return false;
       IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
@@ -4739,13 +4770,89 @@ public class CoreService {
 
    public boolean handleCoreDisplayToggle(Player player, Entity entity) {
       if (player == null || entity == null) return false;
-      boolean coreToggle = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_") || tag.equals("skycity_core_toggle"));
+      boolean coreToggle = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_line_") || tag.startsWith("skycity_core_toggle_"));
       if (!coreToggle) return false;
       IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
-      CoreService.CoreDisplayMode mode = this.cycleCoreDisplayMode(island, island.getCoreLocation());
+      Location coreLocation = this.resolveCoreLocationFromEntity(entity, island);
+      CoreService.CoreDisplayMode mode = this.cycleCoreDisplayMode(island, coreLocation);
       player.sendMessage(ChatColor.LIGHT_PURPLE + "Core-Anzeige: " + ChatColor.WHITE + this.displayModeLabel(mode));
       return true;
+   }
+
+   private List<Location> getTrackedCoreLocations(IslandData island) {
+      if (island == null) {
+         return List.of();
+      }
+      Set<Location> normalized = new HashSet<>();
+      for (Location coreLocation : island.getCoreLocations()) {
+         if (coreLocation != null && coreLocation.getWorld() != null) {
+            normalized.add(new Location(coreLocation.getWorld(), coreLocation.getBlockX(), coreLocation.getBlockY(), coreLocation.getBlockZ()));
+         }
+      }
+      if (normalized.isEmpty() && island.getCoreLocation() != null && island.getCoreLocation().getWorld() != null) {
+         normalized.add(new Location(
+            island.getCoreLocation().getWorld(),
+            island.getCoreLocation().getBlockX(),
+            island.getCoreLocation().getBlockY(),
+            island.getCoreLocation().getBlockZ()
+         ));
+      }
+      return new ArrayList<>(normalized);
+   }
+
+   private String coreToggleTag(Location coreLocation) {
+      return "skycity_core_toggle_" + this.coreTagSuffix(coreLocation);
+   }
+
+   private String coreLineTag(Location coreLocation, int lineIndex) {
+      return "skycity_core_line_" + this.coreTagSuffix(coreLocation) + "_" + lineIndex;
+   }
+
+   private String coreTagSuffix(Location coreLocation) {
+      return coreLocation.getBlockX() + "_" + coreLocation.getBlockY() + "_" + coreLocation.getBlockZ();
+   }
+
+   private Location resolveCoreLocationFromEntity(Entity entity, IslandData island) {
+      if (entity == null || island == null) {
+         return island == null ? null : island.getCoreLocation();
+      }
+      for (String tag : entity.getScoreboardTags()) {
+         Location parsed = this.parseCoreLocationTag(tag, entity.getWorld());
+         if (parsed != null) {
+            return parsed;
+         }
+      }
+      return island.getCoreLocation();
+   }
+
+   private Location parseCoreLocationTag(String tag, World world) {
+      if (tag == null || world == null) {
+         return null;
+      }
+      String raw = null;
+      if (tag.startsWith("skycity_core_toggle_")) {
+         raw = tag.substring("skycity_core_toggle_".length());
+      } else if (tag.startsWith("skycity_core_line_")) {
+         raw = tag.substring("skycity_core_line_".length());
+         int lastSeparator = raw.lastIndexOf('_');
+         if (lastSeparator <= 0) {
+            return null;
+         }
+         raw = raw.substring(0, lastSeparator);
+      }
+      if (raw == null) {
+         return null;
+      }
+      String[] parts = raw.split("_");
+      if (parts.length != 3) {
+         return null;
+      }
+      try {
+         return new Location(world, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+      } catch (NumberFormatException ex) {
+         return null;
+      }
    }
 
    public boolean handleParcelOfferInteraction(Player player, Entity entity) {

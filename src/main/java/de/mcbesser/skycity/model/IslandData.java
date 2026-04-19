@@ -5,6 +5,7 @@ import org.bukkit.Material;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -15,6 +16,7 @@ public class IslandData {
     private int gridZ;
     private Location islandSpawn;
     private Location coreLocation;
+    private final Set<Location> coreLocations = new LinkedHashSet<>();
     private final Set<UUID> memberBuildAccess = new HashSet<>();
     private final Set<UUID> memberContainerAccess = new HashSet<>();
     private final Set<UUID> memberRedstoneAccess = new HashSet<>();
@@ -60,7 +62,29 @@ public class IslandData {
     public Location getIslandSpawn() { return islandSpawn; }
     public void setIslandSpawn(Location islandSpawn) { this.islandSpawn = islandSpawn; }
     public Location getCoreLocation() { return coreLocation; }
-    public void setCoreLocation(Location coreLocation) { this.coreLocation = coreLocation; }
+    public void setCoreLocation(Location coreLocation) {
+        this.coreLocation = normalizeCoreLocation(coreLocation);
+        if (this.coreLocation != null) {
+            coreLocations.add(this.coreLocation);
+        }
+    }
+    public Set<Location> getCoreLocations() { return coreLocations; }
+    public void addCoreLocation(Location coreLocation) {
+        Location normalized = normalizeCoreLocation(coreLocation);
+        if (normalized == null) return;
+        coreLocations.add(normalized);
+        if (this.coreLocation == null) {
+            this.coreLocation = normalized;
+        }
+    }
+    public void removeCoreLocation(Location coreLocation) {
+        Location normalized = normalizeCoreLocation(coreLocation);
+        if (normalized == null) return;
+        coreLocations.removeIf(existing -> sameBlock(existing, normalized));
+        if (sameBlock(this.coreLocation, normalized)) {
+            this.coreLocation = coreLocations.stream().findFirst().orElse(null);
+        }
+    }
     public Set<UUID> getMemberBuildAccess() { return memberBuildAccess; }
     public Set<UUID> getMemberContainerAccess() { return memberContainerAccess; }
     public Set<UUID> getMemberRedstoneAccess() { return memberRedstoneAccess; }
@@ -153,6 +177,20 @@ public class IslandData {
         if (remaining > 0) progress.put(key, remaining);
         else progress.remove(key);
         return taken;
+    }
+
+    private Location normalizeCoreLocation(Location location) {
+        if (location == null || location.getWorld() == null) return null;
+        return new Location(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    private boolean sameBlock(Location a, Location b) {
+        return a != null && b != null
+                && a.getWorld() != null && b.getWorld() != null
+                && a.getWorld().equals(b.getWorld())
+                && a.getBlockX() == b.getBlockX()
+                && a.getBlockY() == b.getBlockY()
+                && a.getBlockZ() == b.getBlockZ();
     }
 }
 
