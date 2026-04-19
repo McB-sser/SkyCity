@@ -2062,7 +2062,11 @@ public class CoreService {
    }
 
    public Inventory createParcelCombatMenu(IslandData island, int relX, int relZ) {
-      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      return this.createParcelCombatMenu(island, relX, relZ, null);
+   }
+
+   public Inventory createParcelCombatMenu(IslandData island, int relX, int relZ, String parcelKey) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relX, relZ, parcelKey);
       Inventory inv = Bukkit.createInventory(new ParcelCombatInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 54, "GS Kampf & Games");
       this.fillWithPanes(inv);
       if (parcel == null) {
@@ -2099,7 +2103,11 @@ public class CoreService {
    }
 
    public Inventory createParcelPlayerManagementMenu(IslandData island, int relX, int relZ) {
-      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      return this.createParcelPlayerManagementMenu(island, relX, relZ, null);
+   }
+
+   public Inventory createParcelPlayerManagementMenu(IslandData island, int relX, int relZ, String parcelKey) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relX, relZ, parcelKey);
       Inventory inv = Bukkit.createInventory(new ParcelPlayerManagementInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 45, "GS Spielerverwaltung");
       this.fillWithPanes(inv);
       if (parcel == null) {
@@ -2127,8 +2135,18 @@ public class CoreService {
       return this.islandService.getParcel(island, relX, relZ);
    }
 
+   private ParcelData resolveParcelForMenu(IslandData island, int relX, int relZ, String parcelKey) {
+      if (island == null) return null;
+      ParcelData parcel = this.islandService.getParcelByKey(island, parcelKey);
+      return parcel != null ? parcel : this.islandService.getParcel(island, relX, relZ);
+   }
+
    public Inventory createParcelShopMenu(IslandData island, int relX, int relZ) {
-      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
+      return this.createParcelShopMenu(island, relX, relZ, null);
+   }
+
+   public Inventory createParcelShopMenu(IslandData island, int relX, int relZ, String parcelKey) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relX, relZ, parcelKey);
       String title = parcel == null ? "GS-Shop" : ("GS-Shop " + this.islandService.getParcelDisplayName(parcel));
       Inventory inv = Bukkit.createInventory(new ParcelShopInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 45, title);
       this.fillWithPanes(inv);
@@ -2146,7 +2164,11 @@ public class CoreService {
    }
 
    public Inventory createParcelBiomeMenu(IslandData island, int relChunkX, int relChunkZ, int page) {
-      ParcelData parcel = this.islandService.getParcel(island, relChunkX, relChunkZ);
+      return this.createParcelBiomeMenu(island, relChunkX, relChunkZ, null, page);
+   }
+
+   public Inventory createParcelBiomeMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey, int page) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       int totalPages = Math.max(1, (int)Math.ceil((double)BIOME_OPTIONS.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
       Inventory inv = Bukkit.createInventory(new ParcelBiomeInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey(), safePage), 54, "Parcel-Biome " + (safePage + 1) + "/" + totalPages);
@@ -2177,7 +2199,11 @@ public class CoreService {
    }
 
    public Inventory createParcelTimeModeShopMenu(IslandData island, int relChunkX, int relChunkZ) {
-      ParcelData parcel = this.islandService.getParcel(island, relChunkX, relChunkZ);
+      return this.createParcelTimeModeShopMenu(island, relChunkX, relChunkZ, null);
+   }
+
+   public Inventory createParcelTimeModeShopMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       IslandService.IslandTimeMode current = this.islandService.getParcelTimeMode(parcel);
       long cost = this.islandService.getTimeModeChangeCost();
       Inventory inv = Bukkit.createInventory(new ParcelTimeModeShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Zeit");
@@ -2192,7 +2218,11 @@ public class CoreService {
    }
 
    public Inventory createParcelWeatherShopMenu(IslandData island, int relChunkX, int relChunkZ) {
-      ParcelData parcel = this.islandService.getParcel(island, relChunkX, relChunkZ);
+      return this.createParcelWeatherShopMenu(island, relChunkX, relChunkZ, null);
+   }
+
+   public Inventory createParcelWeatherShopMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       IslandService.IslandWeatherMode current = this.islandService.getParcelWeatherMode(parcel);
       long cost = this.islandService.getWeatherModeChangeCost();
       Inventory inv = Bukkit.createInventory(new ParcelWeatherShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Wetter");
@@ -2211,7 +2241,11 @@ public class CoreService {
    }
 
    public Inventory createParcelNightVisionShopMenu(IslandData island, int relChunkX, int relChunkZ) {
-      ParcelData parcel = this.islandService.getParcel(island, relChunkX, relChunkZ);
+      return this.createParcelNightVisionShopMenu(island, relChunkX, relChunkZ, null);
+   }
+
+   public Inventory createParcelNightVisionShopMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       boolean enabled = this.islandService.isParcelNightVisionEnabled(parcel);
       long cost = this.islandService.getNightVisionCost(false);
       Inventory inv = Bukkit.createInventory(new ParcelNightVisionShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Nachtsicht");
@@ -2247,8 +2281,12 @@ public class CoreService {
    }
 
    public Inventory createParcelMarketMenu(IslandData island, int relX, int relZ, boolean rentMode) {
-      ParcelData parcel = this.islandService.getParcel(island, relX, relZ);
-      Inventory inv = Bukkit.createInventory(new CoreService.ParcelMarketInventoryHolder(island.getOwner(), relX, relZ, rentMode), 36, "Plot-Markt");
+      return this.createParcelMarketMenu(island, relX, relZ, null, rentMode);
+   }
+
+   public Inventory createParcelMarketMenu(IslandData island, int relX, int relZ, String parcelKey, boolean rentMode) {
+      ParcelData parcel = this.resolveParcelForMenu(island, relX, relZ, parcelKey);
+      Inventory inv = Bukkit.createInventory(new CoreService.ParcelMarketInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey(), rentMode), 36, "Plot-Markt");
       this.fillWithPanes(inv);
       if (parcel == null) {
          inv.setItem(31, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of()));
@@ -3737,12 +3775,13 @@ public class CoreService {
       if (island == null) return;
       Set<String> activeTags = new java.util.HashSet<>();
       for (ParcelData parcel : island.getParcels().values()) {
-         if (parcel == null || parcel.getSpawn() == null || parcel.getSpawn().getWorld() == null) continue;
+         if (parcel == null) continue;
          this.islandService.expireParcelRentalIfNeeded(island, parcel);
          List<String> lines = this.buildParcelOfferDisplayLines(parcel);
          if (lines.isEmpty()) continue;
-         String parcelTagKey = parcel.getChunkKey().replace(':', '_');
-         Location base = parcel.getSpawn().clone().add(0.0, 1.8, 0.0);
+         String parcelTagKey = this.parcelOfferTagKey(island, parcel);
+         Location base = this.resolveParcelOfferDisplayBase(parcel);
+         if (base == null) continue;
          double yOffset = 0.0;
          int lineIndex = 0;
          for (int i = lines.size() - 1; i >= 0; i--) {
@@ -3759,6 +3798,33 @@ public class CoreService {
          }
       }
       this.removeStaleTaggedDisplaysInIsland(island, "skycity_parcel_offer_", activeTags);
+   }
+
+   private String parcelOfferTagKey(IslandData island, ParcelData parcel) {
+      if (island == null || parcel == null || parcel.getChunkKey() == null) {
+         return "";
+      }
+      return island.getOwner().toString().replace('-', '_') + "_" + parcel.getChunkKey().replace(':', '_');
+   }
+
+   private Location resolveParcelOfferDisplayBase(ParcelData parcel) {
+      if (parcel == null) {
+         return null;
+      }
+      Location spawn = parcel.getSpawn();
+      if (spawn != null && spawn.getWorld() != null) {
+         return spawn.clone().add(0.0, 1.8, 0.0);
+      }
+      World world = this.islandService.getSpawnLocation().getWorld();
+      if (world == null || !parcel.hasBounds()) {
+         return null;
+      }
+      return new Location(
+         world,
+         (parcel.getMinX() + parcel.getMaxX()) / 2.0 + 0.5,
+         parcel.getMaxY() + 1.8,
+         (parcel.getMinZ() + parcel.getMaxZ()) / 2.0 + 0.5
+      );
    }
 
    private List<String> buildParcelOfferDisplayLines(ParcelData parcel) {
@@ -3831,6 +3897,19 @@ public class CoreService {
       }
 
       if (display == null) {
+         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, TextDisplay.class);
+         if (tagged instanceof TextDisplay textDisplay) {
+            display = textDisplay;
+         }
+      }
+      if (interaction == null) {
+         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, Interaction.class);
+         if (tagged instanceof Interaction hitbox) {
+            interaction = hitbox;
+         }
+      }
+
+      if (display == null) {
          display = (TextDisplay)location.getWorld().spawnEntity(location, EntityType.TEXT_DISPLAY);
          display.addScoreboardTag(tag);
       }
@@ -3858,6 +3937,13 @@ public class CoreService {
             }
          } else {
             e.remove();
+         }
+      }
+
+      if (display == null) {
+         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, TextDisplay.class);
+         if (tagged instanceof TextDisplay textDisplay) {
+            display = textDisplay;
          }
       }
 
@@ -3895,6 +3981,19 @@ public class CoreService {
       }
 
       if (display == null) {
+         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, TextDisplay.class);
+         if (tagged instanceof TextDisplay textDisplay) {
+            display = textDisplay;
+         }
+      }
+      if (interaction == null) {
+         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, Interaction.class);
+         if (tagged instanceof Interaction hitbox) {
+            interaction = hitbox;
+         }
+      }
+
+      if (display == null) {
          display = (TextDisplay)location.getWorld().spawnEntity(location, EntityType.TEXT_DISPLAY);
          display.addScoreboardTag(tag);
       }
@@ -3905,6 +4004,18 @@ public class CoreService {
 
       this.configureCoreTextDisplay(display, location, text);
       this.configureCoreInteraction(interaction, location);
+   }
+
+   private Entity findTaggedEntity(World world, String tag, Class<? extends Entity> type) {
+      if (world == null || tag == null || tag.isBlank() || type == null) {
+         return null;
+      }
+      for (Entity entity : world.getEntities()) {
+         if (type.isInstance(entity) && entity.getScoreboardTags().contains(tag)) {
+            return entity;
+         }
+      }
+      return null;
    }
 
    private void configureCoreTextDisplay(TextDisplay display, Location location, String text) {
@@ -4861,10 +4972,36 @@ public class CoreService {
       if (!parcelOffer) return false;
       IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null) return false;
-      ParcelData parcel = this.islandService.getParcelAt(island, entity.getLocation());
+      ParcelData parcel = this.resolveParcelOfferParcel(island, entity);
+      if (parcel == null) {
+         parcel = this.islandService.getParcelAt(island, entity.getLocation());
+      }
       if (parcel == null) return false;
       this.sendParcelOfferInfo(player, island, parcel);
       return true;
+   }
+
+   private ParcelData resolveParcelOfferParcel(IslandData island, Entity entity) {
+      if (island == null || entity == null) {
+         return null;
+      }
+      for (String tag : entity.getScoreboardTags()) {
+         if (!tag.startsWith("skycity_parcel_offer_")) {
+            continue;
+         }
+         String suffix = tag.substring("skycity_parcel_offer_".length());
+         int lineSeparator = suffix.lastIndexOf('_');
+         if (lineSeparator <= 0) {
+            continue;
+         }
+         String parcelTagKey = suffix.substring(0, lineSeparator);
+         for (ParcelData parcel : island.getParcels().values()) {
+            if (parcelTagKey.equals(this.parcelOfferTagKey(island, parcel))) {
+               return parcel;
+            }
+         }
+      }
+      return null;
    }
 
    private void sendParcelOfferInfo(Player player, IslandData island, ParcelData parcel) {
@@ -5421,7 +5558,7 @@ public class CoreService {
       }
    }
 
-   public static record ParcelMarketInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, boolean rentMode) implements InventoryHolder {
+   public static record ParcelMarketInventoryHolder(UUID islandOwner, int relChunkX, int relChunkZ, String parcelKey, boolean rentMode) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

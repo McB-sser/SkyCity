@@ -1332,7 +1332,7 @@ public class CoreMenuListener implements Listener {
                 }
                 case 12 -> {
                     if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
-                        player.openInventory(coreService.createParcelPlayerManagementMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                        player.openInventory(coreService.createParcelPlayerManagementMenu(island, holder.relChunkX(), holder.relChunkZ(), targetParcel.getChunkKey()));
                         return;
                     }
                 }
@@ -1348,19 +1348,19 @@ public class CoreMenuListener implements Listener {
                 }
                 case 16 -> {
                     if (targetParcel != null && canUseParcelShop(player, island, targetParcel)) {
-                        player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                        player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ(), targetParcel.getChunkKey()));
                         return;
                     }
                 }
                 case 30 -> {
                     if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
-                        player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), openParcelMarketInRentMode(targetParcel)));
+                        player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), targetParcel.getChunkKey(), openParcelMarketInRentMode(targetParcel)));
                         return;
                     }
                 }
                 case 32 -> {
                     if (targetParcel != null && islandService.isParcelOwner(island, targetParcel, player.getUniqueId())) {
-                        player.openInventory(coreService.createParcelCombatMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                        player.openInventory(coreService.createParcelCombatMenu(island, holder.relChunkX(), holder.relChunkZ(), targetParcel.getChunkKey()));
                         return;
                     }
                 }
@@ -1425,14 +1425,14 @@ public class CoreMenuListener implements Listener {
             case 20 -> {
                 var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
-                    player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), openParcelMarketInRentMode(parcel)));
+                    player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), parcel.getChunkKey(), openParcelMarketInRentMode(parcel)));
                     return;
                 }
             }
             case 24 -> {
                 var parcel = targetParcel;
                 if (parcel != null && canUseParcelShop(player, island, parcel)) {
-                    player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+                    player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ(), parcel.getChunkKey()));
                     return;
                 }
             }
@@ -1621,10 +1621,10 @@ public class CoreMenuListener implements Listener {
         ParcelData parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
         if (!canUseParcelShop(player, island, parcel)) return;
         switch (event.getRawSlot()) {
-            case 10 -> player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), 0));
-            case 12 -> player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
-            case 14 -> player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
-            case 30 -> player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            case 10 -> player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), 0));
+            case 12 -> player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
+            case 14 -> player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
+            case 30 -> player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             case 40 -> player.openInventory(coreService.createParcelMenu(player, island, holder.relChunkX(), holder.relChunkZ()));
             default -> {
             }
@@ -1746,7 +1746,7 @@ public class CoreMenuListener implements Listener {
             default -> {
             }
         }
-        player.openInventory(coreService.createParcelCombatMenu(island, holder.relChunkX(), holder.relChunkZ()));
+        player.openInventory(coreService.createParcelCombatMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
     }
 
     private void handleParcelPlayerManagementMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelPlayerManagementInventoryHolder holder) {
@@ -1791,7 +1791,7 @@ public class CoreMenuListener implements Listener {
             default -> {
             }
         }
-        player.openInventory(coreService.createParcelPlayerManagementMenu(island, holder.relChunkX(), holder.relChunkZ()));
+        player.openInventory(coreService.createParcelPlayerManagementMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
     }
 
     private void handleParcelBiomeMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelBiomeInventoryHolder holder) {
@@ -1802,15 +1802,15 @@ public class CoreMenuListener implements Listener {
         if (!canUseParcelShop(player, island, parcel)) return;
         int raw = event.getRawSlot();
         if (raw == 45) {
-            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
         if (raw == 48 && holder.page() > 0) {
-            player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.page() - 1));
+            player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), holder.page() - 1));
             return;
         }
         if (raw == 50) {
-            player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.page() + 1));
+            player.openInventory(coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), holder.page() + 1));
             return;
         }
         if (raw < 0 || raw >= 45) return;
@@ -1828,7 +1828,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         player.sendMessage(ChatColor.GREEN + "Parcel-Biom gesetzt: " + coreService.biomeDisplayNameDe(biome) + " (Kosten: " + cost + ")");
-        triggerBiomeVisualReload(player, coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.page()));
+        triggerBiomeVisualReload(player, coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), holder.page()));
     }
 
     private void triggerBiomeVisualReload(Player player, org.bukkit.inventory.Inventory nextMenu) {
@@ -1850,7 +1850,7 @@ public class CoreMenuListener implements Listener {
         if (!canUseParcelShop(player, island, parcel)) return;
         int raw = event.getRawSlot();
         if (raw == 40) {
-            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
         IslandService.IslandTimeMode target = switch (raw) {
@@ -1875,7 +1875,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         player.sendMessage(ChatColor.GREEN + "Parcel-Zeit gesetzt: " + islandService.islandTimeModeLabel(target) + " (Kosten: " + cost + ")");
-        player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+        player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
     }
 
     private void handleParcelWeatherShopMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelWeatherShopInventoryHolder holder) {
@@ -1886,7 +1886,7 @@ public class CoreMenuListener implements Listener {
         if (!canUseParcelShop(player, island, parcel)) return;
         int raw = event.getRawSlot();
         if (raw == 40) {
-            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
         IslandService.IslandWeatherMode target = switch (raw) {
@@ -1919,7 +1919,7 @@ public class CoreMenuListener implements Listener {
                 islandService.clearWeatherSnowForParcel(island, parcel);
             }
             player.sendMessage(ChatColor.GREEN + "Parcel-Schnee gesetzt: " + islandService.snowWeatherModeLabel(snowTarget) + " (Kosten: " + cost + ")");
-            player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
         if (target == null) return;
@@ -1937,7 +1937,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         player.sendMessage(ChatColor.GREEN + "Parcel-Wetter gesetzt: " + islandService.islandWeatherModeLabel(target) + " (Kosten: " + cost + ")");
-        player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+        player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
     }
 
     private void handleParcelNightVisionShopMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelNightVisionShopInventoryHolder holder) {
@@ -1948,7 +1948,7 @@ public class CoreMenuListener implements Listener {
         if (!canUseParcelShop(player, island, parcel)) return;
         int raw = event.getRawSlot();
         if (raw == 40) {
-            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
         if (raw == 11) {
@@ -1958,7 +1958,7 @@ public class CoreMenuListener implements Listener {
                 return;
             }
             player.sendMessage(ChatColor.GREEN + "Parcel-Nachtsicht aktiviert. Kosten: " + cost);
-            player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
         if (raw == 29) {
@@ -1967,7 +1967,7 @@ public class CoreMenuListener implements Listener {
                 return;
             }
             player.sendMessage(ChatColor.YELLOW + "Parcel-Nachtsicht deaktiviert.");
-            player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ()));
+            player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
         }
     }
 
@@ -1990,12 +1990,12 @@ public class CoreMenuListener implements Listener {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
         if (island == null) return;
-        var parcel = islandService.getParcel(island, holder.relChunkX(), holder.relChunkZ());
+        var parcel = resolveHolderParcel(island, holder.parcelKey(), holder.relChunkX(), holder.relChunkZ());
         if (parcel == null || !islandService.isParcelOwner(island, parcel, player.getUniqueId())) return;
         boolean rentMode = holder.rentMode();
         switch (event.getRawSlot()) {
             case 10 -> {
-                player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), !rentMode));
+                player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), !rentMode));
                 return;
             }
             case 12 -> adjustParcelMarketPrice(island, parcel, player, rentMode, event, 1L);
@@ -2080,7 +2080,7 @@ public class CoreMenuListener implements Listener {
                 return;
             }
         }
-        player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), rentMode));
+        player.openInventory(coreService.createParcelMarketMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), rentMode));
     }
 
     private void adjustParcelMarketPrice(IslandData island, ParcelData parcel, Player player, boolean rentMode, InventoryClickEvent event, long step) {
