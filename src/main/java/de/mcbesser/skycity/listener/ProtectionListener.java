@@ -47,6 +47,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -455,6 +456,19 @@ public class ProtectionListener implements Listener {
         if (event.getSource().getType() == Material.FIRE || event.getBlock().getType() == Material.FIRE) {
             event.setCancelled(true);
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBlockFromTo(BlockFromToEvent event) {
+        if (!skyWorldService.isSkyCityWorld(event.getBlock().getWorld())) return;
+        Material sourceType = event.getBlock().getType();
+        Material destinationType = event.getToBlock().getType();
+        if (sourceType != Material.LAVA && sourceType != Material.LAVA_CAULDRON
+                && destinationType != Material.LAVA && destinationType != Material.LAVA_CAULDRON) {
+            return;
+        }
+        playerListener.invalidateStructureCaches(event.getBlock().getLocation(), sourceType);
+        playerListener.invalidateStructureCaches(event.getToBlock().getLocation(), sourceType);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

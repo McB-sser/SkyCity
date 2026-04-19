@@ -6224,6 +6224,7 @@ public class IslandService {
                 .put("upgradeTiers", new LinkedHashMap<>(island.getUpgradeTiers()))
                 .put("cacheBlocks", new LinkedHashMap<>(island.getCachedBlockCounts()))
                 .put("checkpointPlateYaw", new LinkedHashMap<>(island.getCheckpointPlateYaw()))
+                .put("checkpointStructures", new LinkedHashMap<>(island.getCheckpointStructures()))
                 .put("growthBoostUntil", new LinkedHashMap<>(island.getGrowthBoostUntil()))
                 .put("growthBoostTier", new LinkedHashMap<>(island.getGrowthBoostTier()));
 
@@ -6389,6 +6390,7 @@ public class IslandService {
         putIntMap((Map<String, Object>) document.get("upgradeTiers", Map.class), island.getUpgradeTiers());
         putIntMap((Map<String, Object>) document.get("cacheBlocks", Map.class), island.getCachedBlockCounts());
         putFloatMap((Map<String, Object>) document.get("checkpointPlateYaw", Map.class), island.getCheckpointPlateYaw());
+        putStringMap((Map<String, Object>) document.get("checkpointStructures", Map.class), island.getCheckpointStructures());
         putLongMap((Map<String, Object>) document.get("growthBoostUntil", Map.class), island.getGrowthBoostUntil());
         putIntMap((Map<String, Object>) document.get("growthBoostTier", Map.class), island.getGrowthBoostTier());
         List<Document> parcels = (List<Document>) document.get("parcels", List.class);
@@ -6690,6 +6692,15 @@ public class IslandService {
         if (source == null || target == null) return;
         for (Map.Entry<String, Object> entry : source.entrySet()) {
             target.put(entry.getKey(), floatValue(entry.getValue()));
+        }
+    }
+
+    private void putStringMap(Map<String, Object> source, Map<String, String> target) {
+        if (source == null || target == null) return;
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            if (entry.getValue() != null) {
+                target.put(entry.getKey(), String.valueOf(entry.getValue()));
+            }
         }
     }
 

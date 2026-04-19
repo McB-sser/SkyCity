@@ -91,7 +91,6 @@ import java.util.UUID;
 public class PlayerListener implements Listener {
     private static final long PVP_KILL_TIMEOUT_MS = 15_000L;
     private static final long LAVA_RESCUE_PROTECTION_MS = 2_000L;
-    private static final long CHECKPOINT_CACHE_TTL_MS = 60_000L;
     private static final long COMBAT_SCOREBOARD_REFRESH_MS = 1_000L;
     private static final long TEAM_SCORE_CACHE_TTL_MS = 1_000L;
     private static final int SKYCITY_NIGHT_VISION_DURATION_TICKS = Integer.MAX_VALUE;
@@ -133,7 +132,6 @@ public class PlayerListener implements Listener {
     private final Map<UUID, String> lastActivatedCheckpointKey = new HashMap<>();
     private final Map<UUID, Long> jumpPadCooldownUntil = new HashMap<>();
     private final Map<UUID, Long> jumpPadFallProtectionUntil = new HashMap<>();
-    private final Map<UUID, CheckpointIndexCache> checkpointIndexCache = new HashMap<>();
     private final Map<String, TeamScoreCache> parcelTeamScoreCache = new HashMap<>();
     private final Map<String, UUID> checkpointDisplaysByTag = new HashMap<>();
     private final Map<String, UUID> jumpPadDisplaysByTag = new HashMap<>();
@@ -151,7 +149,7 @@ public class PlayerListener implements Listener {
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
     private record CheckpointMarker(Material woolType, Material plateType, Location plateLocation) { }
-    private record CheckpointIndexCache(long builtAt, Set<String> unlockedChunks, Map<String, List<Location>> exactMatches, Map<String, List<Location>> woolMatches) { }
+    private record RegisteredCheckpoint(String parcelKey, Material woolType, Material plateType, boolean lavaProtected) { }
     private record TeamScoreCache(long builtAt, List<TeamScoreEntry> entries) { }
     private record TeamScoreEntry(Material wool, int points) { }
     private record CombatScoreboardState(String zoneKey, long refreshedAt) { }
@@ -228,7 +226,6 @@ public class PlayerListener implements Listener {
         linkedCheckpointTeleportUntil.remove(event.getPlayer().getUniqueId());
         checkpointParticleTickWindow.remove(event.getPlayer().getUniqueId());
         lastActivatedCheckpointKey.remove(event.getPlayer().getUniqueId());
-        checkpointIndexCache.remove(event.getPlayer().getUniqueId());
         jumpPadCooldownUntil.remove(event.getPlayer().getUniqueId());
         jumpPadFallProtectionUntil.remove(event.getPlayer().getUniqueId());
         parcelPvpTeamWool.remove(event.getPlayer().getUniqueId());
@@ -930,82 +927,86 @@ public class PlayerListener implements Listener {
 
     private java.util.List<Location> findMatchingCheckpointPlates(IslandData island, ParcelData regionParcel, Material woolType, Material plateType) {
         if (island == null || woolType == null || plateType == null) return new java.util.ArrayList<>();
-        CheckpointIndexCache cache = getCheckpointIndex(island);
-        String key = checkpointSearchKey(regionParcel, woolType, plateType);
-        return new java.util.ArrayList<>(cache.exactMatches().getOrDefault(key, java.util.List.of()));
+        ensureCheckpointStructureRegistry(island);
+        String parcelKey = regionParcel == null ? "island" : regionParcel.getChunkKey();
+        java.util.List<Location> matches = new java.util.ArrayList<>();
+        for (Map.Entry<String, String> entry : island.getCheckpointStructures().entrySet()) {
+            RegisteredCheckpoint checkpoint = registeredCheckpointFromString(entry.getValue());
+            if (checkpoint == null || checkpoint.lavaProtected()) continue;
+            if (!parcelKey.equals(checkpoint.parcelKey())
+                    || checkpoint.woolType() != woolType
+                    || checkpoint.plateType() != plateType) {
+                continue;
+            }
+            Location location = checkpointLocationFromKey(entry.getKey());
+            if (location != null) {
+                matches.add(location);
+            }
+        }
+        return matches;
     }
 
     private java.util.List<Location> findMatchingCheckpointPlatesByWool(IslandData island, ParcelData regionParcel, Material woolType) {
         if (island == null || woolType == null) return new java.util.ArrayList<>();
-        CheckpointIndexCache cache = getCheckpointIndex(island);
-        String key = checkpointWoolSearchKey(regionParcel, woolType);
-        return new java.util.ArrayList<>(cache.woolMatches().getOrDefault(key, java.util.List.of()));
-    }
-
-    private CheckpointIndexCache getCheckpointIndex(IslandData island) {
-        Set<String> unlockedChunks = new HashSet<>(island.getUnlockedChunks());
-        CheckpointIndexCache cached = checkpointIndexCache.get(island.getOwner());
-        long now = System.currentTimeMillis();
-        if (cached != null
-                && now - cached.builtAt() < CHECKPOINT_CACHE_TTL_MS
-                && cached.unlockedChunks().equals(unlockedChunks)) {
-            return cached;
-        }
-        CheckpointIndexCache rebuilt = buildCheckpointIndex(island, unlockedChunks, now);
-        checkpointIndexCache.put(island.getOwner(), rebuilt);
-        return rebuilt;
-    }
-
-    private CheckpointIndexCache buildCheckpointIndex(IslandData island, Set<String> unlockedChunks, long builtAt) {
-        Map<String, List<Location>> exactMatches = new HashMap<>();
-        Map<String, List<Location>> woolMatches = new HashMap<>();
-        if (island == null || skyWorldService.getWorld() == null) {
-            return new CheckpointIndexCache(builtAt, unlockedChunks, exactMatches, woolMatches);
-        }
-        for (String chunkKey : unlockedChunks) {
-            String[] parts = chunkKey.split(":");
-            if (parts.length != 2) continue;
-            int relChunkX;
-            int relChunkZ;
-            try {
-                relChunkX = Integer.parseInt(parts[0]);
-                relChunkZ = Integer.parseInt(parts[1]);
-            } catch (NumberFormatException ignored) {
+        ensureCheckpointStructureRegistry(island);
+        String parcelKey = regionParcel == null ? "island" : regionParcel.getChunkKey();
+        java.util.List<Location> matches = new java.util.ArrayList<>();
+        for (Map.Entry<String, String> entry : island.getCheckpointStructures().entrySet()) {
+            RegisteredCheckpoint checkpoint = registeredCheckpointFromString(entry.getValue());
+            if (checkpoint == null) continue;
+            if (!parcelKey.equals(checkpoint.parcelKey()) || checkpoint.woolType() != woolType) {
                 continue;
             }
-            int chunkX = islandService.plotMinChunkX(island.getGridX()) + relChunkX;
-            int chunkZ = islandService.plotMinChunkZ(island.getGridZ()) + relChunkZ;
-            org.bukkit.Chunk chunk = skyWorldService.getWorld().getChunkAt(chunkX, chunkZ);
-            int minY = chunk.getWorld().getMinHeight();
-            int maxY = chunk.getWorld().getMaxHeight();
-            for (int localX = 0; localX < 16; localX++) {
-                for (int localZ = 0; localZ < 16; localZ++) {
-                    for (int y = minY; y < maxY; y++) {
-                        Block block = chunk.getBlock(localX, y, localZ);
-                        if (!isPressurePlate(block.getType())) continue;
-                        CheckpointMarker marker = checkpointMarkerFromPlate(block);
-                        if (marker == null) continue;
-                        ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
-                        String woolKey = checkpointWoolSearchKey(parcel, marker.woolType());
-                        woolMatches.computeIfAbsent(woolKey, ignored -> new java.util.ArrayList<>()).add(marker.plateLocation());
-                        if (hasLavaDirectlyAbove(block)) continue;
-                        String exactKey = checkpointSearchKey(parcel, marker.woolType(), marker.plateType());
-                        exactMatches.computeIfAbsent(exactKey, ignored -> new java.util.ArrayList<>()).add(marker.plateLocation());
-                    }
-                }
+            Location location = checkpointLocationFromKey(entry.getKey());
+            if (location != null) {
+                matches.add(location);
             }
         }
-        return new CheckpointIndexCache(builtAt, unlockedChunks, exactMatches, woolMatches);
+        return matches;
     }
 
-    private String checkpointSearchKey(ParcelData parcel, Material woolType, Material plateType) {
-        String parcelKey = parcel == null ? "island" : parcel.getChunkKey();
-        return parcelKey + "|" + woolType.name() + "|" + plateType.name();
+    private void ensureCheckpointStructureRegistry(IslandData island) {
+        if (island == null || skyWorldService.getWorld() == null) return;
+        if (!island.getCheckpointStructures().isEmpty() || island.getCheckpointPlateYaw().isEmpty()) return;
+        boolean changed = false;
+        for (String locationKey : island.getCheckpointPlateYaw().keySet()) {
+            Location location = checkpointLocationFromKey(locationKey);
+            if (location == null) continue;
+            changed |= refreshCheckpointStructureAt(island, location.getBlock());
+        }
+        if (changed) {
+            island.setLastActiveAt(System.currentTimeMillis());
+            islandService.save();
+        }
     }
 
-    private String checkpointWoolSearchKey(ParcelData parcel, Material woolType) {
-        String parcelKey = parcel == null ? "island" : parcel.getChunkKey();
-        return parcelKey + "|" + woolType.name();
+    private RegisteredCheckpoint registeredCheckpointFromString(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String[] parts = raw.split("\\|");
+        if (parts.length != 4) return null;
+        try {
+            return new RegisteredCheckpoint(
+                    parts[0],
+                    Material.valueOf(parts[1]),
+                    Material.valueOf(parts[2]),
+                    "1".equals(parts[3]));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private Location checkpointLocationFromKey(String key) {
+        if (key == null || key.isBlank() || skyWorldService.getWorld() == null) return null;
+        String[] parts = key.split(":");
+        if (parts.length != 3) return null;
+        try {
+            int x = Integer.parseInt(parts[0]);
+            int y = Integer.parseInt(parts[1]);
+            int z = Integer.parseInt(parts[2]);
+            return new Location(skyWorldService.getWorld(), x + 0.5, y, z + 0.5);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String checkpointKey(Material woolType, Material plateType) {
@@ -1427,7 +1428,12 @@ public class PlayerListener implements Listener {
         IslandData island = islandService.getIslandAt(location);
         if (island == null) return;
         if (isCheckpointStructureMaterial(material)) {
-            checkpointIndexCache.remove(island.getOwner());
+            Location snapshot = location.clone();
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                IslandData liveIsland = islandService.getIslandAt(snapshot);
+                if (liveIsland == null || !liveIsland.getOwner().equals(island.getOwner())) return;
+                refreshCheckpointStructures(liveIsland, snapshot);
+            });
         }
         if (isTeamScoreMaterial(material)) {
             ParcelData parcel = islandService.getParcelAt(island, location);
@@ -1436,6 +1442,65 @@ public class PlayerListener implements Listener {
                 parcelTeamScoreCache.remove(parcelKey);
             }
         }
+    }
+
+    private void refreshCheckpointStructures(IslandData island, Location changedLocation) {
+        if (island == null || changedLocation == null || changedLocation.getWorld() == null) return;
+        boolean changed = false;
+        for (Block plateBlock : affectedCheckpointPlateBlocks(changedLocation)) {
+            changed |= refreshCheckpointStructureAt(island, plateBlock);
+        }
+        if (changed) {
+            island.setLastActiveAt(System.currentTimeMillis());
+            islandService.save();
+        }
+    }
+
+    private java.util.List<Block> affectedCheckpointPlateBlocks(Location changedLocation) {
+        java.util.List<Block> affected = new java.util.ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        Block baseBlock = changedLocation.getBlock();
+        for (int dy = -2; dy <= 2; dy++) {
+            Block candidate = baseBlock.getRelative(0, dy, 0);
+            String key = candidate.getX() + ":" + candidate.getY() + ":" + candidate.getZ();
+            if (seen.add(key)) {
+                affected.add(candidate);
+            }
+        }
+        return affected;
+    }
+
+    private boolean refreshCheckpointStructureAt(IslandData island, Block plateBlock) {
+        if (island == null || plateBlock == null) return false;
+        String locationKey = checkpointLocationKey(plateBlock.getLocation());
+        CheckpointMarker marker = checkpointMarkerFromPlate(plateBlock);
+        if (marker == null) {
+            return island.getCheckpointStructures().remove(locationKey) != null;
+        }
+        ParcelData parcel = islandService.getParcelAt(island, plateBlock.getLocation());
+        String serialized = serializeRegisteredCheckpoint(new RegisteredCheckpoint(
+                parcel == null ? "island" : parcel.getChunkKey(),
+                marker.woolType(),
+                marker.plateType(),
+                hasLavaDirectlyAbove(plateBlock)));
+        String previous = island.getCheckpointStructures().put(locationKey, serialized);
+        return !serialized.equals(previous);
+    }
+
+    private String serializeRegisteredCheckpoint(RegisteredCheckpoint checkpoint) {
+        if (checkpoint == null) return "";
+        return checkpoint.parcelKey()
+                + "|"
+                + checkpoint.woolType().name()
+                + "|"
+                + checkpoint.plateType().name()
+                + "|"
+                + (checkpoint.lavaProtected() ? "1" : "0");
+    }
+
+    private String checkpointLocationKey(Location location) {
+        if (location == null) return "";
+        return location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
     }
 
     private boolean isCheckpointStructureMaterial(Material material) {
