@@ -100,6 +100,7 @@ public class PlayerListener implements Listener {
     private static final String PVP_TEAM_WOOL_METADATA = "skycity_pvp_team_wool";
     private static final long JUMP_PAD_COOLDOWN_MS = 1_000L;
     private static final long JUMP_PAD_FALL_PROTECTION_MS = 10_000L;
+    private static final float MIN_MARKER_VIEW_RANGE = 64.0F;
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
     private final SkyWorldService skyWorldService;
@@ -1375,10 +1376,7 @@ public class PlayerListener implements Listener {
             if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                 display.teleport(displayLocation);
             }
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
-            display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
-            display.setItemStack(new ItemStack(Material.ENDER_EYE));
+            configureCheckpointDisplay(display);
             return;
         }
         for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
@@ -1391,18 +1389,12 @@ public class PlayerListener implements Listener {
                 if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                     display.teleport(displayLocation);
                 }
-                display.setBillboard(Display.Billboard.CENTER);
-                display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
-                display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
-                display.setItemStack(new ItemStack(Material.ENDER_EYE));
+                configureCheckpointDisplay(display);
                 return;
             }
         }
         ItemDisplay display = (ItemDisplay) location.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
-        display.setItemStack(new ItemStack(Material.ENDER_EYE));
-        display.setBillboard(Display.Billboard.CENTER);
-        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
-        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
+        configureCheckpointDisplay(display);
         display.addScoreboardTag(tag);
         checkpointDisplaysByTag.put(tag, display.getUniqueId());
     }
@@ -1536,10 +1528,7 @@ public class PlayerListener implements Listener {
             if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                 display.teleport(displayLocation);
             }
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
-            display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
-            display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
+            configureJumpPadDisplay(display);
             return;
         }
         for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
@@ -1552,18 +1541,12 @@ public class PlayerListener implements Listener {
                 if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                     display.teleport(displayLocation);
                 }
-                display.setBillboard(Display.Billboard.CENTER);
-                display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
-                display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
-                display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
+                configureJumpPadDisplay(display);
                 return;
             }
         }
         ItemDisplay display = (ItemDisplay) location.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
-        display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
-        display.setBillboard(Display.Billboard.CENTER);
-        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
-        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
+        configureJumpPadDisplay(display);
         display.addScoreboardTag(tag);
         jumpPadDisplaysByTag.put(tag, display.getUniqueId());
     }
@@ -1592,9 +1575,31 @@ public class PlayerListener implements Listener {
         return entity;
     }
 
+    private void configureCheckpointDisplay(ItemDisplay display) {
+        if (display == null) return;
+        display.setItemStack(new ItemStack(Material.ENDER_EYE));
+        display.setBillboard(Display.Billboard.CENTER);
+        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
+        display.setViewRange(resolveMarkerViewRange());
+    }
+
+    private void configureJumpPadDisplay(ItemDisplay display) {
+        if (display == null) return;
+        display.setItemStack(new ItemStack(Material.RABBIT_FOOT));
+        display.setBillboard(Display.Billboard.CENTER);
+        display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
+        display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
+        display.setViewRange(resolveMarkerViewRange());
+    }
+
+    private float resolveMarkerViewRange() {
+        return (float) Math.max(plugin.getConfig().getDouble("display.max-view-distance", MIN_MARKER_VIEW_RANGE), MIN_MARKER_VIEW_RANGE);
+    }
+
     private boolean hasNearbyDisplayViewer(Location location) {
         if (location == null || location.getWorld() == null) return false;
-        double maxDistance = plugin.getConfig().getDouble("display.max-view-distance", 64.0D);
+        double maxDistance = Math.max(plugin.getConfig().getDouble("display.max-view-distance", MIN_MARKER_VIEW_RANGE), MIN_MARKER_VIEW_RANGE);
         double maxDistanceSquared = maxDistance * maxDistance;
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player == null || !player.isOnline() || player.isDead() || player.getWorld() != location.getWorld()) {

@@ -3751,14 +3751,13 @@ public class CoreService {
          List<String> lines = this.buildCoreDisplayLines(island, coreLocation);
          double yOffset = 0.0;
          int lineIndex = 0;
+         double highestVisibleYOffset = -1.0;
          String toggleTag = this.coreToggleTag(coreLocation);
-
-         this.ensureCoreToggleInteraction(coreTop, toggleTag);
-         activeTags.add(toggleTag);
 
          for (int i = lines.size() - 1; i >= 0; i--) {
             String line = this.sanitizeLegacyText(lines.get(i));
             if (line != null && !line.isBlank()) {
+               highestVisibleYOffset = yOffset;
                String tag = this.coreLineTag(coreLocation, lineIndex);
                this.ensureCoreText(coreTop.clone().add(0.0, yOffset, 0.0), tag, line);
                activeTags.add(tag);
@@ -3767,6 +3766,12 @@ public class CoreService {
             } else {
                yOffset += 0.18;
             }
+         }
+         if (highestVisibleYOffset >= 0.0) {
+            this.ensureCoreToggleInteraction(coreTop, toggleTag, highestVisibleYOffset);
+            activeTags.add(toggleTag);
+         } else {
+            this.removeTaggedDisplayEntities(coreTop, toggleTag);
          }
       }
       this.removeStaleCoreDisplays(island, activeTags);
@@ -3789,6 +3794,7 @@ public class CoreService {
          if (base == null) continue;
          double yOffset = 0.0;
          int lineIndex = 0;
+         double highestVisibleYOffset = -1.0;
          for (int i = lines.size() - 1; i >= 0; i--) {
             String line = this.sanitizeLegacyText(lines.get(i));
             if (line == null || line.isBlank()) {
@@ -3797,9 +3803,15 @@ public class CoreService {
             }
             String tag = "skycity_parcel_offer_" + parcelTagKey + "_" + lineIndex;
             activeTags.add(tag);
-            this.ensureInteractiveFloatingText(base.clone().add(0.0, yOffset, 0.0), tag, line);
+            this.ensureFloatingText(base.clone().add(0.0, yOffset, 0.0), tag, line);
+            highestVisibleYOffset = yOffset;
             yOffset += 0.28;
             lineIndex++;
+         }
+         if (highestVisibleYOffset >= 0.0) {
+            String interactionTag = "skycity_parcel_offer_" + parcelTagKey + "_hitbox";
+            this.ensureParcelOfferInteraction(base, interactionTag, highestVisibleYOffset);
+            activeTags.add(interactionTag);
          }
       }
       this.removeStaleTaggedDisplaysInIsland(island, "skycity_parcel_offer_", activeTags);
@@ -3882,7 +3894,6 @@ public class CoreService {
          return;
       }
       TextDisplay display = null;
-      Interaction interaction = null;
 
       for (Entity e : location.getWorld().getNearbyEntities(location, 2.5, 4.0, 2.5)) {
          if (!e.getScoreboardTags().contains(tag)) {
@@ -3891,12 +3902,6 @@ public class CoreService {
          if (e instanceof TextDisplay textDisplay) {
             if (display == null) {
                display = textDisplay;
-            } else {
-               e.remove();
-            }
-         } else if (e instanceof Interaction hitbox) {
-            if (interaction == null) {
-               interaction = hitbox;
             } else {
                e.remove();
             }
@@ -3911,24 +3916,13 @@ public class CoreService {
             display = textDisplay;
          }
       }
-      if (interaction == null) {
-         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, Interaction.class);
-         if (tagged instanceof Interaction hitbox) {
-            interaction = hitbox;
-         }
-      }
 
       if (display == null) {
          display = (TextDisplay)location.getWorld().spawnEntity(location, EntityType.TEXT_DISPLAY);
          display.addScoreboardTag(tag);
       }
-      if (interaction == null) {
-         interaction = (Interaction)location.getWorld().spawnEntity(location, EntityType.INTERACTION);
-         interaction.addScoreboardTag(tag);
-      }
 
       this.configureCoreTextDisplay(display, location, text);
-      this.configureCoreInteraction(interaction, location);
    }
 
    private void ensureFloatingText(Location location, String tag, String text) {
@@ -4020,7 +4014,7 @@ public class CoreService {
       }
 
       this.configureCoreTextDisplay(display, location, text);
-      this.configureCoreInteraction(interaction, location);
+      this.configureDisplayInteraction(interaction, location.clone().add(0.0D, -0.03D, 0.0D), 0.32F);
    }
 
    private Entity findTaggedEntity(World world, String tag, Class<? extends Entity> type) {
@@ -4088,23 +4082,26 @@ public class CoreService {
       }
    }
 
-   private void configureCoreInteraction(Interaction interaction, Location location) {
+   private void configureDisplayInteraction(Interaction interaction, Location location, float height) {
       interaction.setPersistent(false);
       interaction.setInteractionWidth(0.95F);
-      interaction.setInteractionHeight(0.25F);
+      interaction.setInteractionHeight(height);
       if (interaction.getLocation().distanceSquared(location) > 1.0E-4D) {
          interaction.teleport(location);
       }
    }
 
-   private void ensureCoreToggleInteraction(Location location, String tag) {
+   private void ensureCoreToggleInteraction(Location location, String tag, double highestVisibleYOffset) {
       if (!this.hasNearbyDisplayViewer(location)) {
          this.removeTaggedDisplayEntities(location, tag);
          return;
       }
+      double verticalSpan = Math.max(0.0D, highestVisibleYOffset);
+      float interactionHeight = (float)(verticalSpan + 0.28D);
+      Location interactionLocation = location.clone().add(0.0D, -0.03D, 0.0D);
       Interaction interaction = null;
 
-      for (Entity e : location.getWorld().getNearbyEntities(location, 1.5, 3.0, 1.5)) {
+      for (Entity e : location.getWorld().getNearbyEntities(interactionLocation, 1.5, 3.0, 1.5)) {
          if (!(e instanceof Interaction hitbox) || !e.getScoreboardTags().contains(tag)) {
             continue;
          }
@@ -4116,11 +4113,40 @@ public class CoreService {
       }
 
       if (interaction == null) {
-         interaction = (Interaction)location.getWorld().spawnEntity(location, EntityType.INTERACTION);
+         interaction = (Interaction)interactionLocation.getWorld().spawnEntity(interactionLocation, EntityType.INTERACTION);
          interaction.addScoreboardTag(tag);
       }
 
-      this.configureCoreInteraction(interaction, location);
+      this.configureDisplayInteraction(interaction, interactionLocation, interactionHeight);
+   }
+
+   private void ensureParcelOfferInteraction(Location location, String tag, double highestVisibleYOffset) {
+      if (!this.hasNearbyDisplayViewer(location)) {
+         this.removeTaggedDisplayEntities(location, tag);
+         return;
+      }
+      double verticalSpan = Math.max(0.0D, highestVisibleYOffset);
+      float interactionHeight = (float)(verticalSpan + 0.32D);
+      Location interactionLocation = location.clone().add(0.0D, -0.03D, 0.0D);
+      Interaction interaction = null;
+
+      for (Entity e : interactionLocation.getWorld().getNearbyEntities(interactionLocation, 1.5, 3.0, 1.5)) {
+         if (!(e instanceof Interaction hitbox) || !e.getScoreboardTags().contains(tag)) {
+            continue;
+         }
+         if (interaction == null) {
+            interaction = hitbox;
+         } else {
+            e.remove();
+         }
+      }
+
+      if (interaction == null) {
+         interaction = (Interaction)interactionLocation.getWorld().spawnEntity(interactionLocation, EntityType.INTERACTION);
+         interaction.addScoreboardTag(tag);
+      }
+
+      this.configureDisplayInteraction(interaction, interactionLocation, interactionHeight);
    }
 
    private void removeTaggedDisplaysByPrefixInIsland(IslandData island, String prefix) {
