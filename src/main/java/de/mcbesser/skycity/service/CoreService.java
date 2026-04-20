@@ -137,6 +137,7 @@ public class CoreService {
    private final Map<UUID, UUID> animalLookDisplayEntities = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> animalLookHealthDisplayEntities = new ConcurrentHashMap<>();
    private final Map<UUID, TimedEntityEmotion> entityEmotions = new ConcurrentHashMap<>();
+   private final Map<UUID, TimedEntityEmotion> entityEmotionFallbacks = new ConcurrentHashMap<>();
    private final Map<UUID, BossBar> limitHintBossBars = new ConcurrentHashMap<>();
    private final Map<UUID, Integer> limitHintHideTasks = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
@@ -4719,6 +4720,13 @@ public class CoreService {
                return this.resolveTimedEmotionDisplayText(entity, emotion, health, maxHealth);
             }
             this.entityEmotions.remove(entity.getUniqueId(), emotion);
+            if (emotion.mode() == EntityEmotionMode.TEMPORARY) {
+               TimedEntityEmotion fallback = this.entityEmotionFallbacks.remove(entity.getUniqueId());
+               if (fallback != null && this.isEmotionStillActive(entity, fallback)) {
+                  this.entityEmotions.put(entity.getUniqueId(), fallback);
+                  return this.resolveTimedEmotionDisplayText(entity, fallback, health, maxHealth);
+               }
+            }
          }
       }
       return this.buildHealthSmileText(health, maxHealth);
@@ -4728,6 +4736,10 @@ public class CoreService {
       if (entity == null || text == null || text.isBlank() || durationMs <= 0L) {
          return;
       }
+      TimedEntityEmotion currentEmotion = this.entityEmotions.get(entity.getUniqueId());
+      if (currentEmotion != null && currentEmotion.mode() != EntityEmotionMode.TEMPORARY && this.isEmotionStillActive(entity, currentEmotion)) {
+         this.entityEmotionFallbacks.put(entity.getUniqueId(), currentEmotion);
+      }
       this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, System.currentTimeMillis() + durationMs, EntityEmotionMode.TEMPORARY));
    }
 
@@ -4735,6 +4747,7 @@ public class CoreService {
       if (entity == null || text == null || text.isBlank()) {
          return;
       }
+      this.entityEmotionFallbacks.remove(entity.getUniqueId());
       this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, Long.MAX_VALUE, EntityEmotionMode.UNTIL_ADULT));
    }
 
@@ -4742,6 +4755,7 @@ public class CoreService {
       if (entity == null || text == null || text.isBlank()) {
          return;
       }
+      this.entityEmotionFallbacks.remove(entity.getUniqueId());
       this.entityEmotions.put(entity.getUniqueId(), new TimedEntityEmotion(text, Long.MAX_VALUE, EntityEmotionMode.UNTIL_BREED_READY));
    }
 
@@ -4749,8 +4763,29 @@ public class CoreService {
       return this.hasEntityEmotionMode(entity, EntityEmotionMode.UNTIL_ADULT);
    }
 
+   public String getEntityEmotionUntilAdultText(Entity entity) {
+      if (entity == null) {
+         return null;
+      }
+      TimedEntityEmotion emotion = this.entityEmotions.get(entity.getUniqueId());
+      if (emotion != null && emotion.mode() == EntityEmotionMode.UNTIL_ADULT && this.isEmotionStillActive(entity, emotion)) {
+         return emotion.text();
+      }
+      if (emotion != null && emotion.mode() == EntityEmotionMode.TEMPORARY) {
+         TimedEntityEmotion fallback = this.entityEmotionFallbacks.get(entity.getUniqueId());
+         if (fallback != null && fallback.mode() == EntityEmotionMode.UNTIL_ADULT && this.isEmotionStillActive(entity, fallback)) {
+            return fallback.text();
+         }
+      }
+      return null;
+   }
+
    public boolean hasEntityEmotionUntilBreedReady(Entity entity) {
       return this.hasEntityEmotionMode(entity, EntityEmotionMode.UNTIL_BREED_READY);
+   }
+
+   public boolean hasTemporaryEntityEmotion(Entity entity) {
+      return this.hasEntityEmotionMode(entity, EntityEmotionMode.TEMPORARY);
    }
 
    public ChatColor getEntityEmotionHealthColor(Entity entity) {

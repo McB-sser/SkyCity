@@ -98,6 +98,20 @@ import java.util.function.Predicate;
 public class ProtectionListener implements Listener {
     private static final long GROWTH_BOOST_INTERVAL_TICKS = 20L;
     private static final long WEATHER_SNOW_INTERVAL_TICKS = 60L;
+    private static final long BABY_EMOTION_DURATION_MS = 2500L;
+    private static final String[] BABY_CLICK_EMOTES = {
+            "\uD83D\uDE0A",
+            "\uD83D\uDE03",
+            "\uD83D\uDE1B",
+            "\uD83E\uDD70",
+            "\uD83D\uDE0D",
+            "\uD83E\uDD73",
+            "\uD83C\uDF7C",
+            "\uD83E\uDDF8",
+            "\uD83E\uDDF8\uD83D\uDC95",
+            "\uD83E\uDD7A",
+            "\uD83D\uDC9E"
+    };
     private static final Set<Material> GROWTH_BOOST_MATERIALS = EnumSet.of(
             Material.WHEAT,
             Material.CARROTS,
@@ -1914,10 +1928,7 @@ public class ProtectionListener implements Listener {
 
         if (breedingItem) {
             if (!animal.isAdult()) {
-                if (!coreService.hasEntityEmotionUntilAdult(animal)) {
-                    ChatColor babyColor = Math.random() < 0.5D ? ChatColor.AQUA : ChatColor.LIGHT_PURPLE;
-                    coreService.setEntityEmotionUntilAdult(animal, babyColor + "\u2728\uD83D\uDC76\u2728");
-                }
+                playRandomBabyClickEmotion(animal);
             } else if (animal.canBreed()) {
                 coreService.setTemporaryEntityEmotion(animal, ChatColor.LIGHT_PURPLE + "\uD83D\uDE18", 5000L);
             } else if (!coreService.hasEntityEmotionUntilBreedReady(animal)) {
@@ -1933,16 +1944,39 @@ public class ProtectionListener implements Listener {
             return;
         }
         if (!animal.isAdult()) {
-            if (!coreService.hasEntityEmotionUntilAdult(animal)) {
-                ChatColor babyColor = Math.random() < 0.5D ? ChatColor.AQUA : ChatColor.LIGHT_PURPLE;
-                coreService.setEntityEmotionUntilAdult(animal, babyColor + "\u2728\uD83D\uDC76\u2728");
-            }
+            playRandomBabyClickEmotion(animal);
         } else if (item == null || item.getType().isAir()) {
             if (coreService.hasEntityEmotionUntilBreedReady(animal)) {
                 return;
             }
             coreService.setTemporaryEntityEmotion(animal, ChatColor.RED + "\u2764", 2500L);
         }
+    }
+
+    private void playRandomBabyClickEmotion(Animals animal) {
+        if (animal == null || animal.isAdult()) {
+            return;
+        }
+        String emote = BABY_CLICK_EMOTES[ThreadLocalRandom.current().nextInt(BABY_CLICK_EMOTES.length)];
+        ChatColor babyColor = getStoredBabyEmotionColor(animal);
+        if (babyColor == null) {
+            babyColor = ThreadLocalRandom.current().nextBoolean() ? ChatColor.AQUA : ChatColor.LIGHT_PURPLE;
+        }
+        coreService.setTemporaryEntityEmotion(animal, babyColor + emote, BABY_EMOTION_DURATION_MS);
+    }
+
+    private ChatColor getStoredBabyEmotionColor(Animals animal) {
+        String text = coreService.getEntityEmotionUntilAdultText(animal);
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        if (text != null && text.startsWith(ChatColor.LIGHT_PURPLE.toString())) {
+            return ChatColor.LIGHT_PURPLE;
+        }
+        if (text != null && text.startsWith(ChatColor.AQUA.toString())) {
+            return ChatColor.AQUA;
+        }
+        return null;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
