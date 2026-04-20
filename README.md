@@ -451,6 +451,68 @@ Beispiele:
 
 Diese Grenzen orientieren sich am Insel-Level und helfen, Lag und Missbrauch einzudaemmen.
 
+### Aufschluesselung der Bossbar-Last
+
+Die Bossbar-Anzeige `Block X% | Entity Y%` ist aktuell **kein** direkter Vergleich zur global geladenen Serverlast und auch **kein** Anteil `Insel-Entities / alle geladenen Entities`.
+
+Stattdessen nutzt SkyCity einen **gewichteten Insel-Lastscore**. Jede Kategorie wird relativ zu einem internen oder upgradebasierten Limit bewertet und anschliessend mit einem festen Gewicht in einen Prozentwert umgerechnet.
+
+Wichtig:
+
+- `Entity` zeigt nicht alle geladenen Entities 1:1 an
+- `Block` zeigt nicht alle Bloecke auf der Insel an, sondern nur ausgewaehlte Technik-/Container-Kategorien
+- der Wert ist daher eher eine **Limit-Auslastung nach SkyCity-Modell** als eine echte globale Serverlast
+
+#### Entity-Anteil
+
+Der Entity-Wert setzt sich aktuell aus folgenden Kategorien zusammen:
+
+- Tiere: `used / Tierlimit * 0.18`
+- Golems: `used / Golemlimit * 0.08`
+- Villager: `used / Villagerlimit * 0.18`
+- ArmorStands ohne `skycity_`-Tags: `used / ArmorStandlimit * 0.08`
+- Minecarts: `used / Minecartlimit * 0.04`
+- Boote: `used / Bootlimit * 0.03`
+- Spieler: `used / 6 * 0.04`
+- TextDisplays: `used / 32 * 0.04`
+- interaktive ItemDisplays mit passender Hitbox: `used / 24 * 0.03`
+- Display-Hitboxen (`Interaction`) mit passendem Display: `used / 32 * 0.03`
+
+Nicht jede Entity auf der Insel fliesst in diesen Wert ein. Je nach Stand der Implementierung koennen z. B. Monster, PvE-Mobs, Drops, Projectiles, Frames, Paintings oder fremde Display-Konstrukte ganz oder teilweise ausserhalb dieser Berechnung liegen.
+
+#### Block-Anteil
+
+Der Block-Wert setzt sich aktuell aus folgenden Kategorien zusammen:
+
+- Container/Inventarbloecke: `used / Containerlimit * 0.10`
+- Hopper: `used / Hopperlimit * 0.16`
+- Pistons: `used / Pistonlimit * 0.08`
+- Observer: `used / Observerlimit * 0.04`
+- Dispenser: `used / Dispenserlimit * 0.03`
+- freigeschaltete Insel-Chunks: `used / Gesamtchunks * 0.06`
+
+#### Gesamtwert
+
+Die Bossbar zeigt die Werte getrennt an:
+
+- `Block` = aufsummierter Block-Anteil in Prozent
+- `Entity` = aufsummierter Entity-Anteil in Prozent
+
+Intern gibt es zusaetzlich noch einen Gesamtwert:
+
+```text
+Gesamtlast = Blocklast + Entitylast
+Prozent = round(load * 100)
+```
+
+Das bedeutet zum Beispiel:
+
+- viele geladene Entities auf der Insel fuehren **nicht automatisch** zu einer hohen Prozentzahl
+- entscheidend ist, **welche** Entity-Kategorien davon von SkyCity ueberhaupt gewertet werden
+- und wie stark diese Kategorien ihre jeweiligen Limits ausreizen
+
+Wenn also global `946` Entities geladen sind und auf einer Insel `838`, kann die Bossbar trotzdem nur `Entity 6%` anzeigen, wenn der Grossteil dieser `838` Entities nicht in die aktuelle Formel eingeht oder die zaehlenden Kategorien ihre Limits nur gering auslasten.
+
 ## 18. Shops, Nachtsicht und Komfortfunktionen
 
 SkyCity enthaelt mehrere Komfort- und Shop-Funktionen fuer Inseln und Chunks.

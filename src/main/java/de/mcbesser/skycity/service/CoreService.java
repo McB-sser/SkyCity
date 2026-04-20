@@ -2151,18 +2151,19 @@ public class CoreService {
 
    public Inventory createParcelShopMenu(IslandData island, int relX, int relZ, String parcelKey) {
       ParcelData parcel = this.resolveParcelForMenu(island, relX, relZ, parcelKey);
+      boolean freeShop = this.islandService.isSpawnIsland(island);
       String title = parcel == null ? "GS-Shop" : ("GS-Shop " + this.islandService.getParcelDisplayName(parcel));
       Inventory inv = Bukkit.createInventory(new ParcelShopInventoryHolder(island.getOwner(), relX, relZ, parcel == null ? null : parcel.getChunkKey()), 45, title);
       this.fillWithPanes(inv);
       inv.setItem(4, this.named(Material.EXPERIENCE_BOTTLE, ChatColor.AQUA + "Core-Erfahrung", List.of(ChatColor.GRAY + "Gespeichert: " + ChatColor.WHITE + Math.max(0L, island.getStoredExperience()))));
       inv.setItem(10, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Parcel-Biom",
-              List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getBiomeChangeCost(false), ChatColor.GRAY + "Wirkt auf das ganze Grundst\u00fcck", ChatColor.YELLOW + "Klick = Biom-Men\u00fc \u00f6ffnen")));
+              List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + this.islandService.getBiomeChangeCost(false)), ChatColor.GRAY + "Wirkt auf das ganze Grundst\u00fcck", ChatColor.YELLOW + "Klick = Biom-Men\u00fc \u00f6ffnen")));
       inv.setItem(12, this.named(Material.WATER_BUCKET, ChatColor.AQUA + "Parcel-Wetter",
-              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(this.islandService.getParcelWeatherMode(parcel)), ChatColor.GRAY + "Schnee: " + ChatColor.WHITE + this.islandService.snowWeatherModeLabel(this.islandService.getParcelSnowMode(parcel)), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getWeatherModeChangeCost(), ChatColor.YELLOW + "Klick = Wetter-Shop \u00f6ffnen")));
+              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(this.islandService.getParcelWeatherMode(parcel)), ChatColor.GRAY + "Schnee: " + ChatColor.WHITE + this.islandService.snowWeatherModeLabel(this.islandService.getParcelSnowMode(parcel)), ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + this.islandService.getWeatherModeChangeCost()), ChatColor.YELLOW + "Klick = Wetter-Shop \u00f6ffnen")));
       inv.setItem(14, this.named(Material.CLOCK, ChatColor.GOLD + "Parcel-Zeitmodus",
-              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(this.islandService.getParcelTimeMode(parcel)), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getTimeModeChangeCost(), ChatColor.YELLOW + "Klick = Zeit-Shop \u00f6ffnen")));
+              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(this.islandService.getParcelTimeMode(parcel)), ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + this.islandService.getTimeModeChangeCost()), ChatColor.YELLOW + "Klick = Zeit-Shop \u00f6ffnen")));
       inv.setItem(30, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Parcel-Nachtsicht",
-              List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (this.islandService.isParcelNightVisionEnabled(parcel) ? "AN" : "AUS"), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getNightVisionCost(false), ChatColor.YELLOW + "Klick = Nachtsicht-Shop \u00f6ffnen")));
+              List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (this.islandService.isParcelNightVisionEnabled(parcel) ? "AN" : "AUS"), ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + this.islandService.getNightVisionCost(false)), ChatColor.YELLOW + "Klick = Nachtsicht-Shop \u00f6ffnen")));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fcck")));
       return inv;
    }
@@ -2173,12 +2174,13 @@ public class CoreService {
 
    public Inventory createParcelBiomeMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey, int page) {
       ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
+      boolean freeShop = this.islandService.isSpawnIsland(island);
       int totalPages = Math.max(1, (int)Math.ceil((double)BIOME_OPTIONS.size() / 45.0));
       int safePage = Math.max(0, Math.min(totalPages - 1, page));
       Inventory inv = Bukkit.createInventory(new ParcelBiomeInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey(), safePage), 54, "Parcel-Biome " + (safePage + 1) + "/" + totalPages);
       this.fillWithPanes(inv);
       int start = safePage * 45;
-      long cost = this.islandService.getBiomeChangeCost(false);
+      long cost = freeShop ? 0L : this.islandService.getBiomeChangeCost(false);
       for (int i = 0; i < 45; ++i) {
          int idx = start + i;
          if (idx >= BIOME_OPTIONS.size()) {
@@ -2190,7 +2192,7 @@ public class CoreService {
          inv.setItem(GRID_SLOTS.get(i), this.named(selected ? Material.EMERALD_BLOCK : this.iconForBiome(biome), (selected ? ChatColor.GREEN : ChatColor.AQUA) + this.biomeDisplayNameDe(biome), List.of(
                  ChatColor.GRAY + "Wirkt auf das ganze Grundst\u00fcck",
                  ChatColor.DARK_GRAY + "Original: " + this.biomeOriginalName(biome),
-                 ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost,
+                 ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost),
                  ChatColor.GRAY + "Master, Owner oder Plot-Owner",
                  ChatColor.YELLOW + "Klick = auf GS anwenden"
          )));
@@ -2209,14 +2211,15 @@ public class CoreService {
    public Inventory createParcelTimeModeShopMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey) {
       ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       IslandService.IslandTimeMode current = this.islandService.getParcelTimeMode(parcel);
-      long cost = this.islandService.getTimeModeChangeCost();
+      boolean freeShop = this.islandService.isSpawnIsland(island);
+      long cost = freeShop ? 0L : this.islandService.getTimeModeChangeCost();
       Inventory inv = Bukkit.createInventory(new ParcelTimeModeShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Zeit");
       this.fillWithPanes(inv);
       inv.setItem(4, this.named(Material.CLOCK, ChatColor.GOLD + "Zeitmodus", List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(current))));
-      inv.setItem(11, this.named(Material.SUNFLOWER, (current == IslandService.IslandTimeMode.DAY ? ChatColor.GREEN : ChatColor.YELLOW) + "Nur Tag", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
-      inv.setItem(13, this.named(Material.ORANGE_DYE, (current == IslandService.IslandTimeMode.SUNSET ? ChatColor.GREEN : ChatColor.YELLOW) + "Sonnenuntergang", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
-      inv.setItem(15, this.named(Material.ENDER_PEARL, (current == IslandService.IslandTimeMode.MIDNIGHT ? ChatColor.GREEN : ChatColor.YELLOW) + "Nacht", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
-      inv.setItem(22, this.named(Material.CLOCK, (current == IslandService.IslandTimeMode.NORMAL ? ChatColor.GREEN : ChatColor.YELLOW) + "Normal", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(11, this.named(Material.SUNFLOWER, (current == IslandService.IslandTimeMode.DAY ? ChatColor.GREEN : ChatColor.YELLOW) + "Nur Tag", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(13, this.named(Material.ORANGE_DYE, (current == IslandService.IslandTimeMode.SUNSET ? ChatColor.GREEN : ChatColor.YELLOW) + "Sonnenuntergang", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(15, this.named(Material.ENDER_PEARL, (current == IslandService.IslandTimeMode.MIDNIGHT ? ChatColor.GREEN : ChatColor.YELLOW) + "Nacht", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(22, this.named(Material.CLOCK, (current == IslandService.IslandTimeMode.NORMAL ? ChatColor.GREEN : ChatColor.YELLOW) + "Normal", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum GS-Shop")));
       return inv;
    }
@@ -2228,18 +2231,19 @@ public class CoreService {
    public Inventory createParcelWeatherShopMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey) {
       ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       IslandService.IslandWeatherMode current = this.islandService.getParcelWeatherMode(parcel);
-      long cost = this.islandService.getWeatherModeChangeCost();
+      boolean freeShop = this.islandService.isSpawnIsland(island);
+      long cost = freeShop ? 0L : this.islandService.getWeatherModeChangeCost();
       Inventory inv = Bukkit.createInventory(new ParcelWeatherShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Wetter");
       this.fillWithPanes(inv);
       inv.setItem(4, this.named(Material.WATER_BUCKET, ChatColor.AQUA + "Wetter", List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(current))));
-      inv.setItem(11, this.named(Material.SUNFLOWER, (current == IslandService.IslandWeatherMode.CLEAR ? ChatColor.GREEN : ChatColor.YELLOW) + "Sonnenschein", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
-      inv.setItem(13, this.named(Material.WATER_BUCKET, (current == IslandService.IslandWeatherMode.RAIN ? ChatColor.GREEN : ChatColor.YELLOW) + "Regen", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
-      inv.setItem(15, this.named(Material.TRIDENT, (current == IslandService.IslandWeatherMode.THUNDER ? ChatColor.GREEN : ChatColor.YELLOW) + "Gewitter", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
-      inv.setItem(22, this.named(Material.CLOCK, (current == IslandService.IslandWeatherMode.NORMAL ? ChatColor.GREEN : ChatColor.YELLOW) + "Normal", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(11, this.named(Material.SUNFLOWER, (current == IslandService.IslandWeatherMode.CLEAR ? ChatColor.GREEN : ChatColor.YELLOW) + "Sonnenschein", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(13, this.named(Material.WATER_BUCKET, (current == IslandService.IslandWeatherMode.RAIN ? ChatColor.GREEN : ChatColor.YELLOW) + "Regen", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(15, this.named(Material.TRIDENT, (current == IslandService.IslandWeatherMode.THUNDER ? ChatColor.GREEN : ChatColor.YELLOW) + "Gewitter", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(22, this.named(Material.CLOCK, (current == IslandService.IslandWeatherMode.NORMAL ? ChatColor.GREEN : ChatColor.YELLOW) + "Normal", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
       IslandService.SnowWeatherMode snowMode = this.islandService.getParcelSnowMode(parcel);
       inv.setItem(31, this.named(Material.SNOW, ChatColor.WHITE + "Schnee-Modus", List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.snowWeatherModeLabel(snowMode))));
-      inv.setItem(29, this.named(Material.SNOW_BLOCK, (snowMode == IslandService.SnowWeatherMode.ALLOW ? ChatColor.GREEN : ChatColor.YELLOW) + "Schnee bleibt liegen", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee erlauben")));
-      inv.setItem(33, this.named(Material.BARRIER, (snowMode == IslandService.SnowWeatherMode.BLOCK ? ChatColor.GREEN : ChatColor.YELLOW) + "Schneefrei", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee stoppen und r\u00e4umen")));
+      inv.setItem(29, this.named(Material.SNOW_BLOCK, (snowMode == IslandService.SnowWeatherMode.ALLOW ? ChatColor.GREEN : ChatColor.YELLOW) + "Schnee bleibt liegen", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = Wetterschnee erlauben")));
+      inv.setItem(33, this.named(Material.BARRIER, (snowMode == IslandService.SnowWeatherMode.BLOCK ? ChatColor.GREEN : ChatColor.YELLOW) + "Schneefrei", List.of(ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = Wetterschnee stoppen und r\u00e4umen")));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum GS-Shop")));
       return inv;
    }
@@ -2251,11 +2255,12 @@ public class CoreService {
    public Inventory createParcelNightVisionShopMenu(IslandData island, int relChunkX, int relChunkZ, String parcelKey) {
       ParcelData parcel = this.resolveParcelForMenu(island, relChunkX, relChunkZ, parcelKey);
       boolean enabled = this.islandService.isParcelNightVisionEnabled(parcel);
-      long cost = this.islandService.getNightVisionCost(false);
+      boolean freeShop = this.islandService.isSpawnIsland(island);
+      long cost = freeShop ? 0L : this.islandService.getNightVisionCost(false);
       Inventory inv = Bukkit.createInventory(new ParcelNightVisionShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Nachtsicht");
       this.fillWithPanes(inv);
       inv.setItem(4, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Nachtsicht", List.of(ChatColor.GRAY + "Wirkt dauerhaft auf diesem Grundst\u00fcck")));
-      inv.setItem(11, this.named(enabled ? Material.LIME_DYE : Material.YELLOW_DYE, (enabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Parcel-Nachtsicht aktivieren", List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (enabled ? "bereits aktiv" : "aus"), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
+      inv.setItem(11, this.named(enabled ? Material.LIME_DYE : Material.YELLOW_DYE, (enabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Parcel-Nachtsicht aktivieren", List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (enabled ? "bereits aktiv" : "aus"), ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + cost), ChatColor.YELLOW + "Klick = aktivieren")));
       inv.setItem(29, this.named(enabled ? Material.BARRIER : Material.GRAY_DYE, (enabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Parcel-Nachtsicht deaktivieren", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0", ChatColor.YELLOW + "Klick = deaktivieren")));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum GS-Shop")));
       return inv;

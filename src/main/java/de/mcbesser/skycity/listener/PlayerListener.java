@@ -3134,7 +3134,7 @@ public class PlayerListener implements Listener {
 
     private void tickIslandActionbar() {
         double serverTps = getServerTps();
-        Map<UUID, Integer> islandLoadCache = new HashMap<>();
+        Map<UUID, IslandService.IslandLoadBreakdown> islandLoadCache = new HashMap<>();
         java.util.Set<String> activeCheckpointDisplays = new java.util.HashSet<>();
         java.util.Set<String> activeJumpPadDisplays = new java.util.HashSet<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -3169,9 +3169,13 @@ public class PlayerListener implements Listener {
             String title = islandService.getIslandTitleDisplay(island);
             String timeIcon = getWorldTimeIcon(player.getWorld());
             String timeSegment = timeIcon.isEmpty() ? "" : ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + timeIcon;
-            int islandLoad = islandLoadCache.computeIfAbsent(island.getOwner(), id -> islandService.getIslandLoadPercent(island));
+            IslandService.IslandLoadBreakdown islandLoad = islandLoadCache.computeIfAbsent(
+                    island.getOwner(),
+                    id -> islandService.getIslandLoadBreakdown(island)
+            );
             String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
-            String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Last " + islandLoad + "%";
+            String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Block " + islandLoad.blockPercent() + "%"
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Entity " + islandLoad.entityPercent() + "%";
             showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment);
             activeCheckpointDisplays.addAll(spawnNearbyLinkedCheckpointParticles(player, island, activeJumpPadDisplays));
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());

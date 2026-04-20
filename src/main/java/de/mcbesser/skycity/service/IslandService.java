@@ -32,10 +32,13 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Interaction;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Villager;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
@@ -201,6 +204,7 @@ public class IslandService {
     public record UpgradeRequirement(long islandLevel, long experience, Map<Material, Integer> materials, int chunkUnlocksGranted) { }
     public record MilestoneRequirement(int milestone, long islandLevel, long experience, Map<Material, Integer> materials, int chunkUnlocksGranted) { }
     public record TeleportTarget(String id, String displayName, Location location, boolean parcel) { }
+    public record IslandLoadBreakdown(int totalPercent, int blockPercent, int entityPercent) { }
     private record ChunkTemplateDef(String id, Material top, Material filler, Material feature, Biome biome, int minRadius, int maxRadius) { }
     private record ThemeHit(long seed, double density) { }
     private record PregenerationTask(UUID islandOwner, int nextIndex) { }
@@ -365,6 +369,9 @@ public class IslandService {
     private static final long XP_BOTTLE_POINTS = 10L;
     private static final long XP_BOTTLE_COST_POINTS = 11L; // 10% loss
     private static final long GROWTH_DEBUG_WINDOW_MILLIS = 5_000L;
+    private static final int TEXT_DISPLAY_LOAD_LIMIT = 32;
+    private static final int INTERACTIVE_ITEM_DISPLAY_LOAD_LIMIT = 24;
+    private static final int DISPLAY_HITBOX_LOAD_LIMIT = 32;
     private static final int CENTER_A = 31;
     private static final int CENTER_B = 32;
     private static final int MACRO_CELL_SIZE_CHUNKS = 5;
@@ -1686,7 +1693,11 @@ public class IslandService {
     }
 
     public int getIslandLoadPercent(IslandData island) {
-        if (island == null) return 0;
+        return getIslandLoadBreakdown(island).totalPercent();
+    }
+
+    public IslandLoadBreakdown getIslandLoadBreakdown(IslandData island) {
+        if (island == null) return new IslandLoadBreakdown(0, 0, 0);
         List<Entity> entities = getEntitiesInIsland(island);
         int animals = (int) entities.stream().filter(e -> e instanceof Animals).count();
         int golems = (int) entities.stream().filter(e -> isTrackedGolem(e.getType())).count();
@@ -1698,27 +1709,79 @@ public class IslandService {
         int minecarts = (int) entities.stream().filter(e -> e instanceof org.bukkit.entity.Minecart).count();
         int boats = (int) entities.stream().filter(e -> e instanceof org.bukkit.entity.Boat).count();
         int players = (int) entities.stream().filter(e -> e instanceof Player).count();
+        int textDisplays = (int) entities.stream().filter(e -> e instanceof TextDisplay).count();
+        int interactiveItemDisplays = (int) entities.stream()
+                .filter(e -> e instanceof ItemDisplay)
+                .filter(e -> hasDisplayHitbox(e, entities))
+                .count();
+        int displayHitboxes = (int) entities.stream()
+                .filter(e -> e instanceof Interaction)
+                .filter(e -> hasLinkedDisplay(e, entities))
+                .count();
 
-        double load = 0.0;
-        load += weightedLoadComponent(animals, getCurrentUpgradeLimit(island, UpgradeBranch.ANIMAL), 0.18);
-        load += weightedLoadComponent(golems, getCurrentUpgradeLimit(island, UpgradeBranch.GOLEM), 0.08);
-        load += weightedLoadComponent(villagers, getCurrentUpgradeLimit(island, UpgradeBranch.VILLAGER), 0.18);
-        load += weightedLoadComponent(armorStands, getCurrentUpgradeLimit(island, UpgradeBranch.ARMOR_STAND), 0.08);
-        load += weightedLoadComponent(minecarts, getCurrentUpgradeLimit(island, UpgradeBranch.MINECART), 0.04);
-        load += weightedLoadComponent(boats, getCurrentUpgradeLimit(island, UpgradeBranch.BOAT), 0.03);
-        load += weightedLoadComponent(getCachedInventoryBlockCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.CONTAINER), 0.10);
-        load += weightedLoadComponent(getCachedHopperCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.HOPPER), 0.16);
-        load += weightedLoadComponent(getCachedPistonCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.PISTON), 0.08);
-        load += weightedLoadComponent(getCachedObserverCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.OBSERVER), 0.04);
-        load += weightedLoadComponent(getCachedDispenserCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.DISPENSER), 0.03);
-        load += weightedLoadComponent(island.getUnlockedChunks().size(), ISLAND_CHUNKS * ISLAND_CHUNKS, 0.06);
-        load += weightedLoadComponent(players, 6, 0.04);
-        return (int) Math.max(0, Math.min(100, Math.round(load * 100.0)));
+        double entityLoad = 0.0;
+        entityLoad += weightedLoadComponent(animals, getCurrentUpgradeLimit(island, UpgradeBranch.ANIMAL), 0.18);
+        entityLoad += weightedLoadComponent(golems, getCurrentUpgradeLimit(island, UpgradeBranch.GOLEM), 0.08);
+        entityLoad += weightedLoadComponent(villagers, getCurrentUpgradeLimit(island, UpgradeBranch.VILLAGER), 0.18);
+        entityLoad += weightedLoadComponent(armorStands, getCurrentUpgradeLimit(island, UpgradeBranch.ARMOR_STAND), 0.08);
+        entityLoad += weightedLoadComponent(minecarts, getCurrentUpgradeLimit(island, UpgradeBranch.MINECART), 0.04);
+        entityLoad += weightedLoadComponent(boats, getCurrentUpgradeLimit(island, UpgradeBranch.BOAT), 0.03);
+        entityLoad += weightedLoadComponent(players, 6, 0.04);
+        entityLoad += weightedLoadComponent(textDisplays, TEXT_DISPLAY_LOAD_LIMIT, 0.04);
+        entityLoad += weightedLoadComponent(interactiveItemDisplays, INTERACTIVE_ITEM_DISPLAY_LOAD_LIMIT, 0.03);
+        entityLoad += weightedLoadComponent(displayHitboxes, DISPLAY_HITBOX_LOAD_LIMIT, 0.03);
+
+        double blockLoad = 0.0;
+        blockLoad += weightedLoadComponent(getCachedInventoryBlockCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.CONTAINER), 0.10);
+        blockLoad += weightedLoadComponent(getCachedHopperCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.HOPPER), 0.16);
+        blockLoad += weightedLoadComponent(getCachedPistonCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.PISTON), 0.08);
+        blockLoad += weightedLoadComponent(getCachedObserverCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.OBSERVER), 0.04);
+        blockLoad += weightedLoadComponent(getCachedDispenserCount(island), getCurrentUpgradeLimit(island, UpgradeBranch.DISPENSER), 0.03);
+        blockLoad += weightedLoadComponent(island.getUnlockedChunks().size(), ISLAND_CHUNKS * ISLAND_CHUNKS, 0.06);
+
+        return new IslandLoadBreakdown(
+                percentFromLoad(blockLoad + entityLoad),
+                percentFromLoad(blockLoad),
+                percentFromLoad(entityLoad)
+        );
     }
 
     private double weightedLoadComponent(int used, int limit, double weight) {
         if (limit <= 0 || weight <= 0.0) return 0.0;
         return Math.min(1.0, Math.max(0.0, used / (double) limit)) * weight;
+    }
+
+    private boolean hasDisplayHitbox(Entity display, List<Entity> entities) {
+        if (display == null || entities == null || entities.isEmpty()) return false;
+        for (Entity entity : entities) {
+            if (!(entity instanceof Interaction)) continue;
+            if (!sharesSkycityDisplayTag(display, entity)) continue;
+            if (display.getLocation().distanceSquared(entity.getLocation()) <= 4.0D) return true;
+        }
+        return false;
+    }
+
+    private boolean hasLinkedDisplay(Entity interaction, List<Entity> entities) {
+        if (!(interaction instanceof Interaction) || entities == null || entities.isEmpty()) return false;
+        for (Entity entity : entities) {
+            if (!(entity instanceof TextDisplay) && !(entity instanceof ItemDisplay)) continue;
+            if (!sharesSkycityDisplayTag(interaction, entity)) continue;
+            if (interaction.getLocation().distanceSquared(entity.getLocation()) <= 4.0D) return true;
+        }
+        return false;
+    }
+
+    private boolean sharesSkycityDisplayTag(Entity first, Entity second) {
+        if (first == null || second == null) return false;
+        for (String tag : first.getScoreboardTags()) {
+            if (tag == null || !tag.startsWith("skycity_")) continue;
+            if (second.getScoreboardTags().contains(tag)) return true;
+        }
+        return false;
+    }
+
+    private int percentFromLoad(double load) {
+        return (int) Math.max(0, Math.min(100, Math.round(load * 100.0)));
     }
 
     public String normalizeIslandLabel(String input) {

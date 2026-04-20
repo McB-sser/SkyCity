@@ -1818,8 +1818,9 @@ public class CoreMenuListener implements Listener {
         if (index < 0 || index >= coreService.getBiomeOptionCount()) return;
         Biome biome = coreService.biomeOptionAt(index);
         if (biome == null) return;
-        long cost = islandService.getBiomeChangeCost(false);
-        if (!islandService.spendStoredExperience(island, cost)) {
+        boolean freeShop = islandService.isSpawnIsland(island);
+        long cost = freeShop ? 0L : islandService.getBiomeChangeCost(false);
+        if (!freeShop && !islandService.spendStoredExperience(island, cost)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
@@ -1827,7 +1828,8 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.RED + "Parcel-Biom konnte nicht gesetzt werden.");
             return;
         }
-        player.sendMessage(ChatColor.GREEN + "Parcel-Biom gesetzt: " + coreService.biomeDisplayNameDe(biome) + " (Kosten: " + cost + ")");
+        player.sendMessage(ChatColor.GREEN + "Parcel-Biom gesetzt: " + coreService.biomeDisplayNameDe(biome)
+                + (freeShop ? " (kostenlos)" : " (Kosten: " + cost + ")"));
         triggerBiomeVisualReload(player, coreService.createParcelBiomeMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey(), holder.page()));
     }
 
@@ -1865,8 +1867,9 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.YELLOW + "Dieser Zeitmodus ist bereits auf dem Grundst\u00fcck aktiv.");
             return;
         }
-        long cost = islandService.getTimeModeChangeCost();
-        if (!islandService.spendStoredExperience(island, cost)) {
+        boolean freeShop = islandService.isSpawnIsland(island);
+        long cost = freeShop ? 0L : islandService.getTimeModeChangeCost();
+        if (!freeShop && !islandService.spendStoredExperience(island, cost)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
@@ -1874,7 +1877,8 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.RED + "Parcel-Zeitmodus konnte nicht gesetzt werden.");
             return;
         }
-        player.sendMessage(ChatColor.GREEN + "Parcel-Zeit gesetzt: " + islandService.islandTimeModeLabel(target) + " (Kosten: " + cost + ")");
+        player.sendMessage(ChatColor.GREEN + "Parcel-Zeit gesetzt: " + islandService.islandTimeModeLabel(target)
+                + (freeShop ? " (kostenlos)" : " (Kosten: " + cost + ")"));
         player.openInventory(coreService.createParcelTimeModeShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
     }
 
@@ -1906,8 +1910,9 @@ public class CoreMenuListener implements Listener {
                 player.sendMessage(ChatColor.YELLOW + "Dieser Schnee-Modus ist bereits auf dem Grundst\u00fcck aktiv.");
                 return;
             }
-            long cost = islandService.getWeatherModeChangeCost();
-            if (!islandService.spendStoredExperience(island, cost)) {
+            boolean freeShop = islandService.isSpawnIsland(island);
+            long cost = freeShop ? 0L : islandService.getWeatherModeChangeCost();
+            if (!freeShop && !islandService.spendStoredExperience(island, cost)) {
                 player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                 return;
             }
@@ -1918,7 +1923,8 @@ public class CoreMenuListener implements Listener {
             if (snowTarget == IslandService.SnowWeatherMode.BLOCK) {
                 islandService.clearWeatherSnowForParcel(island, parcel);
             }
-            player.sendMessage(ChatColor.GREEN + "Parcel-Schnee gesetzt: " + islandService.snowWeatherModeLabel(snowTarget) + " (Kosten: " + cost + ")");
+            player.sendMessage(ChatColor.GREEN + "Parcel-Schnee gesetzt: " + islandService.snowWeatherModeLabel(snowTarget)
+                    + (freeShop ? " (kostenlos)" : " (Kosten: " + cost + ")"));
             player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
@@ -1927,8 +1933,9 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.YELLOW + "Dieser Wettermodus ist bereits auf dem Grundst\u00fcck aktiv.");
             return;
         }
-        long cost = islandService.getWeatherModeChangeCost();
-        if (!islandService.spendStoredExperience(island, cost)) {
+        boolean freeShop = islandService.isSpawnIsland(island);
+        long cost = freeShop ? 0L : islandService.getWeatherModeChangeCost();
+        if (!freeShop && !islandService.spendStoredExperience(island, cost)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
@@ -1936,7 +1943,8 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.RED + "Parcel-Wetter konnte nicht gesetzt werden.");
             return;
         }
-        player.sendMessage(ChatColor.GREEN + "Parcel-Wetter gesetzt: " + islandService.islandWeatherModeLabel(target) + " (Kosten: " + cost + ")");
+        player.sendMessage(ChatColor.GREEN + "Parcel-Wetter gesetzt: " + islandService.islandWeatherModeLabel(target)
+                + (freeShop ? " (kostenlos)" : " (Kosten: " + cost + ")"));
         player.openInventory(coreService.createParcelWeatherShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
     }
 
@@ -1952,12 +1960,13 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (raw == 11) {
-            long cost = islandService.getNightVisionCost(false);
+            boolean freeShop = islandService.isSpawnIsland(island);
+            long cost = freeShop ? 0L : islandService.getNightVisionCost(false);
             if (!islandService.buyParcelNightVision(island, parcel, player.getUniqueId())) {
                 player.sendMessage(ChatColor.RED + "Parcel-Nachtsicht konnte nicht gekauft werden.");
                 return;
             }
-            player.sendMessage(ChatColor.GREEN + "Parcel-Nachtsicht aktiviert. Kosten: " + cost);
+            player.sendMessage(ChatColor.GREEN + "Parcel-Nachtsicht aktiviert." + (freeShop ? " Kostenlos." : " Kosten: " + cost));
             player.openInventory(coreService.createParcelNightVisionShopMenu(island, holder.relChunkX(), holder.relChunkZ(), holder.parcelKey()));
             return;
         }
