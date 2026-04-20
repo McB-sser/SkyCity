@@ -338,6 +338,16 @@ public class PlayerListener implements Listener {
             parcelCountdownTitleStates.remove(event.getPlayer().getUniqueId());
             return;
         }
+        if (event.getPlayer().getGameMode() == GameMode.SPECTATOR) {
+            stopParcelBanCountdown(event.getPlayer().getUniqueId());
+            stopParcelPvpExitCountdown(event.getPlayer().getUniqueId());
+            clearParcelPvpState(event.getPlayer().getUniqueId());
+            clearParcelGamesState(event.getPlayer().getUniqueId());
+            clearParcelPveState(event.getPlayer().getUniqueId());
+            removeParcelCountdownBossBar(event.getPlayer());
+            parcelCountdownTitleStates.remove(event.getPlayer().getUniqueId());
+            return;
+        }
         boolean changedBlock = event.getFrom().getBlockX() != event.getTo().getBlockX()
                 || event.getFrom().getBlockY() != event.getTo().getBlockY()
                 || event.getFrom().getBlockZ() != event.getTo().getBlockZ();
@@ -759,6 +769,7 @@ public class PlayerListener implements Listener {
     private boolean tryHandleLavaRescue(Player player, Location location) {
         if (player == null || location == null || location.getWorld() == null) return false;
         if (!skyWorldService.isSkyCityWorld(location.getWorld())) return false;
+        if (player.getGameMode() == GameMode.SPECTATOR) return false;
         if (!isTouchingLava(location)) return false;
         Location rescueTarget = resolveLavaRescueTarget(player, location);
         if (rescueTarget == null) return false;
