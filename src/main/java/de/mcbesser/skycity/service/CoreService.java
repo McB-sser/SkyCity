@@ -3877,6 +3877,10 @@ public class CoreService {
    }
 
    private void ensureCoreText(Location location, String tag, String text) {
+      if (!this.hasNearbyDisplayViewer(location)) {
+         this.removeTaggedDisplayEntities(location, tag);
+         return;
+      }
       TextDisplay display = null;
       Interaction interaction = null;
 
@@ -3928,6 +3932,10 @@ public class CoreService {
    }
 
    private void ensureFloatingText(Location location, String tag, String text) {
+      if (!this.hasNearbyDisplayViewer(location)) {
+         this.removeTaggedDisplayEntities(location, tag);
+         return;
+      }
       TextDisplay display = null;
 
       for (Entity e : location.getWorld().getNearbyEntities(location, 2.5, 4.0, 2.5)) {
@@ -3961,6 +3969,10 @@ public class CoreService {
    }
 
    private void ensureInteractiveFloatingText(Location location, String tag, String text) {
+      if (!this.hasNearbyDisplayViewer(location)) {
+         this.removeTaggedDisplayEntities(location, tag);
+         return;
+      }
       TextDisplay display = null;
       Interaction interaction = null;
 
@@ -4023,6 +4035,42 @@ public class CoreService {
       return null;
    }
 
+   private boolean hasNearbyDisplayViewer(Location location) {
+      if (location == null || location.getWorld() == null) {
+         return false;
+      }
+      double maxDistance = this.plugin.getConfig().getDouble("display.max-view-distance", 64.0D);
+      double maxDistanceSquared = maxDistance * maxDistance;
+      for (Player player : Bukkit.getOnlinePlayers()) {
+         if (player == null || !player.isOnline() || player.isDead() || player.getWorld() != location.getWorld()) {
+            continue;
+         }
+         if (player.getLocation().distanceSquared(location) <= maxDistanceSquared) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   private void removeTaggedDisplayEntities(Location location, String tag) {
+      if (location == null || location.getWorld() == null || tag == null || tag.isBlank()) {
+         return;
+      }
+      for (Entity entity : location.getWorld().getNearbyEntities(location, 2.5, 4.0, 2.5)) {
+         if (entity.getScoreboardTags().contains(tag)) {
+            entity.remove();
+         }
+      }
+      Entity text = this.findTaggedEntity(location.getWorld(), tag, TextDisplay.class);
+      if (text != null) {
+         text.remove();
+      }
+      Entity interaction = this.findTaggedEntity(location.getWorld(), tag, Interaction.class);
+      if (interaction != null) {
+         interaction.remove();
+      }
+   }
+
    private void configureCoreTextDisplay(TextDisplay display, Location location, String text) {
       display.setBillboard(Display.Billboard.CENTER);
       display.setSeeThrough(true);
@@ -4050,6 +4098,10 @@ public class CoreService {
    }
 
    private void ensureCoreToggleInteraction(Location location, String tag) {
+      if (!this.hasNearbyDisplayViewer(location)) {
+         this.removeTaggedDisplayEntities(location, tag);
+         return;
+      }
       Interaction interaction = null;
 
       for (Entity e : location.getWorld().getNearbyEntities(location, 1.5, 3.0, 1.5)) {

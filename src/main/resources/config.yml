@@ -1,2 +1,2 @@
-# SkyCity default config
-# (Aktuell leer; Datei wird f\u00fcr saveDefaultConfig() bereitgestellt.)
+display:
+  max-view-distance: 64.0

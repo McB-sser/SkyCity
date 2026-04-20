@@ -1365,6 +1365,10 @@ public class PlayerListener implements Listener {
 
     private void ensureCheckpointHolo(Location location, String tag) {
         if (location == null || location.getWorld() == null || tag == null) return;
+        if (!hasNearbyDisplayViewer(location)) {
+            removeTrackedWorldDisplay(checkpointDisplaysByTag, location, tag);
+            return;
+        }
         Location displayLocation = location.clone().add(0.0, 0.4, 0.0);
         Entity tracked = getTrackedDisplay(checkpointDisplaysByTag, tag);
         if (tracked instanceof ItemDisplay display) {
@@ -1522,6 +1526,10 @@ public class PlayerListener implements Listener {
 
     private void ensureJumpPadHolo(Location location, String tag) {
         if (location == null || location.getWorld() == null || tag == null) return;
+        if (!hasNearbyDisplayViewer(location)) {
+            removeTrackedWorldDisplay(jumpPadDisplaysByTag, location, tag);
+            return;
+        }
         Location displayLocation = location.clone().add(0.0, 0.225, 0.0);
         Entity tracked = getTrackedDisplay(jumpPadDisplaysByTag, tag);
         if (tracked instanceof ItemDisplay display) {
@@ -1582,6 +1590,35 @@ public class PlayerListener implements Listener {
             return null;
         }
         return entity;
+    }
+
+    private boolean hasNearbyDisplayViewer(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        double maxDistance = plugin.getConfig().getDouble("display.max-view-distance", 64.0D);
+        double maxDistanceSquared = maxDistance * maxDistance;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player == null || !player.isOnline() || player.isDead() || player.getWorld() != location.getWorld()) {
+                continue;
+            }
+            if (player.getLocation().distanceSquared(location) <= maxDistanceSquared) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void removeTrackedWorldDisplay(Map<String, UUID> trackedDisplays, Location location, String tag) {
+        Entity tracked = getTrackedDisplay(trackedDisplays, tag);
+        if (tracked != null) {
+            tracked.remove();
+        }
+        trackedDisplays.remove(tag);
+        if (location == null || location.getWorld() == null) return;
+        for (Entity entity : location.getWorld().getNearbyEntities(location, 0.6, 0.8, 0.6)) {
+            if (entity.getScoreboardTags().contains(tag)) {
+                entity.remove();
+            }
+        }
     }
 
     private String jumpPadHoloTag(Location location) {
