@@ -1733,11 +1733,11 @@ public class CoreService {
          13,
          this.named(
             Material.WATER_BUCKET,
-            ChatColor.AQUA + "Wetter wählen",
+            ChatColor.AQUA + "Wetter w\u00e4hlen",
             List.of(
                ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(this.islandService.getIslandWeatherMode(island)),
                ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + weatherCost + " Erfahrung"),
-               ChatColor.YELLOW + "Klick = Wetter-Shop öffnen"
+               ChatColor.YELLOW + "Klick = Wetter-Shop \u00f6ffnen"
             )
          )
       );
@@ -1818,7 +1818,7 @@ public class CoreService {
       inv.setItem(29, this.named(Material.SNOW_BLOCK, (snowMode == IslandService.SnowWeatherMode.ALLOW ? ChatColor.GREEN : ChatColor.YELLOW) + "Schnee bleibt liegen",
               List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee erlauben")));
       inv.setItem(33, this.named(Material.BARRIER, (snowMode == IslandService.SnowWeatherMode.BLOCK ? ChatColor.GREEN : ChatColor.YELLOW) + "Schneefrei",
-              List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee stoppen und räumen")));
+              List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee stoppen und r\u00e4umen")));
       String backName = "shop".equals(safeBack) ? "Zum Insel-Shop" : "Zu Insel-Einstellungen";
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + backName)));
       return inv;
@@ -2015,7 +2015,7 @@ public class CoreService {
          String countdownStatus = countdownActive
             ? (countdownPrestart
                ? ChatColor.GOLD + "Start in " + formatSecondsShort((int)Math.max(1L, (parcel.getCountdownStartAt() - now + 999L) / 1000L))
-               : ChatColor.AQUA + "läuft: " + formatSecondsShort((int)Math.max(0L, (parcel.getCountdownEndsAt() - now + 999L) / 1000L)))
+               : ChatColor.AQUA + "l\u00e4uft: " + formatSecondsShort((int)Math.max(0L, (parcel.getCountdownEndsAt() - now + 999L) / 1000L)))
             : ChatColor.GREEN + "bereit";
          inv.setItem(10, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "GS-Spawn setzen", List.of(ChatColor.GRAY + "Setzt Spawn auf deine Position")));
          inv.setItem(11, this.named(Material.BOOK, ChatColor.YELLOW + "Memberrechte GS", List.of(ChatColor.GRAY + "Toggles f\u00fcr Plot-Member")));
@@ -2024,7 +2024,7 @@ public class CoreService {
          inv.setItem(16, this.named(Material.NAME_TAG, ChatColor.AQUA + "Plot-Member vergeben", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(20, this.named(Material.KNOWLEDGE_BOOK, ChatColor.GOLD + "Plot-Markt", List.of(ChatColor.GRAY + "Verkauf / Miete festlegen", ChatColor.YELLOW + "Klick = \u00f6ffnen")));
          inv.setItem(22, this.named(Material.ANVIL, ChatColor.YELLOW + "GS umbenennen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getParcelDisplayName(parcel), ChatColor.YELLOW + "Klick = Name im Chat setzen")));
-         inv.setItem(24, this.named(Material.EMERALD, ChatColor.AQUA + "GS-Shop", List.of(ChatColor.GRAY + "Biom, Wetter, Zeit und Nachtsicht", ChatColor.GRAY + "Für Master, Owner oder Plot-Owner", ChatColor.YELLOW + "Klick = öffnen")));
+         inv.setItem(24, this.named(Material.EMERALD, ChatColor.AQUA + "GS-Shop", List.of(ChatColor.GRAY + "Biom, Wetter, Zeit und Nachtsicht", ChatColor.GRAY + "F\u00fcr Master, Owner oder Plot-Owner", ChatColor.YELLOW + "Klick = \u00f6ffnen")));
          inv.setItem(28, this.named(Material.IRON_BOOTS, ChatColor.RED + "Spieler kicken", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(30, this.named(Material.BARRIER, ChatColor.RED + "Spieler bannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
          inv.setItem(32, this.named(Material.MILK_BUCKET, ChatColor.GREEN + "Spieler entbannen", List.of(ChatColor.YELLOW + "Klick = GUI \u00f6ffnen")));
@@ -2041,8 +2041,8 @@ public class CoreService {
          inv.setItem(45, this.named(Material.LIME_CONCRETE, ChatColor.GREEN + "Zeit erh\u00f6hen", List.of(ChatColor.GRAY + "Links: +30 Sekunden", ChatColor.GRAY + "Shift: +5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
          inv.setItem(46, this.named(Material.BELL, ChatColor.GOLD + "Countdown starten", List.of(ChatColor.GRAY + "Zeigt BossBar im Parcel", ChatColor.GRAY + "Startet mit Title-Countdown", ChatColor.YELLOW + "Klick = starten")));
          inv.setItem(47, this.named(Material.BARRIER, ChatColor.RED + "Countdown stoppen", List.of(ChatColor.GRAY + "Laufenden Countdown abbrechen", ChatColor.GRAY + "BossBar sofort ausblenden", ChatColor.YELLOW + "Klick = stoppen")));
-         inv.setItem(50, this.named(parcel.isSnowballFightEnabled() ? Material.SNOWBALL : Material.GRAY_DYE, (parcel.isSnowballFightEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "Schneeballschlacht", List.of(ChatColor.GRAY + "Magische Schneebälle geben Team-Punkte", ChatColor.GRAY + "Status: " + (parcel.isSnowballFightEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
-         inv.setItem(51, this.named(Material.SNOW_BLOCK, ChatColor.YELLOW + "Schneeballpunkte resetten", List.of(ChatColor.GRAY + "Setzt nur die Schneeball-Teamwertung zurück", ChatColor.YELLOW + "Klick = resetten")));
+         inv.setItem(50, this.named(parcel.isSnowballFightEnabled() ? Material.SNOWBALL : Material.GRAY_DYE, (parcel.isSnowballFightEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "Schneeballschlacht", List.of(ChatColor.GRAY + "Magische Schneeb\u00e4lle geben Team-Punkte", ChatColor.GRAY + "Status: " + (parcel.isSnowballFightEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+         inv.setItem(51, this.named(Material.SNOW_BLOCK, ChatColor.YELLOW + "Schneeballpunkte resetten", List.of(ChatColor.GRAY + "Setzt nur die Schneeball-Teamwertung zur\u00fcck", ChatColor.YELLOW + "Klick = resetten")));
          inv.setItem(37, this.named(Material.BOOK, ChatColor.GOLD + "PvE-Anleitung", List.of(
             ChatColor.GRAY + "Wei\u00dfe Wolle = Startzone (max 5x5)",
             ChatColor.GRAY + "Bis zu 1 Loch 2x2 in der Startzone erlaubt",
@@ -2080,7 +2080,7 @@ public class CoreService {
       String countdownStatus = countdownActive
          ? (countdownPrestart
             ? ChatColor.GOLD + "Start in " + formatSecondsShort((int)Math.max(1L, (parcel.getCountdownStartAt() - now + 999L) / 1000L))
-            : ChatColor.AQUA + "lÃ¤uft: " + formatSecondsShort((int)Math.max(0L, (parcel.getCountdownEndsAt() - now + 999L) / 1000L)))
+            : ChatColor.AQUA + "l\u00e4uft: " + formatSecondsShort((int)Math.max(0L, (parcel.getCountdownEndsAt() - now + 999L) / 1000L)))
          : ChatColor.GREEN + "bereit";
       inv.setItem(4, this.named(Material.DIAMOND_SWORD, ChatColor.RED + "Kampf & Games", List.of(ChatColor.GRAY + "PvP, PvE, Games und Eventfunktionen")));
       inv.setItem(10, this.named(parcel.isGamesEnabled() ? Material.TOTEM_OF_UNDYING : Material.GRAY_DYE, (parcel.isGamesEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "GS-Games", List.of(ChatColor.GRAY + "Zone wie PvP, aber ohne Spielerschaden", ChatColor.GRAY + "Status: " + (parcel.isGamesEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
@@ -2091,8 +2091,8 @@ public class CoreService {
       inv.setItem(21, this.named(parcel.isPvpCompassEnabled() ? Material.COMPASS : Material.RECOVERY_COMPASS, (parcel.isPvpCompassEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "PvP-Kompass", List.of(ChatColor.GRAY + "Ortung anderer Spieler in PvP", ChatColor.GRAY + "Status: " + (parcel.isPvpCompassEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.RED + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
       inv.setItem(23, this.named(Material.GOLD_NUGGET, ChatColor.YELLOW + "PvP-Rangliste resetten", List.of(ChatColor.GRAY + "Kills auf diesem GS zur\u00fccksetzen", ChatColor.YELLOW + "Klick = resetten")));
       inv.setItem(25, this.named(Material.TARGET, ChatColor.YELLOW + "CTF resetten", List.of(ChatColor.GRAY + "Alle getragenen / gesetzten Flaggen zur\u00fccksetzen", ChatColor.YELLOW + "Klick = resetten")));
-      inv.setItem(28, this.named(parcel.isSnowballFightEnabled() ? Material.SNOWBALL : Material.GRAY_DYE, (parcel.isSnowballFightEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "Schneeballschlacht", List.of(ChatColor.GRAY + "Magische SchneebÃ¤lle geben Team-Punkte", ChatColor.GRAY + "Status: " + (parcel.isSnowballFightEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
-      inv.setItem(30, this.named(Material.SNOW_BLOCK, ChatColor.YELLOW + "Schneeballpunkte resetten", List.of(ChatColor.GRAY + "Setzt nur die Schneeball-Teamwertung zurÃ¼ck", ChatColor.YELLOW + "Klick = resetten")));
+      inv.setItem(28, this.named(parcel.isSnowballFightEnabled() ? Material.SNOWBALL : Material.GRAY_DYE, (parcel.isSnowballFightEnabled() ? ChatColor.AQUA : ChatColor.GRAY) + "Schneeballschlacht", List.of(ChatColor.GRAY + "Magische Schneeb\u00e4lle geben Team-Punkte", ChatColor.GRAY + "Status: " + (parcel.isSnowballFightEnabled() ? ChatColor.AQUA + "aktiv" : ChatColor.GREEN + "aus"), ChatColor.YELLOW + "Klick = umschalten")));
+      inv.setItem(30, this.named(Material.SNOW_BLOCK, ChatColor.YELLOW + "Schneeballpunkte resetten", List.of(ChatColor.GRAY + "Setzt nur die Schneeball-Teamwertung zur\u00fcck", ChatColor.YELLOW + "Klick = resetten")));
       inv.setItem(40, this.named(Material.CLOCK, ChatColor.AQUA + "Countdown-BossBar", List.of(ChatColor.GRAY + "Dauer: " + ChatColor.WHITE + formatSecondsShort(parcel.getCountdownDurationSeconds()), ChatColor.GRAY + "Status: " + countdownStatus, ChatColor.GRAY + "Beim Start kommt 3-2-1-Los als Title")));
       inv.setItem(41, this.named(Material.RED_CONCRETE, ChatColor.RED + "Zeit verringern", List.of(ChatColor.GRAY + "Links: -30 Sekunden", ChatColor.GRAY + "Shift: -5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
       inv.setItem(42, this.named(Material.LIME_CONCRETE, ChatColor.GREEN + "Zeit erh\u00f6hen", List.of(ChatColor.GRAY + "Links: +30 Sekunden", ChatColor.GRAY + "Shift: +5 Minuten", ChatColor.YELLOW + "Klick = anpassen")));
@@ -2153,14 +2153,14 @@ public class CoreService {
       this.fillWithPanes(inv);
       inv.setItem(4, this.named(Material.EXPERIENCE_BOTTLE, ChatColor.AQUA + "Core-Erfahrung", List.of(ChatColor.GRAY + "Gespeichert: " + ChatColor.WHITE + Math.max(0L, island.getStoredExperience()))));
       inv.setItem(10, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Parcel-Biom",
-              List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getBiomeChangeCost(false), ChatColor.GRAY + "Wirkt auf das ganze Grundstück", ChatColor.YELLOW + "Klick = Biom-Menü öffnen")));
+              List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getBiomeChangeCost(false), ChatColor.GRAY + "Wirkt auf das ganze Grundst\u00fcck", ChatColor.YELLOW + "Klick = Biom-Men\u00fc \u00f6ffnen")));
       inv.setItem(12, this.named(Material.WATER_BUCKET, ChatColor.AQUA + "Parcel-Wetter",
-              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(this.islandService.getParcelWeatherMode(parcel)), ChatColor.GRAY + "Schnee: " + ChatColor.WHITE + this.islandService.snowWeatherModeLabel(this.islandService.getParcelSnowMode(parcel)), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getWeatherModeChangeCost(), ChatColor.YELLOW + "Klick = Wetter-Shop öffnen")));
+              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandWeatherModeLabel(this.islandService.getParcelWeatherMode(parcel)), ChatColor.GRAY + "Schnee: " + ChatColor.WHITE + this.islandService.snowWeatherModeLabel(this.islandService.getParcelSnowMode(parcel)), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getWeatherModeChangeCost(), ChatColor.YELLOW + "Klick = Wetter-Shop \u00f6ffnen")));
       inv.setItem(14, this.named(Material.CLOCK, ChatColor.GOLD + "Parcel-Zeitmodus",
-              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(this.islandService.getParcelTimeMode(parcel)), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getTimeModeChangeCost(), ChatColor.YELLOW + "Klick = Zeit-Shop öffnen")));
+              List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(this.islandService.getParcelTimeMode(parcel)), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getTimeModeChangeCost(), ChatColor.YELLOW + "Klick = Zeit-Shop \u00f6ffnen")));
       inv.setItem(30, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Parcel-Nachtsicht",
-              List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (this.islandService.isParcelNightVisionEnabled(parcel) ? "AN" : "AUS"), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getNightVisionCost(false), ChatColor.YELLOW + "Klick = Nachtsicht-Shop öffnen")));
-      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundstück")));
+              List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (this.islandService.isParcelNightVisionEnabled(parcel) ? "AN" : "AUS"), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + this.islandService.getNightVisionCost(false), ChatColor.YELLOW + "Klick = Nachtsicht-Shop \u00f6ffnen")));
+      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum Grundst\u00fcck")));
       return inv;
    }
 
@@ -2185,7 +2185,7 @@ public class CoreService {
          Biome biome = BIOME_OPTIONS.get(idx);
          boolean selected = parcel != null && this.islandService.getBiomeForChunk(island, relChunkX, relChunkZ) == biome;
          inv.setItem(GRID_SLOTS.get(i), this.named(selected ? Material.EMERALD_BLOCK : this.iconForBiome(biome), (selected ? ChatColor.GREEN : ChatColor.AQUA) + this.biomeDisplayNameDe(biome), List.of(
-                 ChatColor.GRAY + "Wirkt auf das ganze Grundstück",
+                 ChatColor.GRAY + "Wirkt auf das ganze Grundst\u00fcck",
                  ChatColor.DARK_GRAY + "Original: " + this.biomeOriginalName(biome),
                  ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost,
                  ChatColor.GRAY + "Master, Owner oder Plot-Owner",
@@ -2195,7 +2195,7 @@ public class CoreService {
       inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck zum GS-Shop", List.of()));
       if (safePage > 0) inv.setItem(48, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
       if (safePage < totalPages - 1) inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
-      inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Ganzes Grundstück", List.of(ChatColor.GRAY + "Biom wird parcelweit gesetzt")));
+      inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Ganzes Grundst\u00fcck", List.of(ChatColor.GRAY + "Biom wird parcelweit gesetzt")));
       return inv;
    }
 
@@ -2236,7 +2236,7 @@ public class CoreService {
       IslandService.SnowWeatherMode snowMode = this.islandService.getParcelSnowMode(parcel);
       inv.setItem(31, this.named(Material.SNOW, ChatColor.WHITE + "Schnee-Modus", List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.snowWeatherModeLabel(snowMode))));
       inv.setItem(29, this.named(Material.SNOW_BLOCK, (snowMode == IslandService.SnowWeatherMode.ALLOW ? ChatColor.GREEN : ChatColor.YELLOW) + "Schnee bleibt liegen", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee erlauben")));
-      inv.setItem(33, this.named(Material.BARRIER, (snowMode == IslandService.SnowWeatherMode.BLOCK ? ChatColor.GREEN : ChatColor.YELLOW) + "Schneefrei", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee stoppen und räumen")));
+      inv.setItem(33, this.named(Material.BARRIER, (snowMode == IslandService.SnowWeatherMode.BLOCK ? ChatColor.GREEN : ChatColor.YELLOW) + "Schneefrei", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = Wetterschnee stoppen und r\u00e4umen")));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum GS-Shop")));
       return inv;
    }
@@ -2251,7 +2251,7 @@ public class CoreService {
       long cost = this.islandService.getNightVisionCost(false);
       Inventory inv = Bukkit.createInventory(new ParcelNightVisionShopInventoryHolder(island.getOwner(), relChunkX, relChunkZ, parcel == null ? null : parcel.getChunkKey()), 45, "Parcel-Nachtsicht");
       this.fillWithPanes(inv);
-      inv.setItem(4, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Nachtsicht", List.of(ChatColor.GRAY + "Wirkt dauerhaft auf diesem Grundstück")));
+      inv.setItem(4, this.named(Material.ENDER_EYE, ChatColor.AQUA + "Nachtsicht", List.of(ChatColor.GRAY + "Wirkt dauerhaft auf diesem Grundst\u00fcck")));
       inv.setItem(11, this.named(enabled ? Material.LIME_DYE : Material.YELLOW_DYE, (enabled ? ChatColor.GREEN : ChatColor.YELLOW) + "Parcel-Nachtsicht aktivieren", List.of(ChatColor.GRAY + "Status: " + ChatColor.WHITE + (enabled ? "bereits aktiv" : "aus"), ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + cost, ChatColor.YELLOW + "Klick = aktivieren")));
       inv.setItem(29, this.named(enabled ? Material.BARRIER : Material.GRAY_DYE, (enabled ? ChatColor.RED : ChatColor.DARK_GRAY) + "Parcel-Nachtsicht deaktivieren", List.of(ChatColor.GRAY + "Kosten: " + ChatColor.WHITE + "0", ChatColor.YELLOW + "Klick = deaktivieren")));
       inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zum GS-Shop")));
@@ -4251,7 +4251,7 @@ public class CoreService {
       lines.add(" ");
       IslandService.UpgradeRequirement requirement = this.islandService.getNextUpgradeRequirement(island, pinned);
       if (requirement == null) {
-         lines.add(ChatColor.RED + (this.islandService.getUpgradeTier(island, pinned) >= pinned.maxTier() ? "Maximal ausgebaut" : "Nächste Stufe erst nach Meilenstein"));
+         lines.add(ChatColor.RED + (this.islandService.getUpgradeTier(island, pinned) >= pinned.maxTier() ? "Maximal ausgebaut" : "N\u00e4chste Stufe erst nach Meilenstein"));
          return lines;
       }
       lines.add(ChatColor.GOLD + "Upgrade-Forderungen");
@@ -4436,7 +4436,7 @@ public class CoreService {
          return ChatColor.GOLD + entityLabel + ChatColor.GRAY + " | " + ChatColor.GREEN + "Golems: " + this.islandService.getGolemCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getGolemLimit();
       }
       if (entity instanceof org.bukkit.entity.ArmorStand) {
-         return ChatColor.GREEN + "Rüstungsständer: " + this.islandService.getArmorStandCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getArmorStandLimit();
+         return ChatColor.GREEN + "R\u00fcstungsst\u00e4nder: " + this.islandService.getArmorStandCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getArmorStandLimit();
       }
       return ChatColor.GOLD + entityLabel + ChatColor.GRAY + " | " + ChatColor.GREEN + "Tiere: " + this.islandService.getAnimalCount(island) + "/" + this.islandService.getCurrentLevelDef(island).getAnimalLimit();
    }
@@ -4455,7 +4455,7 @@ public class CoreService {
          case DONKEY -> "Esel";
          case MULE -> "Maultier";
          case LLAMA -> "Lama";
-         case TRADER_LLAMA -> "Händlerlama";
+         case TRADER_LLAMA -> "H\u00e4ndlerlama";
          case CAMEL -> "Kamel";
          case GOAT -> "Ziege";
          case RABBIT -> "Kaninchen";
@@ -4463,7 +4463,7 @@ public class CoreService {
          case WOLF -> "Wolf";
          case FOX -> "Fuchs";
          case BEE -> "Biene";
-         case TURTLE -> "Schildkröte";
+         case TURTLE -> "Schildkr\u00f6te";
          case FROG -> "Frosch";
          case AXOLOTL -> "Axolotl";
          case SNIFFER -> "Sniffer";
@@ -4471,7 +4471,7 @@ public class CoreService {
          case COPPER_GOLEM -> "Kupfergolem";
          case IRON_GOLEM -> "Eisengolem";
          case SNOW_GOLEM -> "Schneegolem";
-         case ARMOR_STAND -> "Rüstungsständer";
+         case ARMOR_STAND -> "R\u00fcstungsst\u00e4nder";
          default -> {
             String[] parts = entity.getType().name().toLowerCase(Locale.ROOT).split("_");
             StringBuilder sb = new StringBuilder();
@@ -5057,7 +5057,7 @@ public class CoreService {
       }
       if ((!parcel.isSaleOfferEnabled() || parcel.getSalePrice() <= 0L)
          && (!parcel.isRentOfferEnabled() || parcel.getRentPrice() <= 0L || parcel.getRentDurationAmount() <= 0)) {
-         player.sendMessage(ChatColor.RED + "Für dieses Grundstück ist aktuell kein Kauf- oder Mietangebot aktiv.");
+         player.sendMessage(ChatColor.RED + "F\u00fcr dieses Grundst\u00fcck ist aktuell kein Kauf- oder Mietangebot aktiv.");
       }
    }
 
@@ -5220,22 +5220,21 @@ public class CoreService {
          return text;
       }
       return text
-         .replace("Ã¤", "\u00e4")
-         .replace("Ã¶", "\u00f6")
-         .replace("Ã¼", "\u00fc")
-         .replace("Ã„", "\u00c4")
-         .replace("Ã–", "\u00d6")
-         .replace("Ãœ", "\u00dc")
-         .replace("ÃŸ", "\u00df")
-         .replace("ÃƒÂ¤", "\u00e4")
-         .replace("ÃƒÂ¶", "\u00f6")
-         .replace("ÃƒÂ¼", "\u00fc")
-         .replace("Ãƒâ€ž", "\u00c4")
-         .replace("Ãƒâ€“", "\u00d6")
-         .replace("ÃƒÅ“", "\u00dc")
-         .replace("ÃƒÅ¸", "\u00df");
+         .replace("\u00c3\u00a4", "\u00e4")
+         .replace("\u00c3\u00b6", "\u00f6")
+         .replace("\u00c3\u00bc", "\u00fc")
+         .replace("\u00c3\u201e", "\u00c4")
+         .replace("\u00c3\u2013", "\u00d6")
+         .replace("\u00c3\u0152", "\u00dc")
+         .replace("\u00c3\u0178", "\u00df")
+         .replace("\u00c3\u0192\u00c2\u00a4", "\u00e4")
+         .replace("\u00c3\u0192\u00c2\u00b6", "\u00f6")
+         .replace("\u00c3\u0192\u00c2\u00bc", "\u00fc")
+         .replace("\u00c3\u0192\u00e2\u20ac\u017e", "\u00c4")
+         .replace("\u00c3\u0192\u00e2\u20ac\u201c", "\u00d6")
+         .replace("\u00c3\u0192\u00c5\u201c", "\u00dc")
+         .replace("\u00c3\u0192\u00c5\u00b8", "\u00df");
    }
-
    private String sanitizeLegacyText(String text) {
       return cleanDisplayText(text);
    }

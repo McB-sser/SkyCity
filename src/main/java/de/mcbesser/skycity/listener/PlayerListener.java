@@ -2397,7 +2397,7 @@ public class PlayerListener implements Listener {
     private int appendParcelSnowballPoints(Objective objective, int score, IslandData island, ParcelData parcel) {
         if (objective == null || island == null || parcel == null || score <= 0) return score;
         List<TeamScoreEntry> entries = collectParcelSnowballScores(island, parcel);
-        objective.getScore(ChatColor.AQUA + "Schneebälle:").setScore(score--);
+        objective.getScore(ChatColor.AQUA + "Schneeb\u00e4lle:").setScore(score--);
         if (entries.isEmpty()) {
             objective.getScore(ChatColor.GRAY + "Noch keine Teams").setScore(score--);
             return score;

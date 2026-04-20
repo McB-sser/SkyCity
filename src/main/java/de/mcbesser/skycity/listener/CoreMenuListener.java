@@ -631,7 +631,7 @@ public class CoreMenuListener implements Listener {
                 }
                 boolean queued = islandService.queueMasterInvite(island, player.getUniqueId(), targetId);
                 if (!queued) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                     player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), true, holder.searchFilter(), holder.page()));
                     return;
                 }
@@ -717,7 +717,7 @@ public class CoreMenuListener implements Listener {
                     if (tPlayer != null) {
                         tPlayer.sendMessage(ChatColor.GREEN + player.getName() + " hat dir auf " + islandService.getIslandTitleDisplay(island) + " Vollzugriff gegeben.");
                     }
-                    player.sendMessage(ChatColor.GREEN + "Alle Member-Rechte für " + targetName + " auf " + islandService.getIslandTitleDisplay(island) + " vergeben.");
+                    player.sendMessage(ChatColor.GREEN + "Alle Member-Rechte f\u00fcr " + targetName + " auf " + islandService.getIslandTitleDisplay(island) + " vergeben.");
                 }
                 player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
             }
@@ -730,7 +730,7 @@ public class CoreMenuListener implements Listener {
                 boolean changed = granted
                         ? islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.BUILD)
                         : islandService.revokeMemberPermission(island, targetId, IslandService.TrustPermission.BUILD);
-                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 else notifyMemberPermissionChange(player, island, targetId, IslandService.TrustPermission.BUILD, granted);
                 player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
             }
@@ -743,7 +743,7 @@ public class CoreMenuListener implements Listener {
                 boolean changed = granted
                         ? islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.CONTAINER)
                         : islandService.revokeMemberPermission(island, targetId, IslandService.TrustPermission.CONTAINER);
-                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 else notifyMemberPermissionChange(player, island, targetId, IslandService.TrustPermission.CONTAINER, granted);
                 player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
             }
@@ -756,7 +756,7 @@ public class CoreMenuListener implements Listener {
                 boolean changed = granted
                         ? islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.REDSTONE)
                         : islandService.revokeMemberPermission(island, targetId, IslandService.TrustPermission.REDSTONE);
-                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 else notifyMemberPermissionChange(player, island, targetId, IslandService.TrustPermission.REDSTONE, granted);
                 player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
             }
@@ -1191,7 +1191,7 @@ public class CoreMenuListener implements Listener {
             }
             long cost = islandService.getWeatherModeChangeCost();
             if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
-                player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+                player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                 return;
             }
             islandService.setIslandSnowMode(island, snowTarget);
@@ -1211,7 +1211,7 @@ public class CoreMenuListener implements Listener {
         }
         long cost = islandService.getWeatherModeChangeCost();
         if (!islandService.isSpawnIsland(island) && !islandService.spendStoredExperience(island, cost)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
         islandService.setIslandWeatherMode(island, target);
@@ -1295,7 +1295,7 @@ public class CoreMenuListener implements Listener {
         if (player.isOp() || islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
             return true;
         }
-        player.sendMessage(ChatColor.RED + "Nur Master, Owner oder Plot-Owner kÃ¶nnen im GS-Shop kaufen.");
+        player.sendMessage(ChatColor.RED + "Nur Master, Owner oder Plot-Owner k\u00f6nnen im GS-Shop kaufen.");
         return false;
     }
 
@@ -1586,7 +1586,7 @@ public class CoreMenuListener implements Listener {
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     boolean enabled = !parcel.isSnowballFightEnabled();
                     if (enabled && !parcel.isGamesEnabled()) {
-                        player.sendMessage(ChatColor.RED + "Schneeballschlacht benÃ¶tigt zuerst GS-Games.");
+                        player.sendMessage(ChatColor.RED + "Schneeballschlacht ben\u00f6tigt zuerst GS-Games.");
                         return;
                     }
                     if (islandService.setParcelSnowballFightEnabled(island, parcel, player.getUniqueId(), enabled)) {
@@ -1601,7 +1601,7 @@ public class CoreMenuListener implements Listener {
                 var parcel = targetParcel;
                 if (parcel != null && islandService.isParcelOwner(island, parcel, player.getUniqueId())) {
                     playerListener.resetParcelSnowballFight(island, parcel);
-                    player.sendMessage(ChatColor.YELLOW + "Schneeball-Teamwertung wurde zurÃ¼ckgesetzt.");
+                    player.sendMessage(ChatColor.YELLOW + "Schneeball-Teamwertung wurde zur\u00fcckgesetzt.");
                 }
             }
             case 49 -> {
@@ -1820,7 +1820,7 @@ public class CoreMenuListener implements Listener {
         if (biome == null) return;
         long cost = islandService.getBiomeChangeCost(false);
         if (!islandService.spendStoredExperience(island, cost)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
         if (!islandService.setBiomeForParcel(island, parcel, biome)) {
@@ -1862,12 +1862,12 @@ public class CoreMenuListener implements Listener {
         };
         if (target == null) return;
         if (islandService.getParcelTimeMode(parcel) == target) {
-            player.sendMessage(ChatColor.YELLOW + "Dieser Zeitmodus ist bereits auf dem GrundstÃ¼ck aktiv.");
+            player.sendMessage(ChatColor.YELLOW + "Dieser Zeitmodus ist bereits auf dem Grundst\u00fcck aktiv.");
             return;
         }
         long cost = islandService.getTimeModeChangeCost();
         if (!islandService.spendStoredExperience(island, cost)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
         if (!islandService.setParcelTimeMode(island, parcel, player.getUniqueId(), target)) {
@@ -1903,12 +1903,12 @@ public class CoreMenuListener implements Listener {
         };
         if (snowTarget != null) {
             if (islandService.getParcelSnowMode(parcel) == snowTarget) {
-                player.sendMessage(ChatColor.YELLOW + "Dieser Schnee-Modus ist bereits auf dem GrundstÃ¼ck aktiv.");
+                player.sendMessage(ChatColor.YELLOW + "Dieser Schnee-Modus ist bereits auf dem Grundst\u00fcck aktiv.");
                 return;
             }
             long cost = islandService.getWeatherModeChangeCost();
             if (!islandService.spendStoredExperience(island, cost)) {
-                player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+                player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
                 return;
             }
             if (!islandService.setParcelSnowMode(island, parcel, player.getUniqueId(), snowTarget)) {
@@ -1924,12 +1924,12 @@ public class CoreMenuListener implements Listener {
         }
         if (target == null) return;
         if (islandService.getParcelWeatherMode(parcel) == target) {
-            player.sendMessage(ChatColor.YELLOW + "Dieser Wettermodus ist bereits auf dem GrundstÃ¼ck aktiv.");
+            player.sendMessage(ChatColor.YELLOW + "Dieser Wettermodus ist bereits auf dem Grundst\u00fcck aktiv.");
             return;
         }
         long cost = islandService.getWeatherModeChangeCost();
         if (!islandService.spendStoredExperience(island, cost)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. BenÃ¶tigt: " + cost);
+            player.sendMessage(ChatColor.RED + "Nicht genug Core-Erfahrung. Ben\u00f6tigt: " + cost);
             return;
         }
         if (!islandService.setParcelWeatherMode(island, parcel, player.getUniqueId(), target)) {
@@ -2374,7 +2374,7 @@ public class CoreMenuListener implements Listener {
         if (targetId == null) return;
         boolean queued = islandService.queueMasterInvite(island, player.getUniqueId(), targetId);
         if (!queued) {
-            player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+            player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
             player.openInventory(coreService.createIslandMasterInviteMenu(player, island, holder.page()));
             return;
         }
@@ -2454,7 +2454,7 @@ public class CoreMenuListener implements Listener {
             case "OWNER_SELF_REMOVE" -> {
                 boolean changed = islandService.revokeOwnerRole(island, player.getUniqueId(), player.getUniqueId());
                 if (!changed) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 } else {
                     player.sendMessage(ChatColor.YELLOW + "Du hast dich auf " + islandService.getIslandTitleDisplay(island) + " als Owner ausgetragen.");
                 }
@@ -2466,7 +2466,7 @@ public class CoreMenuListener implements Listener {
                         : IslandService.TrustPermission.valueOf(holder.permission());
                 boolean changed = islandService.revokeMemberPermission(island, player.getUniqueId(), permission);
                 if (!changed) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 } else if (permission == IslandService.TrustPermission.ALL) {
                     player.sendMessage(ChatColor.YELLOW + "Du hast dir auf " + islandService.getIslandTitleDisplay(island) + " alle Member-Rechte entzogen.");
                 } else {

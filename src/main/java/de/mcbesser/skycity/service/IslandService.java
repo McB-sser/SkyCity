@@ -6049,7 +6049,7 @@ public class IslandService {
         }
         return "Du kannst erst wieder eine Insel erstellen, wenn die Warteschlange leer ist. "
                 + "Generierung: " + getPregenerationQueueSize()
-                + ", Löschung: " + getCleanupQueueSize() + ".";
+                + ", L\u00f6schung: " + getCleanupQueueSize() + ".";
     }
 
     public String getIslandCreationThrottleMessage(UUID playerId) {

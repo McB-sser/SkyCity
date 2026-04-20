@@ -521,7 +521,7 @@ public class ProtectionListener implements Listener {
                 if (attemptsPerSection <= 0) continue;
                 var tickStats = randomTickBridge.tickChunk(chunk, attemptsPerSection, tier);
                 if (tickStats.bridgeFailures() > 0) {
-                    plugin.getLogger().warning("SkyCity Growth-Boost-Bridge meldet Fehler fuer Chunk "
+                    plugin.getLogger().warning("SkyCity Growth-Boost-Bridge meldet Fehler f\u00fcr Chunk "
                             + worldChunkX + "," + worldChunkZ + " in Welt " + world.getName()
                             + ". Zielinfos: " + tickStats.targetSummary()
                             + ", Grund: " + (tickStats.failureReason() == null ? "-" : tickStats.failureReason()));
@@ -721,7 +721,7 @@ public class ProtectionListener implements Listener {
         private void logInitializationFailureOnce(org.bukkit.Chunk chunk, Throwable throwable) {
             if (initializationFailureLogged) return;
             initializationFailureLogged = true;
-            plugin.getLogger().warning("SkyCity RandomTickBridge konnte fuer " + describeChunk(chunk)
+            plugin.getLogger().warning("SkyCity RandomTickBridge konnte f\u00fcr " + describeChunk(chunk)
                     + " nicht initialisiert werden. Growth-Boost nutzt dort keinen stabilen NMS-Pfad: "
                     + rootMessage(throwable));
         }
@@ -729,7 +729,7 @@ public class ProtectionListener implements Listener {
         private void logRuntimeFailureOnce(org.bukkit.Chunk chunk, Throwable throwable) {
             if (runtimeFailureLogged) return;
             runtimeFailureLogged = true;
-            plugin.getLogger().warning("SkyCity RandomTickBridge ist fuer " + describeChunk(chunk)
+            plugin.getLogger().warning("SkyCity RandomTickBridge ist f\u00fcr " + describeChunk(chunk)
                     + " zur Laufzeit fehlgeschlagen. Growth-Boost kann dort ausfallen: "
                     + rootMessage(throwable));
         }
@@ -1682,7 +1682,7 @@ public class ProtectionListener implements Listener {
         Location inventoryLocation = inventoryHolderLocation(event.getInventory().getHolder());
         if (playerListener.isActiveCtfShelfLocation(inventoryLocation)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "CTF-Regale kÃ¶nnen nicht direkt geÃ¶ffnet werden.");
+            player.sendMessage(ChatColor.RED + "CTF-Regale k\u00f6nnen nicht direkt ge\u00f6ffnet werden.");
             return;
         }
         Object holder = event.getInventory().getHolder();
@@ -1729,7 +1729,7 @@ public class ProtectionListener implements Listener {
         Location inventoryLocation = inventoryHolderLocation(event.getView().getTopInventory().getHolder());
         if (!playerListener.isActiveCtfShelfLocation(inventoryLocation)) return;
         event.setCancelled(true);
-        player.sendMessage(ChatColor.RED + "Aus CTF-Regalen kÃ¶nnen keine Items entnommen werden.");
+        player.sendMessage(ChatColor.RED + "Aus CTF-Regalen k\u00f6nnen keine Items entnommen werden.");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -1742,7 +1742,7 @@ public class ProtectionListener implements Listener {
         boolean touchesTop = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
         if (!touchesTop) return;
         event.setCancelled(true);
-        player.sendMessage(ChatColor.RED + "CTF-Regale sind fÃ¼r Spieler gesperrt.");
+        player.sendMessage(ChatColor.RED + "CTF-Regale sind f\u00fcr Spieler gesperrt.");
     }
 
     private Location inventoryHolderLocation(Object holder) {

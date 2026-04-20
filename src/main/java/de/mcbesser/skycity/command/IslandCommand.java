@@ -306,7 +306,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 }
                 boolean queued = islandService.queueMasterInvite(island, player.getUniqueId(), target.getUniqueId());
                 if (!queued) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine Änderung.");
+                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                     return;
                 }
                 player.sendMessage(ChatColor.GREEN + "Master-Einladung gesendet an " + (target.getName() == null ? "?" : target.getName()) + ".");
