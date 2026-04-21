@@ -9,6 +9,7 @@ import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.SkyWorldService;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -269,17 +270,23 @@ public class ProtectionListener implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlockPlaced();
         if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
-        if (player.isOp()) {
-            IslandData island = islandService.getIslandAt(block.getLocation());
-            if (island != null) {
-                islandService.onTrackedBlockPlaced(island, block);
+        boolean bypassProtection = canBypassIslandProtection(player);
+        boolean placingCore = coreService.isCoreItem(event.getItemInHand());
+        IslandData island = islandService.getIslandAt(block.getLocation());
+        if (island == null) {
+            if (placingCore) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Cores k\u00f6nnen nur auf Inseln gesetzt werden.");
+                return;
+            }
+            if (!bypassProtection) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Nur auf Inseln bauen.");
             }
             return;
         }
-        IslandData island = islandService.getIslandAt(block.getLocation());
-        if (island == null) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Nur auf Inseln bauen.");
+        if (bypassProtection && !placingCore) {
+            islandService.onTrackedBlockPlaced(island, block);
             return;
         }
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
@@ -296,62 +303,69 @@ public class ProtectionListener implements Listener {
             }
             bypassParcelRights = true;
         }
-        if (!bypassParcelRights && !islandService.hasBuildAccess(player.getUniqueId(), island)) {
+        if (!bypassProtection && !bypassParcelRights && !islandService.hasBuildAccess(player.getUniqueId(), island)) {
             if (parcel == null || !islandService.isParcelUser(island, parcel, player.getUniqueId())) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Keine Baurechte.");
                 return;
             }
         }
-        if (!islandService.isChunkUnlocked(island, block.getLocation())) {
+        if (!bypassProtection && !islandService.isChunkUnlocked(island, block.getLocation())) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Chunk gesperrt.");
             return;
         }
 
         Material type = block.getType();
-        if (islandService.isInventoryLimitedMaterial(type)
+        if (!bypassProtection
+                && islandService.isInventoryLimitedMaterial(type)
                 && islandService.getCachedInventoryBlockCount(island) + 1 > islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Beh\u00e4lterlimit erreicht: " + islandService.getCurrentUpgradeLimit(island, IslandService.UpgradeBranch.CONTAINER));
             return;
         }
-        if (type == Material.HOPPER && islandService.getCachedHopperCount(island) + 1 > islandService.getCurrentLevelDef(island).getHopperLimit()) {
+        if (!bypassProtection && type == Material.HOPPER && islandService.getCachedHopperCount(island) + 1 > islandService.getCurrentLevelDef(island).getHopperLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Hopperlimit erreicht: " + islandService.getCurrentLevelDef(island).getHopperLimit());
             return;
         }
-        if ((type == Material.PISTON || type == Material.STICKY_PISTON)
+        if (!bypassProtection
+                && (type == Material.PISTON || type == Material.STICKY_PISTON)
                 && islandService.getCachedPistonCount(island) + 1 > islandService.getCurrentLevelDef(island).getPistonLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Kolbenlimit erreicht: " + islandService.getCurrentLevelDef(island).getPistonLimit());
             return;
         }
-        if (type == Material.OBSERVER
+        if (!bypassProtection
+                && type == Material.OBSERVER
                 && islandService.getCachedObserverCount(island) + 1 > islandService.getCurrentLevelDef(island).getObserverLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Observerlimit erreicht: " + islandService.getCurrentLevelDef(island).getObserverLimit());
             return;
         }
-        if (type == Material.DISPENSER
+        if (!bypassProtection
+                && type == Material.DISPENSER
                 && islandService.getCachedDispenserCount(island) + 1 > islandService.getCurrentLevelDef(island).getDispenserLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Dispenserlimit erreicht: " + islandService.getCurrentLevelDef(island).getDispenserLimit());
             return;
         }
-        if (type == Material.CACTUS
+        if (!bypassProtection
+                && type == Material.CACTUS
                 && islandService.getCachedCactusCount(island) + 1 > islandService.getCurrentLevelDef(island).getCactusLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Kaktuslimit erreicht: " + islandService.getCurrentLevelDef(island).getCactusLimit());
             return;
         }
-        if ((type == Material.KELP || type == Material.KELP_PLANT)
+        if (!bypassProtection
+                && (type == Material.KELP || type == Material.KELP_PLANT)
                 && islandService.getCachedKelpCount(island) + 1 > islandService.getCurrentLevelDef(island).getKelpLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Kelplimit erreicht: " + islandService.getCurrentLevelDef(island).getKelpLimit());
             return;
         }
-        if (type == Material.BAMBOO
+        if (!bypassProtection
+                && type == Material.BAMBOO
                 && islandService.getCachedBambooCount(island) + 1 > islandService.getCurrentLevelDef(island).getBambooLimit()) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Bambuslimit erreicht: " + islandService.getCurrentLevelDef(island).getBambooLimit());
@@ -362,7 +376,7 @@ public class ProtectionListener implements Listener {
         }
         playerListener.invalidateStructureCaches(block.getLocation(), type);
 
-        if (coreService.isCoreItem(event.getItemInHand())) {
+        if (placingCore) {
             if (islandService.isSpawnIsland(island)) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Am Spawn gibt es keinen Core.");
@@ -387,16 +401,17 @@ public class ProtectionListener implements Listener {
         Block block = event.getBlock();
         Player player = event.getPlayer();
         if (!skyWorldService.isSkyCityWorld(block.getWorld())) return;
-        if (player.isOp()) {
-            IslandData island = islandService.getIslandAt(block.getLocation());
-            if (island != null) {
-                islandService.onTrackedBlockBroken(island, block);
+        boolean bypassProtection = canBypassIslandProtection(player);
+        boolean breakingCore = coreService.isCoreBlock(block);
+        IslandData island = islandService.getIslandAt(block.getLocation());
+        if (island == null) {
+            if (!bypassProtection) {
+                event.setCancelled(true);
             }
             return;
         }
-        IslandData island = islandService.getIslandAt(block.getLocation());
-        if (island == null) {
-            event.setCancelled(true);
+        if (bypassProtection && !breakingCore) {
+            islandService.onTrackedBlockBroken(island, block);
             return;
         }
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
@@ -416,12 +431,12 @@ public class ProtectionListener implements Listener {
         }
         boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island)
                 || (parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId()));
-        if ((!hasBuild && !bypassParcelRights && !pveParticipant) || !islandService.isChunkUnlocked(island, block.getLocation())) {
+        if (!bypassProtection && ((!hasBuild && !bypassParcelRights && !pveParticipant) || !islandService.isChunkUnlocked(island, block.getLocation()))) {
             event.setCancelled(true);
             return;
         }
-        if (coreService.isCoreBlock(block)) {
-            if (!islandService.isIslandOwner(island, player.getUniqueId())) {
+        if (breakingCore) {
+            if (!bypassProtection && !islandService.isIslandOwner(island, player.getUniqueId())) {
                 event.setCancelled(true);
                 player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen den Core abbauen.");
                 return;
@@ -454,6 +469,10 @@ public class ProtectionListener implements Listener {
         islandService.markIslandActivity(player.getUniqueId());
         islandService.onTrackedBlockBroken(island, block);
         coreService.showIslandLimitHint(player, island, block.getType());
+    }
+
+    private boolean canBypassIslandProtection(Player player) {
+        return player != null && (player.isOp() || player.getGameMode() == GameMode.CREATIVE);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
