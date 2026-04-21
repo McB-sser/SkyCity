@@ -1306,10 +1306,18 @@ public class PlayerListener implements Listener {
         if (lastTick != null && now - lastTick < 600L) return activeTags;
         checkpointParticleTickWindow.put(player.getUniqueId(), now);
         java.util.Set<String> shown = new java.util.HashSet<>();
+        int horizontalRange = (int) Math.ceil(resolveMarkerViewRange());
+        int horizontalRangeSquared = horizontalRange * horizontalRange;
+        int chunkRadius = Math.max(1, (horizontalRange + 15) / 16);
+        int playerBlockX = player.getLocation().getBlockX();
+        int playerBlockZ = player.getLocation().getBlockZ();
         org.bukkit.Chunk center = player.getLocation().getChunk();
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                org.bukkit.Chunk chunk = player.getWorld().getChunkAt(center.getX() + dx, center.getZ() + dz);
+        for (int dx = -chunkRadius; dx <= chunkRadius; dx++) {
+            for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
+                int chunkX = center.getX() + dx;
+                int chunkZ = center.getZ() + dz;
+                if (!player.getWorld().isChunkLoaded(chunkX, chunkZ)) continue;
+                org.bukkit.Chunk chunk = player.getWorld().getChunkAt(chunkX, chunkZ);
                 int relChunkX = islandService.relativeChunkX(island, chunk.getX());
                 int relChunkZ = islandService.relativeChunkZ(island, chunk.getZ());
                 if (!islandService.isChunkUnlocked(island, relChunkX, relChunkZ)) continue;
@@ -1318,6 +1326,11 @@ public class PlayerListener implements Listener {
                 int maxY = Math.min(player.getWorld().getMaxHeight() - 1, player.getLocation().getBlockY() + verticalRange);
                 for (int localX = 0; localX < 16; localX++) {
                     for (int localZ = 0; localZ < 16; localZ++) {
+                        int blockX = (chunk.getX() << 4) + localX;
+                        int blockZ = (chunk.getZ() << 4) + localZ;
+                        int distanceX = blockX - playerBlockX;
+                        int distanceZ = blockZ - playerBlockZ;
+                        if (distanceX * distanceX + distanceZ * distanceZ > horizontalRangeSquared) continue;
                         for (int y = minY; y <= maxY; y++) {
                             Block block = chunk.getBlock(localX, y, localZ);
                             if (isJumpPadPlate(block)) {
