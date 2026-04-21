@@ -2,6 +2,7 @@ package de.mcbesser.skycity;
 
 import de.mcbesser.skycity.command.IslandCommand;
 import de.mcbesser.skycity.command.SpawnCommand;
+import de.mcbesser.skycity.listener.CraftingListener;
 import de.mcbesser.skycity.listener.CoreMenuListener;
 import de.mcbesser.skycity.listener.PlayerListener;
 import de.mcbesser.skycity.listener.PlotWandListener;
@@ -78,6 +79,7 @@ public class SkyCityPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new ProtectionListener(this, islandService, coreService, skyWorldService, playerListener), this);
         Bukkit.getPluginManager().registerEvents(new PlotWandListener(this, islandService, skyWorldService, coreService), this);
         Bukkit.getPluginManager().registerEvents(new CoreMenuListener(islandService, coreService, particlePreviewService, playerListener), this);
+        Bukkit.getPluginManager().registerEvents(new CraftingListener(coreService), this);
         Bukkit.getPluginManager().registerEvents(new BootstrapListener(), this);
 
         getCommand("spawn").setExecutor(new SpawnCommand(islandService));
