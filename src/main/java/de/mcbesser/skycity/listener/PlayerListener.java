@@ -1313,8 +1313,9 @@ public class PlayerListener implements Listener {
                 int relChunkX = islandService.relativeChunkX(island, chunk.getX());
                 int relChunkZ = islandService.relativeChunkZ(island, chunk.getZ());
                 if (!islandService.isChunkUnlocked(island, relChunkX, relChunkZ)) continue;
-                int minY = Math.max(player.getWorld().getMinHeight(), player.getLocation().getBlockY() - 4);
-                int maxY = Math.min(player.getWorld().getMaxHeight() - 1, player.getLocation().getBlockY() + 4);
+                int verticalRange = (int) Math.ceil(resolveMarkerViewRange());
+                int minY = Math.max(player.getWorld().getMinHeight(), player.getLocation().getBlockY() - verticalRange);
+                int maxY = Math.min(player.getWorld().getMaxHeight() - 1, player.getLocation().getBlockY() + verticalRange);
                 for (int localX = 0; localX < 16; localX++) {
                     for (int localZ = 0; localZ < 16; localZ++) {
                         for (int y = minY; y <= maxY; y++) {
@@ -1354,7 +1355,43 @@ public class PlayerListener implements Listener {
                 }
             }
         }
+        activateRegisteredCheckpointDisplays(player, island, activeTags, shown);
         return activeTags;
+    }
+
+    private void activateRegisteredCheckpointDisplays(Player player, IslandData island, java.util.Set<String> activeTags, java.util.Set<String> shown) {
+        if (player == null || island == null || activeTags == null || shown == null || player.getWorld() == null) return;
+        ensureCheckpointStructureRegistry(island);
+        double maxDistance = resolveMarkerViewRange();
+        double maxDistanceSquared = maxDistance * maxDistance;
+        for (Map.Entry<String, String> entry : island.getCheckpointStructures().entrySet()) {
+            RegisteredCheckpoint checkpoint = registeredCheckpointFromString(entry.getValue());
+            if (checkpoint == null || checkpoint.lavaProtected()) continue;
+            Location location = checkpointLocationFromKey(entry.getKey());
+            if (location == null || location.getWorld() != player.getWorld()) continue;
+            if (player.getLocation().distanceSquared(location) > maxDistanceSquared) continue;
+            String key = checkpoint.parcelKey() + "|" + checkpointKey(checkpoint.woolType(), checkpoint.plateType());
+            if (!shown.add(key)) continue;
+            ParcelData regionParcel = "island".equals(checkpoint.parcelKey())
+                    ? null
+                    : island.getParcels().get(checkpoint.parcelKey());
+            java.util.List<Location> matches = findMatchingCheckpointPlates(island, regionParcel, checkpoint.woolType(), checkpoint.plateType());
+            if (matches.size() == 1) {
+                String tag = checkpointHoloTag(matches.get(0));
+                activeTags.add(tag);
+                ensureCheckpointHolo(matches.get(0), tag);
+            } else if (matches.size() == 2) {
+                for (Location match : matches) {
+                    spawnCheckpointGlow(player, match);
+                }
+            } else if (matches.size() >= 3) {
+                for (Location match : matches) {
+                    String tag = checkpointHoloTag(match);
+                    activeTags.add(tag);
+                    ensureCheckpointHolo(match, tag);
+                }
+            }
+        }
     }
 
     private void spawnCheckpointGlow(Player player, Location location) {

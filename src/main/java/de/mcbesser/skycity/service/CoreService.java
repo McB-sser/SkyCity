@@ -130,6 +130,8 @@ public class CoreService {
    private static final double BLOCK_VALUE_DEFAULT = 1.0E-4;
    private static final Set<Material> BLOCK_VALUE_BLACKLIST = EnumSet.noneOf(Material.class);
    private static final long LIMIT_HINT_DURATION_TICKS = 50L;
+   private static final double ENTITY_EMOTE_VIEW_DISTANCE = 16.0D;
+   private static final double ENTITY_EMOTE_VIEW_DISTANCE_SQUARED = ENTITY_EMOTE_VIEW_DISTANCE * ENTITY_EMOTE_VIEW_DISTANCE;
    private final SkyCityPlugin plugin;
    private final IslandService islandService;
    private final Set<UUID> visibleAnimalLookTargets = ConcurrentHashMap.newKeySet();
@@ -4462,11 +4464,15 @@ public class CoreService {
 
       for (Player player : Bukkit.getOnlinePlayers()) {
          if (!player.isOnline()) continue;
-         for (Entity entity : player.getWorld().getEntities()) {
+         Location playerLocation = player.getLocation();
+         for (Entity entity : player.getWorld().getNearbyEntities(playerLocation, ENTITY_EMOTE_VIEW_DISTANCE, ENTITY_EMOTE_VIEW_DISTANCE, ENTITY_EMOTE_VIEW_DISTANCE)) {
             if (!this.supportsEntityLookDisplay(entity)) {
                continue;
             }
             if (!entity.isValid()) {
+               continue;
+            }
+            if (entity.getLocation().distanceSquared(playerLocation) > ENTITY_EMOTE_VIEW_DISTANCE_SQUARED) {
                continue;
             }
             IslandData island = this.islandService.getIslandAt(entity.getLocation());
@@ -4623,6 +4629,7 @@ public class CoreService {
 
    private void configureAnimalLookDisplay(TextDisplay display, Entity entity, String text, boolean created) {
       Component desiredText = LegacyComponentSerializer.legacySection().deserialize(text);
+      display.setViewRange((float)ENTITY_EMOTE_VIEW_DISTANCE);
       if (created) {
          display.text(Component.empty());
          display.setBillboard(Display.Billboard.CENTER);
@@ -4736,6 +4743,7 @@ public class CoreService {
    }
 
    private void configureAnimalHealthDisplay(TextDisplay display, Entity entity, String text, boolean created) {
+      display.setViewRange((float)ENTITY_EMOTE_VIEW_DISTANCE);
       if (created) {
          display.setBillboard(Display.Billboard.CENTER);
          display.setSeeThrough(true);
