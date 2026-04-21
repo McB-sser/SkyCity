@@ -9,6 +9,7 @@ import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.ParticlePreviewService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Biome;
 import org.bukkit.entity.Player;
@@ -367,6 +368,8 @@ public class CoreMenuListener implements Listener {
         if (target == null) {
             if (holder.claimMode()) {
                 claimIslandFromOverview(player, targetGridX, targetGridZ);
+            } else if (coreService.canUseEmptyIslandSlotTeleport(player) && islandService.isPlotAvailable(targetGridX, targetGridZ)) {
+                teleportToEmptyIslandPlot(player, targetGridX, targetGridZ);
             }
             return;
         }
@@ -377,6 +380,21 @@ public class CoreMenuListener implements Listener {
         }
         player.teleport(target.getIslandSpawn());
         player.closeInventory();
+    }
+
+    private void teleportToEmptyIslandPlot(Player player, int gridX, int gridZ) {
+        Location floor = islandService.getPlotCenter(gridX, gridZ);
+        if (floor == null || floor.getWorld() == null) {
+            player.sendMessage(ChatColor.RED + "Dieser Inselplatz ist aktuell nicht erreichbar.");
+            return;
+        }
+        floor.getBlock().setType(Material.GLASS);
+        Location target = floor.clone().add(0.5, 1.0, 0.5);
+        target.setYaw(player.getLocation().getYaw());
+        target.setPitch(player.getLocation().getPitch());
+        player.teleport(target);
+        player.closeInventory();
+        player.sendMessage(ChatColor.AQUA + "Teleportiert zum leeren Inselplatz " + gridX + ":" + gridZ + ".");
     }
 
     private void claimIslandFromOverview(Player player, int gridX, int gridZ) {

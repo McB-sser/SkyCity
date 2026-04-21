@@ -1643,6 +1643,7 @@ public class PlayerListener implements Listener {
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
         display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
         display.setViewRange(resolveMarkerViewRange());
+        display.setPersistent(false);
     }
 
     private void configureJumpPadDisplay(ItemDisplay display) {
@@ -1652,6 +1653,7 @@ public class PlayerListener implements Listener {
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
         display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.52F, 0.52F, 0.52F), new AxisAngle4f()));
         display.setViewRange(resolveMarkerViewRange());
+        display.setPersistent(false);
     }
 
     private float resolveMarkerViewRange() {

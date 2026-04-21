@@ -29,6 +29,7 @@ import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.ClickEvent.Action;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -1577,6 +1578,10 @@ public class CoreService {
       return this.createIslandOverviewMenu(viewer, island, island.getGridX(), island.getGridZ(), false);
    }
 
+   public boolean canUseEmptyIslandSlotTeleport(Player player) {
+      return player != null && (player.isOp() || player.getGameMode() == GameMode.CREATIVE);
+   }
+
    private Inventory createIslandOverviewMenu(Player viewer, IslandData island, int centerGridX, int centerGridZ, boolean claimMode) {
       UUID islandOwner = island == null ? null : island.getOwner();
       Inventory inv = Bukkit.createInventory(new IslandOverviewInventoryHolder(islandOwner, centerGridX, centerGridZ, claimMode), 54, "Inselumgebung");
@@ -1623,6 +1628,8 @@ public class CoreService {
                   inv.setItem(slot, this.named(Material.RED_WOOL, ChatColor.RED + "Spawn", List.of(ChatColor.GRAY + "Position: 0:0", ChatColor.GRAY + "Server-Spawn")));
                } else if (claimMode && this.islandService.isPlotAvailable(targetGridX, targetGridZ)) {
                   inv.setItem(slot, this.named(Material.LIME_STAINED_GLASS, ChatColor.GREEN + "Freier Slot", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.YELLOW + "Klick = Insel hier claimen")));
+               } else if (this.canUseEmptyIslandSlotTeleport(viewer) && this.islandService.isPlotAvailable(targetGridX, targetGridZ)) {
+                  inv.setItem(slot, this.named(Material.GLASS, ChatColor.AQUA + "Leerer Inselplatz", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.GRAY + "Noch keine Insel an dieser Stelle", ChatColor.YELLOW + "Klick = zum Inselplatz teleportieren")));
                } else {
                   inv.setItem(slot, this.named(Material.BLACK_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "Leer", List.of(ChatColor.GRAY + "Position: " + targetGridX + ":" + targetGridZ, ChatColor.GRAY + "Keine Insel an dieser Position")));
                }
