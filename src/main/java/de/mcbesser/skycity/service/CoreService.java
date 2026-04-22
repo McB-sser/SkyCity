@@ -3781,12 +3781,8 @@ public class CoreService {
                yOffset += 0.18;
             }
          }
-         if (highestVisibleYOffset >= 0.0) {
-            this.ensureCoreToggleInteraction(coreTop, toggleTag, highestVisibleYOffset);
-            activeTags.add(toggleTag);
-         } else {
-            this.removeTaggedDisplayEntities(coreTop, toggleTag);
-         }
+         this.ensureCoreToggleInteraction(coreTop, toggleTag, Math.max(0.0D, highestVisibleYOffset));
+         activeTags.add(toggleTag);
       }
       this.removeStaleCoreDisplays(island, activeTags);
       this.updateParcelOfferDisplays(island);
@@ -4943,6 +4939,13 @@ public class CoreService {
       if (!isUpgradeLine) return false;
       IslandData island = this.islandService.getIslandAt(entity.getLocation());
       if (island == null || !this.islandService.hasContainerAccess(player.getUniqueId(), island)) return false;
+      boolean coreToggle = entity.getScoreboardTags().stream().anyMatch(tag -> tag.startsWith("skycity_core_toggle_"));
+      Location coreLocation = this.resolveCoreLocationFromEntity(entity, island);
+      if (coreToggle && this.getCoreDisplayMode(island, coreLocation) == CoreService.CoreDisplayMode.OFF) {
+         CoreService.CoreDisplayMode mode = this.cycleCoreDisplayMode(island, coreLocation);
+         player.sendMessage(ChatColor.LIGHT_PURPLE + "Core-Anzeige: " + ChatColor.WHITE + this.displayModeLabel(mode));
+         return true;
+      }
       if (this.islandService.isMilestonePinned(island)) {
          org.bukkit.inventory.ItemStack loreItem = this.createMilestoneProgressItem(island);
          if (this.islandService.levelUp(island)) {

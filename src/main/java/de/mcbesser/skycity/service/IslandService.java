@@ -209,6 +209,7 @@ public class IslandService {
     private record ThemeHit(long seed, double density) { }
     private record PregenerationTask(UUID islandOwner, int nextIndex) { }
     private record IslandCreationTask(UUID playerId) { }
+    private record BarrierFloorRepairTask(int gridX, int gridZ, int nextChunkIndex) { }
     private record PveMobArchetype(
             String key,
             EntityType entityType,
@@ -369,6 +370,7 @@ public class IslandService {
     private static final long XP_BOTTLE_POINTS = 10L;
     private static final long XP_BOTTLE_COST_POINTS = 11L; // 10% loss
     private static final long GROWTH_DEBUG_WINDOW_MILLIS = 5_000L;
+    private static final int BARRIER_FLOOR_REPAIR_CHUNKS_PER_TICK = 1;
     private static final int TEXT_DISPLAY_LOAD_LIMIT = 32;
     private static final int INTERACTIVE_ITEM_DISPLAY_LOAD_LIMIT = 24;
     private static final int DISPLAY_HITBOX_LOAD_LIMIT = 32;
@@ -410,6 +412,8 @@ public class IslandService {
     private final Set<UUID> queuedPregenerationOwners = new HashSet<>();
     private final Map<UUID, Integer> pregenerationProgressByOwner = new HashMap<>();
     private final Queue<IslandCreationTask> islandCreationQueue = new ArrayDeque<>();
+    private final Queue<BarrierFloorRepairTask> barrierFloorRepairQueue = new ArrayDeque<>();
+    private final Set<String> queuedBarrierFloorRepairPlots = new HashSet<>();
     private final Map<UUID, List<Consumer<IslandData>>> islandCreationCallbacks = new HashMap<>();
     private final Map<UUID, List<Consumer<IslandData>>> islandReadyCallbacks = new HashMap<>();
     private final Set<UUID> pendingIslandCreations = new HashSet<>();
@@ -658,6 +662,7 @@ public class IslandService {
             if (!isIslandFullyPregenerated(island)) {
                 queuePregeneration(island);
             }
+            queueBarrierFloorRepair(island);
         }
     }
 
@@ -766,6 +771,10 @@ public class IslandService {
         }
         if (!islandAreaCleanupQueue.isEmpty()) {
             tickIslandAreaCleanupQueue();
+            return;
+        }
+        if (!barrierFloorRepairQueue.isEmpty()) {
+            tickBarrierFloorRepairQueue();
         }
     }
 
@@ -1168,7 +1177,11 @@ public class IslandService {
                 for (int z = 0; z < 16; z++) {
                     for (int y = minY; y < maxY; y++) {
                         Block block = chunk.getBlock(x, y, z);
-                        if (!block.getType().isAir()) {
+                        if (y == minY) {
+                            if (block.getType() != Material.BARRIER) {
+                                block.setType(Material.BARRIER, false);
+                            }
+                        } else if (!block.getType().isAir()) {
                             block.setType(Material.AIR, false);
                         }
                     }
@@ -1177,6 +1190,49 @@ public class IslandService {
                     }
                 }
             }
+            index++;
+            processed++;
+        }
+        return index;
+    }
+
+    private void queueBarrierFloorRepair(IslandData island) {
+        if (island == null) return;
+        String plotKey = plotKey(island.getGridX(), island.getGridZ());
+        if (queuedBarrierFloorRepairPlots.add(plotKey)) {
+            barrierFloorRepairQueue.offer(new BarrierFloorRepairTask(island.getGridX(), island.getGridZ(), 0));
+        }
+    }
+
+    private void tickBarrierFloorRepairQueue() {
+        int budget = BARRIER_FLOOR_REPAIR_CHUNKS_PER_TICK;
+        while (budget > 0 && !barrierFloorRepairQueue.isEmpty()) {
+            BarrierFloorRepairTask task = barrierFloorRepairQueue.poll();
+            String plotKey = plotKey(task.gridX(), task.gridZ());
+            int nextIndex = repairBarrierFloorChunkBatch(task.gridX(), task.gridZ(), task.nextChunkIndex(), 1);
+            budget--;
+            if (nextIndex < TOTAL_CHUNKS) {
+                barrierFloorRepairQueue.offer(new BarrierFloorRepairTask(task.gridX(), task.gridZ(), nextIndex));
+            } else {
+                queuedBarrierFloorRepairPlots.remove(plotKey);
+                plugin.getLogger().info("Barrier-Boden repariert fuer Inselplot " + plotKey + ".");
+            }
+        }
+    }
+
+    private int repairBarrierFloorChunkBatch(int gridX, int gridZ, int startIndex, int maxChunks) {
+        World world = skyWorldService.getWorld();
+        if (world == null) return TOTAL_CHUNKS;
+        int minChunkX = plotMinChunkX(gridX);
+        int minChunkZ = plotMinChunkZ(gridZ);
+        int index = Math.max(0, startIndex);
+        int processed = 0;
+        while (index < TOTAL_CHUNKS && processed < Math.max(1, maxChunks)) {
+            int relChunkX = index % ISLAND_CHUNKS;
+            int relChunkZ = index / ISLAND_CHUNKS;
+            int chunkX = minChunkX + relChunkX;
+            int chunkZ = minChunkZ + relChunkZ;
+            ensureChunkBarrierFloor(world, chunkX << 4, chunkZ << 4);
             index++;
             processed++;
         }
@@ -3301,6 +3357,7 @@ public class IslandService {
     public boolean ensureChunkTemplateGenerated(IslandData island, int relChunkX, int relChunkZ) {
         if (relChunkX < 0 || relChunkX >= ISLAND_CHUNKS || relChunkZ < 0 || relChunkZ >= ISLAND_CHUNKS) return false;
         String key = chunkKey(relChunkX, relChunkZ);
+        ensureIslandChunkBarrierFloor(island, relChunkX, relChunkZ);
         if (island.getGeneratedChunks().contains(key)) return false;
         // Starter-Chunks muessen auch dann generiert werden, wenn dort Core/Portal/Kiste bereits gesetzt wurden.
         if (!isStarterChunk(relChunkX, relChunkZ) && hasExistingBlocksInChunk(island, relChunkX, relChunkZ)) {
@@ -3448,6 +3505,7 @@ public class IslandService {
         Biome effectiveBiome = biomeForTemplate(def);
         long seed = 918273645L + (relChunkX * 341873128712L) + (relChunkZ * 132897987541L);
         Random r = new Random(seed ^ 0x9E3779B97F4A7C15L);
+        ensureChunkBarrierFloor(world, baseX, baseZ);
         for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
             for (int yy = y; yy <= y + 10; yy++) {
                 Block b = world.getBlockAt(baseX + x, yy, baseZ + z);
@@ -3523,6 +3581,26 @@ public class IslandService {
 
         // Add natural overgrowth for less sterile-looking islands.
         decorateChunkSurface(world, baseX, baseZ, y, relChunkX, relChunkZ, effectiveBiome, r);
+    }
+
+    private void ensureChunkBarrierFloor(World world, int baseX, int baseZ) {
+        int minY = world.getMinHeight();
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                Block block = world.getBlockAt(baseX + x, minY, baseZ + z);
+                if (block.getType() != Material.BARRIER) {
+                    block.setType(Material.BARRIER, false);
+                }
+            }
+        }
+    }
+
+    private void ensureIslandChunkBarrierFloor(IslandData island, int relChunkX, int relChunkZ) {
+        World world = skyWorldService.getWorld();
+        if (world == null) return;
+        int worldChunkX = plotMinChunkX(island.getGridX()) + relChunkX;
+        int worldChunkZ = plotMinChunkZ(island.getGridZ()) + relChunkZ;
+        ensureChunkBarrierFloor(world, worldChunkX << 4, worldChunkZ << 4);
     }
 
     private Random randomForChunk(IslandData island, int relChunkX, int relChunkZ) {
