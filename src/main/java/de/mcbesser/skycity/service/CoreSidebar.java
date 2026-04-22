@@ -24,6 +24,7 @@ import org.bukkit.scoreboard.Team;
 public final class CoreSidebar {
     private static final String OBJECTIVE_NAME = "skycity_core";
     private static final int TOTAL_LINES = 14;
+    private static final int PLAYER_REFRESH_BUDGET = 6;
 
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
@@ -31,6 +32,7 @@ public final class CoreSidebar {
     private final ConcurrentMap<UUID, BoardState> activeBoards = new ConcurrentHashMap<>();
     private final Set<UUID> pendingRefreshes = ConcurrentHashMap.newKeySet();
     private BukkitTask refreshTask;
+    private int refreshCursor;
 
     public CoreSidebar(SkyCityPlugin plugin, IslandService islandService, CoreService coreService) {
         this.plugin = plugin;
@@ -42,7 +44,8 @@ public final class CoreSidebar {
         if (refreshTask != null) {
             refreshTask.cancel();
         }
-        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAll, 1L, 20L);
+        refreshCursor = 0;
+        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAll, 13L, 20L);
     }
 
     public void stop() {
@@ -144,9 +147,19 @@ public final class CoreSidebar {
     }
 
     private void refreshAll() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            refresh(player);
+        List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
+        if (players.isEmpty()) {
+            refreshCursor = 0;
+            return;
         }
+        if (refreshCursor >= players.size()) {
+            refreshCursor = 0;
+        }
+        int count = Math.min(players.size(), PLAYER_REFRESH_BUDGET);
+        for (int i = 0; i < count; i++) {
+            refresh(players.get((refreshCursor + i) % players.size()));
+        }
+        refreshCursor = (refreshCursor + count) % players.size();
     }
 
     private LookedCore resolveLookedCore(Player player) {

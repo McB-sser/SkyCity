@@ -171,8 +171,8 @@ public class ProtectionListener implements Listener {
         this.coreService = coreService;
         this.skyWorldService = skyWorldService;
         this.playerListener = playerListener;
-        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runPeriodicGrowthBoosts, GROWTH_BOOST_INTERVAL_TICKS, GROWTH_BOOST_INTERVAL_TICKS);
-        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runWeatherSnowSimulation, WEATHER_SNOW_INTERVAL_TICKS, WEATHER_SNOW_INTERVAL_TICKS);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runPeriodicGrowthBoosts, 38L, GROWTH_BOOST_INTERVAL_TICKS);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runWeatherSnowSimulation, 74L, WEATHER_SNOW_INTERVAL_TICKS);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

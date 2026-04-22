@@ -731,15 +731,15 @@ public class IslandService {
 
     public void startIslandCreationTask() {
         stopIslandCreationTask();
-        islandCreationTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickIslandCreationQueue, 20L, 2L);
+        islandCreationTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickIslandCreationQueue, 26L, 2L);
         if (cleanupTaskId == -1) {
-            cleanupTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::runInactiveIslandCleanup, 20L * 60L, 20L * 60L * 60L);
+            cleanupTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::runInactiveIslandCleanup, 20L * 60L + 73L, 20L * 60L * 60L);
         }
         if (islandAreaCleanupTaskId == -1) {
-            islandAreaCleanupTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickIslandAreaCleanupQueue, 1L, 1L);
+            islandAreaCleanupTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickIslandAreaCleanupQueue, 3L, 1L);
         }
         if (pveTaskId == -1) {
-            pveTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickPveZones, 20L, 20L);
+            pveTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickPveZones, 33L, 20L);
         }
     }
 

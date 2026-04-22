@@ -3737,10 +3737,10 @@ public class CoreService {
             this.ensureCorePlaced(island);
             this.updateDisplays(island);
          }
-      }, 20L, 100L);
+      }, 41L, 100L);
       this.animalLookTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
          this.updateAnimalLookDisplays();
-      }, 1L, 4L);
+      }, 2L, 4L);
    }
 
    public void stopDisplayTask() {

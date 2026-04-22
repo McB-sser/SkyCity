@@ -64,7 +64,7 @@ public class SkyCityPlugin extends JavaPlugin {
                 return;
             }
             registerPlaceholderExpansionIfAvailable();
-        }, 20L, 40L);
+        }, 23L, 40L);
         vaultRetryTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
             if (vaultEconomy != null) {
                 Bukkit.getScheduler().cancelTask(vaultRetryTaskId);
@@ -72,7 +72,7 @@ public class SkyCityPlugin extends JavaPlugin {
                 return;
             }
             registerVaultEconomyIfAvailable();
-        }, 20L, 40L);
+        }, 37L, 40L);
 
         playerListener = new PlayerListener(this, islandService, skyWorldService, coreService);
         Bukkit.getPluginManager().registerEvents(playerListener, this);

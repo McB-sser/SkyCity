@@ -165,7 +165,7 @@ public class PlayerListener implements Listener {
         this.coreService = coreService;
         this.magicSnowballItemKey = new NamespacedKey(plugin, "magic_snowball_item");
         this.magicSnowballProjectileKey = new NamespacedKey(plugin, "magic_snowball_projectile");
-        this.islandActionbarTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickIslandActionbar, 20L, 20L);
+        this.islandActionbarTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::tickIslandActionbar, 27L, 20L);
     }
 
     @EventHandler
@@ -3197,6 +3197,7 @@ public class PlayerListener implements Listener {
 
     private void tickIslandActionbar() {
         double serverTps = getServerTps();
+        double serverMspt = getServerMspt();
         Map<UUID, IslandService.IslandLoadBreakdown> islandLoadCache = new HashMap<>();
         java.util.Set<String> activeCheckpointDisplays = new java.util.HashSet<>();
         java.util.Set<String> activeJumpPadDisplays = new java.util.HashSet<>();
@@ -3236,10 +3237,12 @@ public class PlayerListener implements Listener {
                     island.getOwner(),
                     id -> islandService.getIslandLoadBreakdown(island)
             );
-            String tpsSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps);
+            String performanceSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "TPS " + formatTps(serverTps) + "/20"
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "MSPT " + formatMspt(serverMspt) + "/50"
+                    + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Ping " + getPlayerPing(player) + "ms";
             String loadSegment = ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Block " + islandLoad.blockPercent() + "%"
                     + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "Entity " + islandLoad.entityPercent() + "%";
-            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + tpsSegment + loadSegment);
+            showIslandBossBar(player, ChatColor.GOLD + title + timeSegment + performanceSegment + loadSegment);
             activeCheckpointDisplays.addAll(spawnNearbyLinkedCheckpointParticles(player, island, activeJumpPadDisplays));
             int relChunkX = islandService.relativeChunkX(island, player.getLocation().getChunk().getX());
             int relChunkZ = islandService.relativeChunkZ(island, player.getLocation().getChunk().getZ());
@@ -3277,8 +3280,58 @@ public class PlayerListener implements Listener {
         return 20.0;
     }
 
+    private double getServerMspt() {
+        try {
+            Object raw = Bukkit.getServer().getClass().getMethod("getAverageTickTime").invoke(Bukkit.getServer());
+            if (raw instanceof Number number) {
+                double value = number.doubleValue();
+                if (!Double.isNaN(value) && !Double.isInfinite(value)) {
+                    return Math.max(0.0, value);
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        try {
+            Object raw = Bukkit.getServer().getClass().getMethod("getTickTimes").invoke(Bukkit.getServer());
+            if (raw instanceof long[] tickTimes && tickTimes.length > 0) {
+                long total = 0L;
+                int count = 0;
+                for (long tickTime : tickTimes) {
+                    if (tickTime <= 0L) {
+                        continue;
+                    }
+                    total += tickTime;
+                    count++;
+                }
+                if (count > 0) {
+                    return Math.max(0.0, ((double) total / (double) count) / 1_000_000.0);
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        return 50.0;
+    }
+
     private String formatTps(double tps) {
         return String.format(java.util.Locale.US, "%.1f", Math.max(0.0, Math.min(20.0, tps)));
+    }
+
+    private String formatMspt(double mspt) {
+        return String.format(java.util.Locale.US, "%.1f", Math.max(0.0, mspt));
+    }
+
+    private int getPlayerPing(Player player) {
+        if (player == null) {
+            return 0;
+        }
+        try {
+            Object raw = player.getClass().getMethod("getPing").invoke(player);
+            if (raw instanceof Number number) {
+                return Math.max(0, number.intValue());
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        return 0;
     }
 
     private String getWorldTimeIcon(org.bukkit.World world) {

@@ -58,7 +58,7 @@ public class ParticlePreviewService {
 
     public void startTask() {
         stopTask();
-        taskId = plugin.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, this::tick, 10L, 10L);
+        taskId = plugin.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, this::tick, 18L, 10L);
     }
 
     public void stopTask() {
