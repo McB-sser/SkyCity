@@ -410,11 +410,16 @@ public class ProtectionListener implements Listener {
             }
             return;
         }
+        ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
         if (bypassProtection && !breakingCore) {
+            if (parcel != null && parcel.isGamesEnabled() && parcel.isSnowballFightEnabled() && isSnowGameBlock(block.getType())) {
+                int amount = block.getType() == Material.SNOW_BLOCK ? 4 : 1;
+                event.setDropItems(false);
+                block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), playerListener.createMagicSnowballItem(amount));
+            }
             islandService.onTrackedBlockBroken(island, block);
             return;
         }
-        ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
         boolean bypassParcelRights = false;
         boolean pveParticipant = parcel != null && parcel.isPveEnabled() && islandService.isPlayerInParcelPve(player.getUniqueId(), island, parcel);
         if (parcel != null && (parcel.isPvpEnabled() || parcel.isGamesEnabled())) {

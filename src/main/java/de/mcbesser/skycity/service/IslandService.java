@@ -5562,6 +5562,7 @@ public class IslandService {
         runtime.mobArchetypes.put(living.getUniqueId(), archetype);
         applyPveMobScaling(runtime, living, archetype.level(), true);
         applyPveMobTheme(living, archetype);
+        equipPveCombatItem(living);
         if (living instanceof Mob mob) {
             mob.setRemoveWhenFarAway(false);
             mob.setCanPickupItems(false);
@@ -5607,12 +5608,8 @@ public class IslandService {
                     continue;
                 }
                 Integer mobLevel = runtime.mobLevels.get(mobId);
-                PveMobArchetype archetype = runtime.mobArchetypes.get(mobId);
                 if (mobLevel != null) {
                     applyPveMobScaling(runtime, mob, mobLevel, false);
-                }
-                if (archetype != null) {
-                    applyPveMobTheme(mob, archetype);
                 }
                 if (!runtime.contains(mob.getLocation()) || runtime.isInStartZone(mob.getLocation())) {
                     Location home = runtime.mobHomes.get(mobId);
@@ -5626,17 +5623,24 @@ public class IslandService {
                         .min((a, b) -> Double.compare(a.getLocation().distanceSquared(mob.getLocation()), b.getLocation().distanceSquared(mob.getLocation())))
                         .orElse(null);
                 if (nearest != null) {
-                    mob.setTarget(nearest);
-                    boolean pathReachable = mob.getPathfinder().findPath(nearest) != null;
-                    if (pathReachable) {
-                        runtime.mobLastReachableAt.put(mobId, System.currentTimeMillis());
-                        mob.getPathfinder().moveTo(nearest, 1.0);
-                    } else {
-                        mob.getPathfinder().stopPathfinding();
-                    }
                     long now = System.currentTimeMillis();
+                    if (mob.getTarget() == null || !mob.getTarget().getUniqueId().equals(nearest.getUniqueId())) {
+                        mob.setTarget(nearest);
+                    }
+                    boolean ranged = isRangedPveMob(mob.getType());
+                    if (ranged) {
+                        if (mob.hasLineOfSight(nearest) && mob.getLocation().distanceSquared(nearest.getLocation()) <= 256.0D) {
+                            runtime.mobLastReachableAt.put(mobId, now);
+                        }
+                    } else {
+                        boolean pathReachable = mob.getPathfinder().findPath(nearest) != null;
+                        if (pathReachable) {
+                            runtime.mobLastReachableAt.put(mobId, now);
+                            mob.getPathfinder().moveTo(nearest, 1.0);
+                        }
+                    }
                     boolean recentlyReachable = now - runtime.mobLastReachableAt.getOrDefault(mobId, 0L) <= 2500L;
-                    boolean validRangedWindow = isRangedPveMob(mob.getType()) && now - runtime.mobLastRangedHitAt.getOrDefault(mobId, 0L) <= 4000L;
+                    boolean validRangedWindow = ranged && now - runtime.mobLastRangedHitAt.getOrDefault(mobId, 0L) <= 4000L;
                     boolean valid = recentlyReachable || validRangedWindow;
                     updatePveMobValidity(runtime, mob, valid);
                 }
@@ -5754,7 +5758,7 @@ public class IslandService {
     }
 
     private boolean isRangedPveMob(EntityType type) {
-        return type == EntityType.SKELETON || type == EntityType.DROWNED;
+        return type == EntityType.SKELETON;
     }
 
     private void choosePveObjective(PveZoneRuntime runtime) {
@@ -5874,6 +5878,20 @@ public class IslandService {
         equipment.setBootsDropChance(0.0f);
     }
 
+    private void equipPveCombatItem(LivingEntity living) {
+        if (living == null) return;
+        EntityEquipment equipment = living.getEquipment();
+        if (equipment == null) return;
+        Material current = equipment.getItemInMainHand().getType();
+        if (living.getType() == EntityType.SKELETON && current != Material.BOW) {
+            equipment.setItemInMainHand(new ItemStack(Material.BOW));
+            equipment.setItemInMainHandDropChance(0.0f);
+        } else if (living.getType() == EntityType.DROWNED && current.isAir()) {
+            equipment.setItemInMainHand(new ItemStack(Material.STONE_SWORD));
+            equipment.setItemInMainHandDropChance(0.0f);
+        }
+    }
+
     private ItemStack createColoredLeather(Material material, Color color) {
         ItemStack item = new ItemStack(material);
         if (item.getItemMeta() instanceof LeatherArmorMeta meta) {
@@ -5920,10 +5938,16 @@ public class IslandService {
         PveMobArchetype archetype = runtime.mobArchetypes.get(mob.getUniqueId());
         if (valid) {
             runtime.invalidMobIds.remove(mob.getUniqueId());
-            mob.setCustomName(formatPveMobName(archetype, label));
+            String desiredName = formatPveMobName(archetype, label);
+            if (!desiredName.equals(mob.getCustomName())) {
+                mob.setCustomName(desiredName);
+            }
         } else {
             runtime.invalidMobIds.add(mob.getUniqueId());
-            mob.setCustomName(ChatColor.DARK_GRAY + "[ung\u00fcltig] " + formatPveMobName(archetype, label));
+            String desiredName = ChatColor.DARK_GRAY + "[ung\u00fcltig] " + formatPveMobName(archetype, label);
+            if (!desiredName.equals(mob.getCustomName())) {
+                mob.setCustomName(desiredName);
+            }
         }
         mob.setCustomNameVisible(true);
     }
