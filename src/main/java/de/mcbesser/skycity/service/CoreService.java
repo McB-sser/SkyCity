@@ -3813,7 +3813,7 @@ public class CoreService {
             }
             String tag = "skycity_parcel_offer_" + parcelTagKey + "_" + lineIndex;
             activeTags.add(tag);
-            this.ensureFloatingText(base.clone().add(0.0, yOffset, 0.0), tag, line);
+            this.ensureParcelOfferText(base.clone().add(0.0, yOffset, 0.0), tag, line);
             highestVisibleYOffset = yOffset;
             yOffset += 0.28;
             lineIndex++;
@@ -3972,6 +3972,43 @@ public class CoreService {
       this.configureCoreTextDisplay(display, location, text);
    }
 
+   private void ensureParcelOfferText(Location location, String tag, String text) {
+      if (!this.hasNearbyDisplayViewer(location)) {
+         this.removeTaggedDisplayEntities(location, tag);
+         return;
+      }
+      TextDisplay display = null;
+
+      for (Entity e : location.getWorld().getNearbyEntities(location, 2.5, 4.0, 2.5)) {
+         if (!e.getScoreboardTags().contains(tag)) {
+            continue;
+         }
+         if (e instanceof TextDisplay textDisplay) {
+            if (display == null) {
+               display = textDisplay;
+            } else {
+               e.remove();
+            }
+         } else {
+            e.remove();
+         }
+      }
+
+      if (display == null) {
+         Entity tagged = this.findTaggedEntity(location.getWorld(), tag, TextDisplay.class);
+         if (tagged instanceof TextDisplay textDisplay) {
+            display = textDisplay;
+         }
+      }
+
+      if (display == null) {
+         display = (TextDisplay)location.getWorld().spawnEntity(location, EntityType.TEXT_DISPLAY);
+         display.addScoreboardTag(tag);
+      }
+
+      this.configureParcelOfferTextDisplay(display, location, text);
+   }
+
    private void ensureInteractiveFloatingText(Location location, String tag, String text) {
       if (!this.hasNearbyDisplayViewer(location)) {
          this.removeTaggedDisplayEntities(location, tag);
@@ -4078,6 +4115,23 @@ public class CoreService {
    private void configureCoreTextDisplay(TextDisplay display, Location location, String text) {
       display.setBillboard(Display.Billboard.CENTER);
       display.setSeeThrough(true);
+      display.setShadowed(false);
+      display.setPersistent(false);
+      display.setInterpolationDelay(0);
+      display.setInterpolationDuration(0);
+      display.setTeleportDuration(0);
+      Component desiredText = LegacyComponentSerializer.legacySection().deserialize(text);
+      if (!desiredText.equals(display.text())) {
+         display.text(desiredText);
+      }
+      if (display.getLocation().distanceSquared(location) > 1.0E-4D) {
+         display.teleport(location);
+      }
+   }
+
+   private void configureParcelOfferTextDisplay(TextDisplay display, Location location, String text) {
+      display.setBillboard(Display.Billboard.CENTER);
+      display.setSeeThrough(false);
       display.setShadowed(false);
       display.setPersistent(false);
       display.setInterpolationDelay(0);

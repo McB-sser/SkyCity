@@ -286,6 +286,10 @@ public class ProtectionListener implements Listener {
             return;
         }
         if (bypassProtection && !placingCore) {
+            if (block.getType().name().endsWith("_PRESSURE_PLATE")) {
+                islandService.setCheckpointPlateYaw(island, block.getLocation(), player.getLocation().getYaw());
+            }
+            playerListener.invalidateStructureCaches(block.getLocation(), block.getType());
             islandService.onTrackedBlockPlaced(island, block);
             return;
         }
@@ -412,11 +416,15 @@ public class ProtectionListener implements Listener {
         }
         ParcelData parcel = islandService.getParcelAt(island, block.getLocation());
         if (bypassProtection && !breakingCore) {
+            if (block.getType().name().endsWith("_PRESSURE_PLATE")) {
+                islandService.removeCheckpointPlateYaw(island, block.getLocation());
+            }
             if (parcel != null && parcel.isGamesEnabled() && parcel.isSnowballFightEnabled() && isSnowGameBlock(block.getType())) {
                 int amount = block.getType() == Material.SNOW_BLOCK ? 4 : 1;
                 event.setDropItems(false);
                 block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), playerListener.createMagicSnowballItem(amount));
             }
+            playerListener.invalidateStructureCaches(block.getLocation(), block.getType());
             islandService.onTrackedBlockBroken(island, block);
             return;
         }
