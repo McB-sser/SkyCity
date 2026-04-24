@@ -24,6 +24,7 @@ import java.util.UUID;
 
 public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     private static final String PVP_TEAM_WOOL_METADATA = "skycity_pvp_team_wool";
+    private static final UUID SPAWN_DISPLAY_UUID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     private final SkyCityPlugin plugin;
     private final IslandService islandService;
@@ -352,6 +353,9 @@ public class SkyCityPlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private String playerName(UUID id) {
+        if (SPAWN_DISPLAY_UUID.equals(id)) {
+            return "Spawner";
+        }
         OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(id);
         String name = offlinePlayer.getName();
         return name == null || name.isBlank() ? id.toString().substring(0, 8) : name;
