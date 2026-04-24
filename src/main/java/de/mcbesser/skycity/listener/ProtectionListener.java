@@ -116,6 +116,28 @@ public class ProtectionListener implements Listener {
             "\uD83E\uDD7A",
             "\uD83D\uDC9E"
     };
+    private static final String[] SHEARING_EMOTES = {
+            "\u2702\uD83D\uDE31",
+            "\u2702\uD83D\uDE28",
+            "\u2702\uD83D\uDE32",
+            "\u2702\uD83D\uDE33",
+            "\u2702\uD83D\uDE2E"
+    };
+    private static final String[] MILKING_EMOTES = {
+            "\uD83E\uDD5B\uD83D\uDE0B",
+            "\uD83E\uDD5B\uD83D\uDE0A",
+            "\uD83E\uDD5B\uD83E\uDD24",
+            "\uD83E\uDD5B\uD83D\uDE04",
+            "\uD83E\uDD5B\u2728"
+    };
+    private static final String[] PETTING_EMOTES = {
+            "\u2764",
+            "\u2764\uD83D\uDE42",
+            "\u2764\uD83D\uDE0A",
+            "\u2764\uD83D\uDE00",
+            "\u2764\uD83D\uDE04",
+            "\u2764\u2728"
+    };
     private static final Set<Material> GROWTH_BOOST_MATERIALS = EnumSet.of(
             Material.WHEAT,
             Material.CARROTS,
@@ -1967,7 +1989,8 @@ public class ProtectionListener implements Listener {
                 return;
             }
         }
-        coreService.setTemporaryEntityEmotion(event.getRightClicked(), ChatColor.WHITE + "\u2702", 4000L);
+        String emote = SHEARING_EMOTES[ThreadLocalRandom.current().nextInt(SHEARING_EMOTES.length)];
+        coreService.setTemporaryEntityEmotion(event.getRightClicked(), ChatColor.WHITE + emote, 4000L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -2013,7 +2036,8 @@ public class ProtectionListener implements Listener {
             if (coreService.hasEntityEmotionUntilBreedReady(animal)) {
                 return;
             }
-            coreService.setTemporaryEntityEmotion(animal, ChatColor.WHITE + "\uD83E\uDD5B\uD83D\uDE0B", 3500L);
+            String emote = MILKING_EMOTES[ThreadLocalRandom.current().nextInt(MILKING_EMOTES.length)];
+            coreService.setTemporaryEntityEmotion(animal, ChatColor.WHITE + emote, 3500L);
             return;
         }
         if (!animal.isAdult()) {
@@ -2022,7 +2046,8 @@ public class ProtectionListener implements Listener {
             if (coreService.hasEntityEmotionUntilBreedReady(animal)) {
                 return;
             }
-            coreService.setTemporaryEntityEmotion(animal, ChatColor.RED + "\u2764", 2500L);
+            String emote = PETTING_EMOTES[ThreadLocalRandom.current().nextInt(PETTING_EMOTES.length)];
+            coreService.setTemporaryEntityEmotion(animal, ChatColor.RED + emote, 2500L);
         }
     }
 
