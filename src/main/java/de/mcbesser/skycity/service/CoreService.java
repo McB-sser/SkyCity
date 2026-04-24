@@ -2964,7 +2964,7 @@ public class CoreService {
 
       if (adding) {
          Bukkit.getOnlinePlayers().stream().filter(p -> {
-            if ("MASTER".equals(role)) return !this.islandService.isIslandMaster(island, p.getUniqueId());
+            if ("MASTER".equals(role)) return !(island.getOwner().equals(p.getUniqueId()) || island.getMasters().contains(p.getUniqueId()));
             if ("OWNER".equals(role)) return !this.islandService.isPrimaryMaster(island, p.getUniqueId());
             if ("MEMBER".equals(role)) return !this.islandService.isPrimaryMaster(island, p.getUniqueId());
             return false;

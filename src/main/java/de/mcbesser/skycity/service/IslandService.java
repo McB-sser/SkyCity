@@ -1944,7 +1944,7 @@ public class IslandService {
         if (island == null || inviter == null || target == null) return false;
         if (isSpawnIsland(island)) return false;
         if (!isIslandMaster(island, inviter) && !Bukkit.getOfflinePlayer(inviter).isOp()) return false;
-        if (isIslandMaster(island, target)) return false;
+        if (island.getOwner().equals(target) || island.getMasters().contains(target)) return false;
 
         long expiresAt = System.currentTimeMillis() + 60000L;
         MasterInvite invite = new MasterInvite(island.getOwner(), expiresAt);

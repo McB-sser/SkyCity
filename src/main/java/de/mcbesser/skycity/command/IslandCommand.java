@@ -321,7 +321,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-                if (target.getUniqueId().equals(player.getUniqueId())) {
+                if (target.getUniqueId().equals(player.getUniqueId()) && (island.getOwner().equals(player.getUniqueId()) || island.getMasters().contains(player.getUniqueId()))) {
                     player.sendMessage(ChatColor.RED + "Du bist bereits Master.");
                     return;
                 }
@@ -687,7 +687,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(org.bukkit.ChatColor.RED + "Nur Master oder Owner.");
             return;
         }
-        if (target.getUniqueId().equals(player.getUniqueId())) {
+        if (target.getUniqueId().equals(player.getUniqueId()) && (island.getOwner().equals(player.getUniqueId()) || island.getMasters().contains(player.getUniqueId()) || island.getOwners().contains(player.getUniqueId()))) {
             player.sendMessage(org.bukkit.ChatColor.RED + "Du bist bereits Master oder Owner.");
             return;
         }
