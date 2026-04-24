@@ -8,7 +8,6 @@ import de.mcbesser.skycity.model.ParcelData;
 import de.mcbesser.skycity.service.CoreService;
 import de.mcbesser.skycity.service.IslandService;
 import de.mcbesser.skycity.service.SkyWorldService;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
@@ -88,8 +87,6 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Vector;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.Team;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -105,7 +102,6 @@ public class ProtectionListener implements Listener {
     private static final long GROWTH_BOOST_INTERVAL_TICKS = 20L;
     private static final long WEATHER_SNOW_INTERVAL_TICKS = 60L;
     private static final long ANIMAL_COLLISION_REFRESH_TICKS = 100L;
-    private static final String ANIMAL_COLLISION_TEAM = "sky_animals";
     private static final long BABY_EMOTION_DURATION_MS = 2500L;
     private static final String[] BABY_CLICK_EMOTES = {
             "\uD83D\uDE0A",
@@ -1476,8 +1472,8 @@ public class ProtectionListener implements Listener {
             }
             if (!islandService.isParcelMember(island, parcel, attacker.getUniqueId()) || !parcel.isMemberAnimalKill()) {
                 if (isParcelUser) {
-                    event.setCancelled(true);
-                    pushAnimalAway(attacker, animals);
+                    event.setDamage(0.0D);
+                    event.setCancelled(false);
                     islandService.markIslandActivity(attacker.getUniqueId());
                 } else {
                     event.setCancelled(true);
@@ -1486,9 +1482,10 @@ public class ProtectionListener implements Listener {
                 return;
             }
             if (parcel.isMemberAnimalKeepTwo() && islandService.countAnimalsInParcelByType(parcel, animals.getType()) <= 2) {
-                event.setCancelled(true);
-                pushAnimalAway(attacker, animals);
+                event.setDamage(0.0D);
+                event.setCancelled(false);
                 attacker.sendMessage(ChatColor.RED + "Es m\u00fcssen mindestens 2 Tiere dieser Art im Plot bleiben.");
+                islandService.markIslandActivity(attacker.getUniqueId());
                 return;
             }
             islandService.markIslandActivity(attacker.getUniqueId());
@@ -2229,39 +2226,6 @@ public class ProtectionListener implements Listener {
     private void ensureAnimalCollision(Animals animal) {
         if (animal == null || !animal.isValid()) return;
         animal.setCollidable(true);
-        attachAnimalCollisionTeam(animal);
-    }
-
-    private void attachAnimalCollisionTeam(Animals animal) {
-        if (animal == null || Bukkit.getScoreboardManager() == null) return;
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        if (scoreboard == null) return;
-        Team team = scoreboard.getTeam(ANIMAL_COLLISION_TEAM);
-        if (team == null) {
-            team = scoreboard.registerNewTeam(ANIMAL_COLLISION_TEAM);
-            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.ALWAYS);
-        }
-        String entry = animal.getUniqueId().toString();
-        if (!team.hasEntry(entry)) {
-            team.addEntry(entry);
-        }
-    }
-
-    private void pushAnimalAway(Player attacker, Animals animal) {
-        if (attacker == null || animal == null || !animal.isValid()) return;
-        Vector push = animal.getLocation().toVector().subtract(attacker.getLocation().toVector());
-        push.setY(0.0);
-        if (push.lengthSquared() < 1.0E-4) {
-            push = attacker.getLocation().getDirection().clone();
-            push.setY(0.0);
-        }
-        if (push.lengthSquared() < 1.0E-4) return;
-        Vector velocity = push.normalize().multiply(0.42).setY(0.18);
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (animal.isValid()) {
-                animal.setVelocity(velocity);
-            }
-        });
     }
 
     private boolean placeArmorStand(Player player, EquipmentSlot hand, Location baseLocation) {

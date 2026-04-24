@@ -4694,25 +4694,19 @@ public class CoreService {
          display.setShadowed(false);
          display.setPersistent(false);
          display.setInterpolationDelay(0);
-         display.setInterpolationDuration(0);
-         display.setTeleportDuration(0);
+         display.setInterpolationDuration(5);
+         display.setTeleportDuration(5);
          float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.12F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.98F : 0.65F);
          display.setTransformation(new Transformation(new Vector3f(0.0F, yOffset, 0.0F), new AxisAngle4f(), new Vector3f(1.0F, 1.0F, 1.0F), new AxisAngle4f()));
-         if (display.getVehicle() != entity) {
-            if (display.getVehicle() != null) {
-               display.leaveVehicle();
-            }
-            entity.addPassenger(display);
+         if (display.getVehicle() != null) {
+            display.leaveVehicle();
          }
       }
       if (!desiredText.equals(display.text())) {
          display.text(desiredText);
-      } else if (display.getVehicle() != entity) {
-         if (display.getVehicle() != null) {
-            display.leaveVehicle();
-         }
-         entity.addPassenger(display);
       }
+      double passengerBaseY = entity instanceof org.bukkit.entity.ArmorStand ? 0.0 : entity.getHeight() * 0.75D;
+      display.teleport(entity.getLocation().add(0, passengerBaseY, 0));
    }
 
    private void removeAnimalLookDisplay(UUID animalId) {
@@ -4807,21 +4801,20 @@ public class CoreService {
          display.setShadowed(false);
          display.setPersistent(false);
          display.setInterpolationDelay(0);
-         display.setInterpolationDuration(0);
-         display.setTeleportDuration(0);
+         display.setInterpolationDuration(5);
+         display.setTeleportDuration(5);
          float yOffset = entity instanceof org.bukkit.entity.ArmorStand ? 0.42F : (this.islandService.isTrackedGolem(entity.getType()) ? 0.64F : 0.31F);
          display.setTransformation(new Transformation(new Vector3f(0.0F, yOffset, 0.0F), new AxisAngle4f(), new Vector3f(1.0F, 1.0F, 1.0F), new AxisAngle4f()));
-         if (display.getVehicle() != entity) {
-            if (display.getVehicle() != null) {
-               display.leaveVehicle();
-            }
-            entity.addPassenger(display);
+         if (display.getVehicle() != null) {
+            display.leaveVehicle();
          }
       }
       Component desiredText = LegacyComponentSerializer.legacySection().deserialize(text);
       if (!desiredText.equals(display.text())) {
          display.text(desiredText);
       }
+      double passengerBaseY = entity instanceof org.bukkit.entity.ArmorStand ? 0.0 : entity.getHeight() * 0.75D;
+      display.teleport(entity.getLocation().add(0, passengerBaseY, 0));
    }
 
    private String buildHealthSmileText(double health, double maxHealth) {
