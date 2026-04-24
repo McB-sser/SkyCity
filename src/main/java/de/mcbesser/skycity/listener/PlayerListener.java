@@ -1047,7 +1047,7 @@ public class PlayerListener implements Listener {
         Block below = feet.getRelative(0, -1, 0);
         if (isWool(below.getType())) return below;
         Block belowTwo = feet.getRelative(0, -2, 0);
-        if (isSolidWoolBridgeBlock(below)) {
+        if (isAllowedTeamSelectionBridgeBlock(below)) {
             if (isWool(belowTwo.getType())) return belowTwo;
         }
         return null;
@@ -1061,14 +1061,14 @@ public class PlayerListener implements Listener {
         // Team changes should only happen on exposed wool, or through slabs/stairs above it.
         // Checkpoint and lava rescue logic uses the more tolerant wool lookup above.
         Material feetType = feet.getType();
-        if (!feetType.isAir() && !feetType.name().endsWith("_SLAB") && !feetType.name().endsWith("_STAIRS")) {
+        if (!feetType.isAir() && !isAllowedTeamSelectionBridgeType(feetType)) {
             return null;
         }
 
         Block below = feet.getRelative(0, -1, 0);
         if (isTeamSelectableWool(below)) return below;
         Block belowTwo = feet.getRelative(0, -2, 0);
-        if (isSolidWoolBridgeBlock(below) && isTeamSelectableWool(belowTwo)) return belowTwo;
+        if (isAllowedTeamSelectionBridgeBlock(below) && isTeamSelectableWool(belowTwo)) return belowTwo;
         return null;
     }
 
@@ -1077,51 +1077,34 @@ public class PlayerListener implements Listener {
         return !isCtfShelfBlock(block.getRelative(0, 1, 0).getType());
     }
 
-    private boolean isSolidWoolBridgeBlock(Block block) {
+    private boolean isAllowedTeamSelectionBridgeBlock(Block block) {
         if (block == null) return false;
         Material type = block.getType();
-        if (!type.isSolid() || block.isPassable()) return false;
-        return !isForbiddenWoolBridgeType(type);
+        if (type == null || block.isPassable()) return false;
+        if (type == Material.ACTIVATOR_RAIL) return true;
+        if (type.name().endsWith("_SLAB") || type.name().endsWith("_STAIRS")) return true;
+        return isFullTeamSelectionBlock(block);
     }
 
-    private boolean isForbiddenWoolBridgeType(Material type) {
-        if (type == null) return true;
-        if (type == Material.WATER || type == Material.LAVA) return true;
-        String name = type.name();
-        if (isCtfShelfBlock(type)) return true;
-        return name.endsWith("_PRESSURE_PLATE")
-                || name.endsWith("_BUTTON")
-                || name.endsWith("_TRAPDOOR")
-                || name.endsWith("_DOOR")
-                || name.endsWith("_FENCE_GATE")
-                || name.endsWith("_WALL_SIGN")
-                || name.endsWith("_SIGN")
-                || name.endsWith("_RAIL")
-                || name.endsWith("_BANNER")
-                || name.endsWith("_CARPET")
-                || name.endsWith("_FENCE")
-                || name.endsWith("_WALL")
-                || name.endsWith("LANTERN")
-                || type == Material.IRON_BARS
-                || type == Material.BELL
-                || type == Material.BREWING_STAND
-                || type == Material.CAMPFIRE
-                || type == Material.SOUL_CAMPFIRE
-                || type == Material.LEVER
-                || type == Material.REPEATER
-                || type == Material.COMPARATOR
-                || type == Material.REDSTONE_WIRE
-                || type == Material.REDSTONE_TORCH
-                || type == Material.REDSTONE_WALL_TORCH
-                || type == Material.DAYLIGHT_DETECTOR
-                || type == Material.TARGET
-                || type == Material.TRIPWIRE_HOOK
-                || type == Material.NOTE_BLOCK
-                || type == Material.SCULK_SENSOR
-                || type == Material.CALIBRATED_SCULK_SENSOR
-                || type == Material.OBSERVER
-                || type == Material.PISTON
-                || type == Material.STICKY_PISTON;
+    private boolean isAllowedTeamSelectionBridgeType(Material type) {
+        if (type == null) return false;
+        return type == Material.ACTIVATOR_RAIL
+                || type.name().endsWith("_SLAB")
+                || type.name().endsWith("_STAIRS");
+    }
+
+    private boolean isFullTeamSelectionBlock(Block block) {
+        if (block == null) return false;
+        Material type = block.getType();
+        if (type == null || !type.isSolid() || isCtfShelfBlock(type)) return false;
+        var box = block.getCollisionShape().getBoundingBoxes();
+        if (box.size() != 1) return false;
+        var bounds = box.iterator().next();
+        return bounds.getMinX() <= 0.0
+                && bounds.getMinZ() <= 0.0
+                && bounds.getMaxX() >= 1.0
+                && bounds.getMaxZ() >= 1.0
+                && bounds.getMaxY() >= 1.0;
     }
 
     private Location getValidLastCheckpoint(UUID playerId) {

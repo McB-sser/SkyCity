@@ -503,7 +503,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.RED + "Setze zuerst Pos1 und Pos2 mit dem Grundst\u00fccks-Stab.");
                 return;
             }
-            var created = islandService.createParcelCuboidFromSelection(island, player.getUniqueId(), pos1, pos2);
+            var created = islandService.createParcelCuboidFromSelection(island, player.getUniqueId(), pos1, pos2, player.getLocation());
             if (created == null) {
                 player.sendMessage(ChatColor.RED + "Grundst\u00fcck konnte nicht erstellt werden.");
                 player.sendMessage(ChatColor.GRAY + "Pr\u00fcfe: nur freigeschaltete Chunks, keine \u00dcberschneidung, gleiche Insel.");

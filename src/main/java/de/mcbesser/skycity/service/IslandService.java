@@ -2553,7 +2553,7 @@ public class IslandService {
         return null;
     }
 
-    public ParcelData createParcelCuboidFromSelection(IslandData island, UUID owner, Location pos1, Location pos2) {
+    public ParcelData createParcelCuboidFromSelection(IslandData island, UUID owner, Location pos1, Location pos2, Location spawnLocation) {
         if (island == null || owner == null || pos1 == null || pos2 == null) return null;
         if (!skyWorldService.isSkyCityWorld(pos1.getWorld()) || !skyWorldService.isSkyCityWorld(pos2.getWorld())) return null;
         if (!pos1.getWorld().equals(pos2.getWorld())) return null;
@@ -2566,11 +2566,16 @@ public class IslandService {
                 pos1.getBlockZ(),
                 pos2.getBlockX(),
                 pos2.getBlockY(),
-                pos2.getBlockZ()
+                pos2.getBlockZ(),
+                spawnLocation
         );
     }
 
     public ParcelData createParcelCuboid(IslandData island, UUID owner, int x1, int y1, int z1, int x2, int y2, int z2) {
+        return createParcelCuboid(island, owner, x1, y1, z1, x2, y2, z2, null);
+    }
+
+    public ParcelData createParcelCuboid(IslandData island, UUID owner, int x1, int y1, int z1, int x2, int y2, int z2, Location spawnLocation) {
         if (island == null || owner == null) return null;
         if (!isIslandOwner(island, owner)) return null;
         int minX = Math.min(x1, x2);
@@ -2592,7 +2597,16 @@ public class IslandService {
         ParcelData parcel = new ParcelData(id);
         parcel.setBounds(minX, minY, minZ, maxX, maxY, maxZ);
         parcel.getOwners().add(owner);
-        parcel.setSpawn(new Location(skyWorldService.getWorld(), (minX + maxX) / 2.0 + 0.5, maxY + 1.0, (minZ + maxZ) / 2.0 + 0.5));
+        Location defaultSpawn = new Location(skyWorldService.getWorld(), (minX + maxX) / 2.0 + 0.5, maxY + 1.0, (minZ + maxZ) / 2.0 + 0.5);
+        if (spawnLocation != null
+                && skyWorldService.isSkyCityWorld(spawnLocation.getWorld())
+                && spawnLocation.getBlockX() >= minX && spawnLocation.getBlockX() <= maxX
+                && spawnLocation.getBlockY() >= minY && spawnLocation.getBlockY() <= maxY + 1
+                && spawnLocation.getBlockZ() >= minZ && spawnLocation.getBlockZ() <= maxZ) {
+            parcel.setSpawn(spawnLocation.clone());
+        } else {
+            parcel.setSpawn(defaultSpawn);
+        }
         island.getParcels().put(id, parcel);
         island.setLastActiveAt(System.currentTimeMillis());
         save();

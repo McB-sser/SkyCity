@@ -55,7 +55,7 @@ public class SkyWorldService {
         world.setGameRule(GameRule.DO_INSOMNIA, false);
         world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
-        world.setGameRule(GameRule.MOB_GRIEFING, false);
+        world.setGameRule(GameRule.MOB_GRIEFING, true);
         world.setSpawnLocation(0, SPAWN_Y + 1, 0);
     }
 
