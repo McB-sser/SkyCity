@@ -49,18 +49,26 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
         if ("accept".equalsIgnoreCase(command.getName())) {
+            if (islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null) {
+                IslandData inviteIsland = islandService.getPendingMasterInviteIsland(player.getUniqueId());
+                boolean ok = islandService.acceptMasterInvite(player.getUniqueId());
+                if (ok) {
+                    player.sendMessage(ChatColor.GREEN + "Du bist nun Master von " + (inviteIsland.getTitle() == null ? "der Insel" : inviteIsland.getTitle()) + ".");
+                    player.openInventory(coreService.createIslandMenu(player, inviteIsland));
+                } else {
+                    player.sendMessage(ChatColor.RED + "Einladung ung\u00fcltig oder abgelaufen.");
+                }
+                return true;
+            }
             handleConfirmCommand(player);
             return true;
         }
         if ("cancel".equalsIgnoreCase(command.getName())) {
-            handleCancelConfirmCommand(player);
-            return true;
-        }
-        if ("accept".equals(sub)) {
-            handleConfirmCommand(player);
-            return true;
-        }
-        if ("cancel".equals(sub)) {
+            if (islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null) {
+                islandService.clearMasterInvite(player.getUniqueId());
+                player.sendMessage(ChatColor.YELLOW + "Master-Einladung abgelehnt.");
+                return true;
+            }
             handleCancelConfirmCommand(player);
             return true;
         }
@@ -112,10 +120,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             return true;
         }
-        if ("masteraccept".equals(sub)) {
-            handleMasterCommands(player, island, new String[]{"masteraccept"});
-            return true;
-        }
+
         if ("islands".equals(sub) && island == null) {
             player.openInventory(coreService.createIslandOverviewMenu(player));
             return true;
@@ -200,7 +205,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 }
             }
             case "title" -> handleTitleCommand(player, island, args);
-            case "masterinvite", "masteraccept", "masterleave" -> handleMasterCommands(player, island, args);
+            case "masterinvite", "masterleave" -> handleMasterCommands(player, island, args);
             case "master" -> handleMasterRoleCommand(player, island, args);
             case "owner" -> handleIslandOwnerRoleCommand(player, island, args);
             case "member" -> handleTrustCommand(player, island, args);
@@ -331,20 +336,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     sendMasterInviteMessage(online, player.getName());
                 }
             }
-            case "masteraccept" -> {
-                IslandData inviteIsland = islandService.getPendingMasterInviteIsland(player.getUniqueId());
-                if (inviteIsland == null) {
-                    player.sendMessage(ChatColor.RED + "Keine offene Master-Einladung.");
-                    return;
-                }
-                boolean ok = islandService.acceptMasterInvite(player.getUniqueId());
-                if (!ok) {
-                    player.sendMessage(ChatColor.RED + "Einladung konnte nicht angenommen werden.");
-                    return;
-                }
-                player.sendMessage(ChatColor.GREEN + "Du bist der Insel als Master beigetreten.");
-                if (inviteIsland.getIslandSpawn() != null) player.teleport(inviteIsland.getIslandSpawn());
-            }
+
             case "masterleave" -> {
                 requestSelfDowngradeConfirmation(
                         player,
@@ -754,7 +746,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 1) {
             if (!(sender instanceof Player player)) return List.of("create", "home", "islands");
-            List<String> suggestions = new ArrayList<>(List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "confirm", "cancel", "masteraccept", "masterleave", "kick", "ban", "unban", "pkick", "pban", "punban", "plot"));
+            List<String> suggestions = new ArrayList<>(List.of("create", "home", "islands", "setspawn", "showchunks", "hidechunks", "chunkunlock", "chunkapprove", "title", "masteraccept", "masterleave", "kick", "ban", "unban", "pkick", "pban", "punban", "plot"));
             IslandData island = resolveCommandIsland(player, "", islandService.getIsland(player.getUniqueId()).orElse(null));
             if (island != null) {
                 if (islandService.canInviteMaster(island, player.getUniqueId()) || player.isOp()) {
@@ -904,7 +896,8 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         target.sendMessage("");
         target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "ACHTUNG: MASTER-EINLADUNG ERHALTEN!");
         target.sendMessage(ChatColor.RED + inviterName + " hat dich eingeladen, Master seiner Insel zu werden.");
-        target.sendMessage(ChatColor.YELLOW + "Annehmen: /is masteraccept oder im Men\u00fc unter Insel > Berechtigungen > Master-Rechte.");
+        target.sendMessage(ChatColor.YELLOW + "Annehmen: /accept oder im Men\u00fc unter Insel > Berechtigungen > Master-Rechte.");
+        target.sendMessage(ChatColor.GRAY + "Ablehnen: /cancel");
         target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "WICHTIG: DU KANNST NUR AUF EINER INSEL MASTER SEIN!");
         target.sendMessage(ChatColor.RED + "Wenn du bereits Master einer anderen Insel bist, verl\u00e4sst du sie beim Annehmen.");
         target.sendMessage(ChatColor.RED + "Bleibt dort danach kein Master mehr \u00fcbrig, wird diese Insel gel\u00f6scht.");
@@ -918,8 +911,8 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         );
         player.sendMessage(ChatColor.DARK_RED + "Best\u00e4tigung erforderlich.");
         player.sendMessage(ChatColor.RED + warning);
-        player.sendMessage(ChatColor.YELLOW + "Best\u00e4tigen: /is confirm");
-        player.sendMessage(ChatColor.GRAY + "Abbrechen: /is cancel");
+        player.sendMessage(ChatColor.YELLOW + "Best\u00e4tigen: /accept");
+        player.sendMessage(ChatColor.GRAY + "Abbrechen: /cancel");
     }
 
     private void handleConfirmCommand(Player player) {

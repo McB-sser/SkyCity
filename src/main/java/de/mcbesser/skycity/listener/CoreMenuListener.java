@@ -2440,7 +2440,8 @@ public class CoreMenuListener implements Listener {
         target.sendMessage("");
         target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "ACHTUNG: MASTER-EINLADUNG ERHALTEN!");
         target.sendMessage(ChatColor.RED + inviterName + " hat dich eingeladen, Master seiner Insel zu werden.");
-        target.sendMessage(ChatColor.YELLOW + "Annehmen: /is masteraccept oder im Men\u00fc unter Insel > Berechtigungen > Master-Rechte.");
+        target.sendMessage(ChatColor.YELLOW + "Annehmen: /accept oder im Men\u00fc unter Insel > Berechtigungen > Master-Rechte.");
+        target.sendMessage(ChatColor.GRAY + "Ablehnen: /cancel");
         target.sendMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "WICHTIG: DU KANNST NUR AUF EINER INSEL MASTER SEIN!");
         target.sendMessage(ChatColor.RED + "Wenn du bereits Master einer anderen Insel bist, verl\u00e4sst du sie beim Annehmen.");
         target.sendMessage(ChatColor.RED + "Bleibt dort danach kein Master mehr \u00fcbrig, wird diese Insel gel\u00f6scht.");

@@ -2836,9 +2836,9 @@ public class CoreService {
       IslandData pendingInviteIsland = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId());
       boolean hasInvite = pendingInviteIsland != null && island.getOwner().equals(pendingInviteIsland.getOwner());
       if (this.islandService.canInviteMaster(island, viewer.getUniqueId()) || viewer.isOp()) {
-         inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler w\u00e4hlen", ChatColor.GRAY + "Annahme per /is masteraccept", ChatColor.GRAY + "oder hier im Men\u00fc")));
+         inv.setItem(11, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Master einladen", List.of(ChatColor.YELLOW + "Klick = Spieler w\u00e4hlen", ChatColor.GRAY + "Annahme per /accept", ChatColor.GRAY + "oder hier im Men\u00fc")));
       }
-      inv.setItem(13, this.named(Material.EMERALD, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Offene Einladung f\u00fcr diese Insel" : "Keine offene Einladung f\u00fcr diese Insel"), ChatColor.YELLOW + "Klick = annehmen", ChatColor.GRAY + "Alternativ: /is masteraccept")));
+      inv.setItem(13, this.named(Material.EMERALD, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Offene Einladung f\u00fcr diese Insel" : "Keine offene Einladung f\u00fcr diese Insel"), ChatColor.YELLOW + "Klick = annehmen", ChatColor.GRAY + "Alternativ: /accept")));
       if (island.getMasters().contains(viewer.getUniqueId()) || viewer.isOp()) {
          inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + "Als Master austreten", List.of(ChatColor.YELLOW + "Klick = austreten")));
       }
@@ -2867,7 +2867,7 @@ public class CoreService {
          Player target = candidates.get(idx);
          List<String> lore = new ArrayList<>();
          lore.add(ChatColor.YELLOW + "Klick = Einladung senden");
-         lore.add(ChatColor.GRAY + "Annahme per /is masteraccept");
+         lore.add(ChatColor.GRAY + "Annahme per /accept");
          lore.add(ChatColor.GRAY + "oder im Men\u00fc");
          lore.add(ChatColor.DARK_GRAY + "uuid:" + target.getUniqueId());
          inv.setItem(GRID_SLOTS.get(i), this.named(Material.PLAYER_HEAD, ChatColor.AQUA + target.getName(), lore));
@@ -2935,7 +2935,7 @@ public class CoreService {
       if ("MASTER".equals(role)) {
          IslandData pendingInviteIsland = this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId());
          boolean hasInvite = pendingInviteIsland != null && island.getOwner().equals(pendingInviteIsland.getOwner());
-         inv.setItem(13, this.named(Material.DIAMOND, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Offene Einladung f\u00fcr diese Insel" : "Keine offene Einladung f\u00fcr diese Insel"), ChatColor.YELLOW + "Klick = annehmen", ChatColor.GRAY + "Alternativ: /is masteraccept")));
+         inv.setItem(13, this.named(Material.DIAMOND, (hasInvite ? ChatColor.GREEN : ChatColor.YELLOW) + "Einladung annehmen", List.of(ChatColor.GRAY + (hasInvite ? "Offene Einladung f\u00fcr diese Insel" : "Keine offene Einladung f\u00fcr diese Insel"), ChatColor.YELLOW + "Klick = annehmen", ChatColor.GRAY + "Alternativ: /accept")));
          if (viewer != null && (island.getMasters().contains(viewer.getUniqueId()) || isOp)) {
             inv.setItem(15, this.named(Material.RED_BED, ChatColor.DARK_RED + "Als Master austreten", List.of(ChatColor.GRAY + "Du verl\u00e4sst den Master-Rang", ChatColor.YELLOW + "Klick = austreten")));
          }
