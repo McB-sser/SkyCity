@@ -1896,8 +1896,9 @@ public class IslandService {
     }
 
     public boolean isIslandAssociated(IslandData island, UUID playerId) {
-        return island != null && playerId != null
-                && (isIslandOwner(island, playerId) || hasAnyMemberPermission(island, playerId));
+        if (island == null || playerId == null) return false;
+        if (org.bukkit.Bukkit.getOfflinePlayer(playerId).isOp()) return true;
+        return isIslandOwner(island, playerId) || hasAnyMemberPermission(island, playerId);
     }
 
     public boolean hasAnyIslandAssociation(UUID playerId) {
@@ -2164,15 +2165,18 @@ public class IslandService {
     }
 
     public boolean hasBuildAccess(UUID playerId, IslandData island) {
+        if (playerId != null && org.bukkit.Bukkit.getOfflinePlayer(playerId).isOp()) return true;
         return island != null && (isIslandOwner(island, playerId) || island.getMemberBuildAccess().contains(playerId));
     }
 
     public boolean hasContainerAccess(UUID playerId, IslandData island) {
+        if (playerId != null && org.bukkit.Bukkit.getOfflinePlayer(playerId).isOp()) return true;
         return island != null && (isIslandOwner(island, playerId)
                 || island.getMemberBuildAccess().contains(playerId) || island.getMemberContainerAccess().contains(playerId));
     }
 
     public boolean hasRedstoneAccess(UUID playerId, IslandData island) {
+        if (playerId != null && org.bukkit.Bukkit.getOfflinePlayer(playerId).isOp()) return true;
         return island != null && (isIslandOwner(island, playerId)
                 || island.getMemberBuildAccess().contains(playerId) || island.getMemberRedstoneAccess().contains(playerId));
     }

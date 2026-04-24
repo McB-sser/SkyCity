@@ -323,17 +323,17 @@ public class CoreMenuListener implements Listener {
         }
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null) return;
-        boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island);
+        boolean hasRights = player.isOp() || islandService.isIslandAssociated(island, player.getUniqueId());
         switch (event.getRawSlot()) {
             case 4 -> {
-                if (hasBuild && !islandService.isSpawnIsland(island)) {
+                if (hasRights && !islandService.isSpawnIsland(island)) {
                     player.openInventory(coreService.createCoreMenu(player, island));
                 }
             }
-            case 20 -> { if (hasBuild) player.openInventory(coreService.createIslandSettingsMenu(player, island)); }
-            case 22 -> { if (hasBuild) player.openInventory(coreService.createChunkSettingsMenu(player, island)); }
-            case 24 -> { if (hasBuild) player.openInventory(coreService.createParcelsMenu(player, island)); }
-            case 38 -> { if (hasBuild) player.openInventory(coreService.createIslandShopMenu(player, island)); }
+            case 20 -> { if (hasRights) player.openInventory(coreService.createIslandSettingsMenu(player, island)); }
+            case 22 -> { if (hasRights) player.openInventory(coreService.createChunkSettingsMenu(player, island)); }
+            case 24 -> { if (hasRights) player.openInventory(coreService.createParcelsMenu(player, island)); }
+            case 38 -> { if (hasRights) player.openInventory(coreService.createIslandShopMenu(player, island)); }
             case 40 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "island"));
             case 42 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             default -> {
@@ -380,6 +380,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         player.teleport(target.getIslandSpawn());
+        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         player.closeInventory();
     }
 
@@ -394,6 +395,7 @@ public class CoreMenuListener implements Listener {
         target.setYaw(player.getLocation().getYaw());
         target.setPitch(player.getLocation().getPitch());
         player.teleport(target);
+        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         player.closeInventory();
         player.sendMessage(ChatColor.AQUA + "Teleportiert zum leeren Inselplatz " + gridX + ":" + gridZ + ".");
     }
@@ -423,6 +425,7 @@ public class CoreMenuListener implements Listener {
         }
         player.closeInventory();
         player.teleport(islandService.getSpawnLocation());
+        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         boolean queued = islandService.queueIslandCreation(player.getUniqueId(), new IslandPlot(gridX, gridZ), created -> {
             islandService.ensureCentralSpawnAndCoreSafe(created);
             coreService.ensureCorePlaced(created);
@@ -648,6 +651,13 @@ public class CoreMenuListener implements Listener {
                     player.openInventory(coreService.createPermissionsActionMenu(player, island, holder.role()));
                     return;
                 }
+                if (player.isOp()) {
+                    island.getMasters().add(targetId);
+                    islandService.save();
+                    player.sendMessage(ChatColor.GREEN + "Master-Rechte an " + (target.getName() == null ? "?" : target.getName()) + " vergeben (OP Override).");
+                    player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), true, holder.searchFilter(), holder.page()));
+                    return;
+                }
                 boolean queued = islandService.queueMasterInvite(island, player.getUniqueId(), targetId);
                 if (!queued) {
                     player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
@@ -687,6 +697,15 @@ public class CoreMenuListener implements Listener {
             }
         } else {
             if ("MASTER".equals(holder.role())) {
+                if (player.isOp()) {
+                    if (islandService.leaveMasterRole(island, targetId)) {
+                        player.sendMessage(ChatColor.RED + "Master-Rechte von " + (target.getName() == null ? "?" : target.getName()) + " entfernt (OP Override).");
+                    } else {
+                        player.sendMessage(ChatColor.RED + "Fehler beim Entfernen des Masters.");
+                    }
+                    player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), false, holder.searchFilter(), holder.page()));
+                    return;
+                }
                 player.sendMessage(ChatColor.RED + "Master k\u00f6nnen nicht ausgetragen werden.");
                 player.openInventory(coreService.createPermissionsActionMenu(player, island, holder.role()));
                 return;
@@ -2176,8 +2195,9 @@ public class CoreMenuListener implements Listener {
                     sendNoIslandHelp(player);
                 }
             } else {
-                IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
-                if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
+                IslandData targetIsland = islandService.getIslandAt(player.getLocation());
+                if (targetIsland == null) targetIsland = islandService.getIsland(player.getUniqueId()).orElse(null);
+                if (targetIsland != null) player.openInventory(coreService.createIslandMenu(player, targetIsland));
                 else {
                     player.closeInventory();
                     sendNoIslandHelp(player);
@@ -2207,6 +2227,7 @@ public class CoreMenuListener implements Listener {
                 for (IslandService.TeleportTarget target : islandService.getTeleportTargetsFor(player.getUniqueId())) {
                     if (target.id().equals(plain)) {
                         player.teleport(target.location());
+                        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
                         player.closeInventory();
                         return;
                     }

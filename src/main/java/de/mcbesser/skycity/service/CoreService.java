@@ -1094,15 +1094,22 @@ public class CoreService {
    public Inventory createIslandMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new CoreService.IslandInventoryHolder(island.getOwner()), 54, "SkyCity Insel");
       this.fillWithPanes(inv);
-      if (this.islandService.isSpawnIsland(island)) {
-         inv.setItem(4, this.named(Material.BARRIER, ChatColor.RED + "Kein Tech-Tree", List.of(ChatColor.GRAY + "Am Spawn gibt es keinen Core,", ChatColor.GRAY + "keine Upgrades und keine Master-Rechte.")));
+      boolean hasRights = viewer != null && (viewer.isOp() || this.islandService.isIslandAssociated(island, viewer.getUniqueId()));
+      
+      if (hasRights) {
+         if (this.islandService.isSpawnIsland(island)) {
+            inv.setItem(4, this.named(Material.BARRIER, ChatColor.RED + "Kein Tech-Tree", List.of(ChatColor.GRAY + "Am Spawn gibt es keinen Core,", ChatColor.GRAY + "keine Upgrades und keine Master-Rechte.")));
+         } else {
+            inv.setItem(4, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank", ChatColor.YELLOW + "Klick = Core \u00f6ffnen")));
+         }
+         inv.setItem(20, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel", List.of(ChatColor.GRAY + "Spawn, Titel und Rechte", ChatColor.YELLOW + "Klick = Inselmen\u00fc")));
+         inv.setItem(22, this.named(Material.MAP, ChatColor.YELLOW + "Chunks", List.of(ChatColor.GRAY + "Freischalten, Karte, Grenzen", ChatColor.YELLOW + "Klick = Chunkmen\u00fc")));
+         inv.setItem(24, this.named(Material.NAME_TAG, ChatColor.GOLD + "Grundst\u00fccke", List.of(ChatColor.GRAY + "GS, Rechte, Bans, PvP", ChatColor.YELLOW + "Klick = Grundst\u00fccks-Men\u00fc")));
+         inv.setItem(38, this.named(Material.EMERALD, ChatColor.GREEN + "Insel-Shop", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
       } else {
-         inv.setItem(4, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank", ChatColor.YELLOW + "Klick = Core \u00f6ffnen")));
+         inv.setItem(31, this.named(Material.BARRIER, ChatColor.RED + "Keine Rechte", List.of(ChatColor.GRAY + "Du hast auf dieser Insel keine Rechte.", ChatColor.GRAY + "Daher kannst du nur die Teleports", ChatColor.GRAY + "und die Karte einsehen.")));
       }
-      inv.setItem(20, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel", List.of(ChatColor.GRAY + "Spawn, Titel und Rechte", ChatColor.YELLOW + "Klick = Inselmen\u00fc")));
-      inv.setItem(22, this.named(Material.MAP, ChatColor.YELLOW + "Chunks", List.of(ChatColor.GRAY + "Freischalten, Karte, Grenzen", ChatColor.YELLOW + "Klick = Chunkmen\u00fc")));
-      inv.setItem(24, this.named(Material.NAME_TAG, ChatColor.GOLD + "Grundst\u00fccke", List.of(ChatColor.GRAY + "GS, Rechte, Bans, PvP", ChatColor.YELLOW + "Klick = Grundst\u00fccks-Men\u00fc")));
-      inv.setItem(38, this.named(Material.EMERALD, ChatColor.GREEN + "Insel-Shop", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
+      
       inv.setItem(40, this.named(Material.COMPASS, ChatColor.AQUA + "Teleport-Men\u00fc", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
       inv.setItem(42, this.named(Material.CARTOGRAPHY_TABLE, ChatColor.GOLD + "Insel\u00fcbersicht", List.of(ChatColor.GRAY + "Inseln rund um deine Insel", ChatColor.YELLOW + "Klick = Karte \u00f6ffnen")));
       return inv;
