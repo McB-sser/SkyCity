@@ -88,6 +88,8 @@ public class SkyCityPlugin extends JavaPlugin {
         getCommand("is").setTabCompleter(islandCommand);
         getCommand("warp").setExecutor(islandCommand);
         getCommand("warp").setTabCompleter(islandCommand);
+        getCommand("accept").setExecutor(islandCommand);
+        getCommand("cancel").setExecutor(islandCommand);
 
         completeRuntimeInitializationIfReady();
         Bukkit.getScheduler().runTask(this, this::completeRuntimeInitializationIfReady);

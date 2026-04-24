@@ -13,8 +13,10 @@ commands:
     aliases: [island]
   warp:
     description: Teleportiert zu einem Inselwarp
+  accept:
+    description: Best\u00e4tigt eine Aktion
+  cancel:
+    description: Bricht eine Aktion ab
 permissions:
   skycity.admin:
     default: op
-
-

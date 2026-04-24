@@ -322,17 +322,18 @@ public class CoreMenuListener implements Listener {
             return;
         }
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
-        if (island == null || !islandService.hasBuildAccess(player.getUniqueId(), island)) return;
+        if (island == null) return;
+        boolean hasBuild = islandService.hasBuildAccess(player.getUniqueId(), island);
         switch (event.getRawSlot()) {
             case 4 -> {
-                if (!islandService.isSpawnIsland(island)) {
+                if (hasBuild && !islandService.isSpawnIsland(island)) {
                     player.openInventory(coreService.createCoreMenu(player, island));
                 }
             }
-            case 20 -> player.openInventory(coreService.createIslandSettingsMenu(player, island));
-            case 22 -> player.openInventory(coreService.createChunkSettingsMenu(player, island));
-            case 24 -> player.openInventory(coreService.createParcelsMenu(player, island));
-            case 38 -> player.openInventory(coreService.createIslandShopMenu(player, island));
+            case 20 -> { if (hasBuild) player.openInventory(coreService.createIslandSettingsMenu(player, island)); }
+            case 22 -> { if (hasBuild) player.openInventory(coreService.createChunkSettingsMenu(player, island)); }
+            case 24 -> { if (hasBuild) player.openInventory(coreService.createParcelsMenu(player, island)); }
+            case 38 -> { if (hasBuild) player.openInventory(coreService.createIslandShopMenu(player, island)); }
             case 40 -> player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "island"));
             case 42 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             default -> {
@@ -343,7 +344,7 @@ public class CoreMenuListener implements Listener {
     private void handleIslandOverviewMenuClick(InventoryClickEvent event, Player player, CoreService.IslandOverviewInventoryHolder holder) {
         event.setCancelled(true);
         IslandData ownIsland = holder.islandOwner() == null ? null : islandService.getIsland(holder.islandOwner()).orElse(null);
-        if (ownIsland != null && !islandService.hasBuildAccess(player.getUniqueId(), ownIsland)) return;
+
         int raw = event.getRawSlot();
         if (raw == 49) {
             if (ownIsland != null) {
@@ -1320,7 +1321,7 @@ public class CoreMenuListener implements Listener {
     private void handleVisitorSettingsClick(InventoryClickEvent event, Player player, UUID islandOwner) {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
-        if (island == null || !islandService.isIslandOwner(island, player.getUniqueId())) return;
+        if (island == null || (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp())) return;
         if (event.getRawSlot() == 44) {
             player.openInventory(coreService.createIslandMenu(player, island));
             return;
@@ -2224,7 +2225,7 @@ public class CoreMenuListener implements Listener {
     private void handleIslandTrustMembersMenuClick(InventoryClickEvent event, Player player, CoreService.IslandTrustMembersInventoryHolder holder) {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
-        if (island == null || !islandService.isIslandOwner(island, player.getUniqueId())) return;
+        if (island == null || (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp())) return;
         IslandService.TrustPermission permission;
         try {
             permission = IslandService.TrustPermission.valueOf(holder.permission());
