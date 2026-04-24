@@ -1323,7 +1323,7 @@ public class CoreMenuListener implements Listener {
         IslandData island = islandService.getIsland(islandOwner).orElse(null);
         if (island == null || (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp())) return;
         if (event.getRawSlot() == 44) {
-            player.openInventory(coreService.createIslandMenu(player, island));
+            player.openInventory(coreService.createIslandSettingsMenu(player, island));
             return;
         }
         if (!toggleAccessSetting(island.getIslandVisitorSettings(), accessSettingIndex(event.getRawSlot()))) {

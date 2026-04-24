@@ -64,6 +64,9 @@ public class IslandData {
     public void setIslandSpawn(Location islandSpawn) { this.islandSpawn = islandSpawn; }
     public Location getCoreLocation() { return coreLocation; }
     public void setCoreLocation(Location coreLocation) {
+        if (this.coreLocation != null) {
+            coreLocations.remove(this.coreLocation);
+        }
         this.coreLocation = normalizeCoreLocation(coreLocation);
         if (this.coreLocation != null) {
             coreLocations.add(this.coreLocation);

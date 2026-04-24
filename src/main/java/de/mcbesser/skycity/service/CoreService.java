@@ -4412,8 +4412,8 @@ public class CoreService {
 
    private List<String> buildRewardHoverLore(IslandData island) {
       List<String> lines = new ArrayList<>();
-      lines.add(ChatColor.GOLD + "Belohnung");
       if (this.islandService.isMilestonePinned(island)) {
+         lines.add(ChatColor.GOLD + "Belohnung");
          IslandService.MilestoneRequirement next = this.islandService.getNextMilestoneRequirement(island);
          if (next == null) {
             lines.add(ChatColor.GREEN + "Keine weitere Belohnung offen");
@@ -4428,10 +4428,14 @@ public class CoreService {
       IslandService.UpgradeBranch pinned = this.islandService.getPinnedUpgrade(island);
       IslandService.UpgradeRequirement requirement = this.islandService.getNextUpgradeRequirement(island, pinned);
       if (requirement == null) {
+         lines.add(ChatColor.GOLD + "Belohnung");
          lines.add(ChatColor.GREEN + "Keine weitere Belohnung offen");
          return lines;
       }
       addUpgradeRewardLore(lines, island, pinned, requirement);
+      if (!lines.isEmpty() && lines.get(0).equals(" ")) {
+         lines.remove(0);
+      }
       return lines;
    }
 
