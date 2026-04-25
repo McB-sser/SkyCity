@@ -1517,8 +1517,8 @@ public class CoreMenuListener implements Listener {
             player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), "PLOT", 0));
         } else if (event.getRawSlot() == 14) { // WARP
             player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), "WARP", 0));
-        } else if (event.getRawSlot() == 16) { // ALL_ISLANDS
-            player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), "ALL_ISLANDS", 0));
+        } else if (event.getRawSlot() == 16) { // Teleport Menu
+            player.openInventory(coreService.createTeleportMenu(player.getUniqueId(), 0, "all", "carto:" + holder.islandOwner() + ":" + holder.locationKey()));
         }
     }
 
@@ -2418,6 +2418,15 @@ public class CoreMenuListener implements Listener {
     private void handleTeleportMenuClick(InventoryClickEvent event, Player player, CoreService.TeleportInventoryHolder holder) {
         event.setCancelled(true);
         if (event.getRawSlot() == 49) {
+            if (holder.backTarget() != null && holder.backTarget().startsWith("carto:")) {
+                String[] parts = holder.backTarget().split(":", 3);
+                if (parts.length >= 3) {
+                    UUID islandOwner = UUID.fromString(parts[1]);
+                    String locationKey = parts[2];
+                    player.openInventory(coreService.createCartoTeleporterTargetMenu(islandOwner, locationKey));
+                    return;
+                }
+            }
             if ("parcels".equalsIgnoreCase(holder.backTarget())) {
                 IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
                 if (own != null) {
@@ -2456,6 +2465,41 @@ public class CoreMenuListener implements Listener {
             String plain = ChatColor.stripColor(line);
             if (plain == null) continue;
             if (plain.startsWith("island:") || plain.startsWith("parcel:") || plain.startsWith("warp:")) {
+                if (holder.backTarget() != null && holder.backTarget().startsWith("carto:")) {
+                    String[] parts = holder.backTarget().split(":", 3);
+                    if (parts.length >= 3) {
+                        UUID islandOwner = UUID.fromString(parts[1]);
+                        String locationKey = parts[2];
+                        IslandData island = islandService.getIsland(islandOwner).orElse(null);
+                        if (island != null) {
+                            String targetType = "ISLAND";
+                            String targetName = "";
+                            if (plain.startsWith("parcel:")) {
+                                targetType = "PLOT";
+                                String[] targetParts = plain.split(":");
+                                UUID parcelOwner = UUID.fromString(targetParts[1]);
+                                String chunkKey = targetParts[2];
+                                IslandData targetIsland = islandService.getIsland(parcelOwner).orElse(null);
+                                if (targetIsland != null) {
+                                    ParcelData parcel = targetIsland.getParcels().get(chunkKey);
+                                    if (parcel != null) targetName = parcel.getName();
+                                }
+                            } else if (plain.startsWith("warp:")) {
+                                targetType = "WARP";
+                                UUID warpOwner = UUID.fromString(plain.split(":")[1]);
+                                IslandData targetIsland = islandService.getIsland(warpOwner).orElse(null);
+                                if (targetIsland != null) targetName = targetIsland.getWarpName();
+                            } else {
+                                targetType = "ISLAND";
+                                targetName = plain.substring(7); // UUID
+                            }
+                            playerListener.setCartoTeleporterTarget(island, locationKey, targetType, targetName);
+                            playerListener.reopenCartoTeleporterSettingsMenu(player, island, locationKey);
+                            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                        }
+                        return;
+                    }
+                }
                 for (IslandService.TeleportTarget target : islandService.getTeleportTargetsFor(player.getUniqueId())) {
                     if (target.id().equals(plain)) {
                         player.teleport(islandService.findSafeLocation(target.location()));

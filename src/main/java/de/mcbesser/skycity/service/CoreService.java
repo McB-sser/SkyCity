@@ -1585,9 +1585,9 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new CartoTeleporterTargetInventoryHolder(islandOwner, locationKey), 27, "Ziel w\u00e4hlen");
       this.fillWithPanes(inv);
       inv.setItem(10, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Eigener Insel-Spawn", java.util.List.of(ChatColor.GRAY + "Teleportiert zu deiner Insel")));
-      inv.setItem(12, this.named(Material.OAK_FENCE, ChatColor.GOLD + "Eigene Plots", java.util.List.of(ChatColor.GRAY + "W\u00e4hle eines deiner Grundst\u00fccke")));
+      inv.setItem(12, this.named(Material.NAME_TAG, ChatColor.GOLD + "Eigene Plots", java.util.List.of(ChatColor.GRAY + "W\u00e4hle eines deiner Grundst\u00fccke")));
       inv.setItem(14, this.named(Material.ENDER_PEARL, ChatColor.LIGHT_PURPLE + "Eigene Warps", java.util.List.of(ChatColor.GRAY + "W\u00e4hle einen deiner Warps")));
-      inv.setItem(16, this.named(Material.FILLED_MAP, ChatColor.AQUA + "Alle Inseln", java.util.List.of(ChatColor.GRAY + "\u00d6ffentliche Inseln durchsuchen")));
+      inv.setItem(16, this.named(Material.FILLED_MAP, ChatColor.AQUA + "Teleport-Men\u00fc", java.util.List.of(ChatColor.GRAY + "Alle Ziele durchsuchen")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
       return inv;
    }

@@ -6608,6 +6608,7 @@ public class IslandService {
                 .put("cacheBlocks", new LinkedHashMap<>(island.getCachedBlockCounts()))
                 .put("checkpointPlateYaw", new LinkedHashMap<>(island.getCheckpointPlateYaw()))
                 .put("checkpointStructures", new LinkedHashMap<>(island.getCheckpointStructures()))
+                .put("cartographyTeleporters", new LinkedHashMap<>(island.getCartographyTeleporters()))
                 .put("growthBoostUntil", new LinkedHashMap<>(island.getGrowthBoostUntil()))
                 .put("growthBoostTier", new LinkedHashMap<>(island.getGrowthBoostTier()));
 
@@ -6777,6 +6778,7 @@ public class IslandService {
         putIntMap((Map<String, Object>) document.get("cacheBlocks", Map.class), island.getCachedBlockCounts());
         putFloatMap((Map<String, Object>) document.get("checkpointPlateYaw", Map.class), island.getCheckpointPlateYaw());
         putStringMap((Map<String, Object>) document.get("checkpointStructures", Map.class), island.getCheckpointStructures());
+        putStringMap((Map<String, Object>) document.get("cartographyTeleporters", Map.class), island.getCartographyTeleporters());
         putLongMap((Map<String, Object>) document.get("growthBoostUntil", Map.class), island.getGrowthBoostUntil());
         putIntMap((Map<String, Object>) document.get("growthBoostTier", Map.class), island.getGrowthBoostTier());
         List<Document> parcels = (List<Document>) document.get("parcels", List.class);
