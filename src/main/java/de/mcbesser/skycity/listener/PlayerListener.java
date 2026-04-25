@@ -1415,10 +1415,8 @@ public class PlayerListener implements Listener {
             } else if (matches.size() == 2) {
                 for (Location match : matches) {
                     String tag = checkpointHoloTag(match);
-                    activeTags.add(tag);
                     String textTag = tag + "_text";
                     activeTags.add(textTag);
-                    ensureCheckpointHolo(match, tag);
                     ensureCheckpointTextHolo(match, tag, registeredCheckpointFromString(island.getCheckpointStructures().get(checkpointLocationKey(match))));
                     spawnCheckpointGlow(player, match);
                 }
@@ -3809,6 +3807,7 @@ public class PlayerListener implements Listener {
         };
     }
 }
+
 
 
 
