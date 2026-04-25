@@ -125,6 +125,10 @@ public class CoreMenuListener implements Listener {
             handleBiomeMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.IslandSettingsInventoryHolder holder) {
             handleIslandSettingsClick(event, player, holder.islandOwner());
+        } else if (top.getHolder() instanceof CoreService.OwnedWarpInventoryHolder holder) {
+            handleOwnedWarpMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.OwnedWarpActionInventoryHolder holder) {
+            handleOwnedWarpActionMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.VisitorSettingsInventoryHolder holder) {
             handleVisitorSettingsClick(event, player, holder.islandOwner());
         } else if (top.getHolder() instanceof CoreService.CheckpointSettingsInventoryHolder holder) {
@@ -358,6 +362,81 @@ public class CoreMenuListener implements Listener {
         }
     }
 
+    private void handleOwnedWarpMenuClick(InventoryClickEvent event, Player player, CoreService.OwnedWarpInventoryHolder holder) {
+        event.setCancelled(true);
+        if (event.getRawSlot() == 49) {
+            IslandData island = islandService.getIsland(player.getUniqueId()).orElse(null);
+            if (island != null) {
+                player.openInventory(coreService.createIslandMenu(player, island));
+            } else {
+                player.openInventory(coreService.createIslandMenu(player));
+            }
+            return;
+        }
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= 45) return;
+        ItemStack current = event.getCurrentItem();
+        if (current == null || current.getType() == Material.AIR || isDecorativePane(current)) return;
+        ItemMeta meta = current.getItemMeta();
+        if (meta == null || meta.getLore() == null || meta.getLore().isEmpty()) return;
+        String rawOwner = ChatColor.stripColor(meta.getLore().get(meta.getLore().size() - 1));
+        if (rawOwner == null || rawOwner.isBlank()) return;
+        try {
+            UUID islandOwner = UUID.fromString(rawOwner);
+            IslandData island = islandService.getIsland(islandOwner, false).orElse(null);
+            if (island == null) return;
+            if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
+                player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+                return;
+            }
+            player.openInventory(coreService.createOwnedWarpActionMenu(island));
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    private void handleOwnedWarpActionMenuClick(InventoryClickEvent event, Player player, CoreService.OwnedWarpActionInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner(), false).orElse(null);
+        if (island == null) return;
+        if (!islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
+            player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+            return;
+        }
+        switch (event.getRawSlot()) {
+            case 10 -> coreService.beginIslandWarpRenameInput(player, island);
+            case 11 -> {
+                island.setWarpLocation(player.getLocation().clone());
+                islandService.save();
+                player.sendMessage(ChatColor.GREEN + "Warp-Position aktualisiert.");
+                player.openInventory(coreService.createOwnedWarpActionMenu(island));
+            }
+            case 12 -> coreService.beginIslandWarpWelcomeMessageInput(player, island);
+            case 16 -> {
+                island.setWarpName(null);
+                island.setWarpLocation(null);
+                island.setWarpWelcomeMessage(null);
+                island.setWarpWelcomeMessageEnabled(false);
+                islandService.save();
+                player.sendMessage(ChatColor.GREEN + "Warp gelöscht.");
+                player.openInventory(coreService.createOwnedWarpMenu(player));
+            }
+            case 15 -> {
+                if (island.getWarpWelcomeMessage() == null || island.getWarpWelcomeMessage().isBlank()) {
+                    player.sendMessage(ChatColor.RED + "Setze zuerst eine Willkommensnachricht.");
+                    player.openInventory(coreService.createOwnedWarpActionMenu(island));
+                    return;
+                }
+                island.setWarpWelcomeMessageEnabled(!island.isWarpWelcomeMessageEnabled());
+                islandService.save();
+                player.sendMessage((island.isWarpWelcomeMessageEnabled() ? ChatColor.GREEN : ChatColor.YELLOW)
+                        + "Willkommensnachricht " + (island.isWarpWelcomeMessageEnabled() ? "aktiviert." : "deaktiviert."));
+                player.openInventory(coreService.createOwnedWarpActionMenu(island));
+            }
+            case 22 -> player.openInventory(coreService.createOwnedWarpMenu(player));
+            default -> {
+            }
+        }
+    }
+
     private void handleAdminQueueClick(InventoryClickEvent event, Player player, CoreService.AdminQueueInventoryHolder holder) {
         event.setCancelled(true);
         if (event.getRawSlot() == 48) {
@@ -548,7 +627,11 @@ public class CoreMenuListener implements Listener {
                     player.openInventory(coreService.createIslandSettingsMenu(player, island));
                     return;
                 }
-                coreService.beginIslandWarpInput(player, island);
+                if (event.isRightClick()) {
+                    player.openInventory(coreService.createOwnedWarpMenu(player));
+                } else {
+                    coreService.beginIslandWarpInput(player, island);
+                }
             }
             case 29 -> {
                 if (!canManagePermissions) {
@@ -2503,6 +2586,14 @@ public class CoreMenuListener implements Listener {
                 for (IslandService.TeleportTarget target : islandService.getTeleportTargetsFor(player.getUniqueId())) {
                     if (target.id().equals(plain)) {
                         player.teleport(islandService.findSafeLocation(target.location()));
+                        if (plain.startsWith("warp:")) {
+                            try {
+                                UUID warpOwner = UUID.fromString(plain.substring("warp:".length()));
+                                IslandData warpIsland = islandService.getIsland(warpOwner, false).orElse(null);
+                                islandService.sendWarpWelcomeMessage(player, warpIsland);
+                            } catch (IllegalArgumentException ignored) {
+                            }
+                        }
                         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
                         player.closeInventory();
                         return;

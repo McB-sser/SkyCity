@@ -326,6 +326,14 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         player.teleport(islandService.findSafeLocation(target.location()));
+        if (target.id().startsWith("warp:")) {
+            try {
+                UUID warpOwner = UUID.fromString(target.id().substring("warp:".length()));
+                IslandData warpIsland = islandService.getIsland(warpOwner, false).orElse(null);
+                islandService.sendWarpWelcomeMessage(player, warpIsland);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
         player.sendMessage(ChatColor.GREEN + "Teleportiert zu " + ChatColor.GOLD + target.displayName());
         return true;
     }

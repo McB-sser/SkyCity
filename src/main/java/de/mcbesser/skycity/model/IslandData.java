@@ -41,6 +41,8 @@ public class IslandData {
     private String title;
     private String warpName;
     private Location warpLocation;
+    private String warpWelcomeMessage;
+    private boolean warpWelcomeMessageEnabled;
     private String coreDisplayMode = "ALL";
     private String pinnedUpgradeKey = "MILESTONE";
     private String islandTimeMode = "NORMAL";
@@ -119,6 +121,10 @@ public class IslandData {
     public void setWarpName(String warpName) { this.warpName = warpName; }
     public Location getWarpLocation() { return warpLocation; }
     public void setWarpLocation(Location warpLocation) { this.warpLocation = warpLocation; }
+    public String getWarpWelcomeMessage() { return warpWelcomeMessage; }
+    public void setWarpWelcomeMessage(String warpWelcomeMessage) { this.warpWelcomeMessage = warpWelcomeMessage; }
+    public boolean isWarpWelcomeMessageEnabled() { return warpWelcomeMessageEnabled; }
+    public void setWarpWelcomeMessageEnabled(boolean warpWelcomeMessageEnabled) { this.warpWelcomeMessageEnabled = warpWelcomeMessageEnabled; }
     public String getCoreDisplayMode() { return coreDisplayMode; }
     public void setCoreDisplayMode(String coreDisplayMode) {
         this.coreDisplayMode = (coreDisplayMode == null || coreDisplayMode.isBlank())

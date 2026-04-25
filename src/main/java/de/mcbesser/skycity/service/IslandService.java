@@ -517,6 +517,8 @@ public class IslandService {
                 island.setAvailableChunkUnlocks(sec.getInt("availableChunkUnlocks", 0));
                 island.setTitle(sec.getString("title", null));
                 island.setWarpName(sec.getString("warpName", null));
+                island.setWarpWelcomeMessage(sec.getString("warpWelcomeMessage", null));
+                island.setWarpWelcomeMessageEnabled(sec.getBoolean("warpWelcomeMessageEnabled", false));
                 island.setCoreDisplayMode(sec.getString("coreDisplayMode", "ALL"));
                 island.setPinnedUpgradeKey(sec.getString("pinnedUpgradeKey", "MILESTONE"));
                 island.setIslandTimeMode(sec.getString("islandTimeMode", "NORMAL"));
@@ -1841,6 +1843,21 @@ public class IslandService {
         return getIslandWarpDisplay(island) + " | " + getIslandMasterDisplay(island);
     }
 
+    public boolean shouldSendWarpWelcomeMessage(IslandData island) {
+        return island != null
+                && island.getWarpLocation() != null
+                && island.getWarpName() != null
+                && !island.getWarpName().isBlank()
+                && island.isWarpWelcomeMessageEnabled()
+                && island.getWarpWelcomeMessage() != null
+                && !island.getWarpWelcomeMessage().isBlank();
+    }
+
+    public void sendWarpWelcomeMessage(Player player, IslandData island) {
+        if (player == null || !shouldSendWarpWelcomeMessage(island)) return;
+        player.sendMessage(ChatColor.LIGHT_PURPLE + island.getWarpWelcomeMessage().trim());
+    }
+
     public int getIslandLoadPercent(IslandData island) {
         return getIslandLoadBreakdown(island).totalPercent();
     }
@@ -2141,6 +2158,8 @@ public class IslandService {
         migrated.setAvailableChunkUnlocks(island.getAvailableChunkUnlocks());
         migrated.setTitle(island.getTitle());
         migrated.setWarpName(island.getWarpName());
+        migrated.setWarpWelcomeMessage(island.getWarpWelcomeMessage());
+        migrated.setWarpWelcomeMessageEnabled(island.isWarpWelcomeMessageEnabled());
         migrated.setPinnedUpgradeKey(island.getPinnedUpgradeKey());
         migrated.setIslandTimeMode(island.getIslandTimeMode());
         migrated.setIslandWeatherMode(island.getIslandWeatherMode());
@@ -6579,6 +6598,8 @@ public class IslandService {
                 .put("availableChunkUnlocks", island.getAvailableChunkUnlocks())
                 .put("title", island.getTitle())
                 .put("warpName", island.getWarpName())
+                .put("warpWelcomeMessage", island.getWarpWelcomeMessage())
+                .put("warpWelcomeMessageEnabled", island.isWarpWelcomeMessageEnabled())
                 .put("coreDisplayMode", island.getCoreDisplayMode())
                 .put("pinnedUpgradeKey", island.getPinnedUpgradeKey())
                 .put("islandTimeMode", island.getIslandTimeMode())
@@ -6739,6 +6760,8 @@ public class IslandService {
         island.setAvailableChunkUnlocks(Math.max(0, intValue(document.get("availableChunkUnlocks"))));
         island.setTitle(document.get("title", String.class));
         island.setWarpName(document.get("warpName", String.class));
+        island.setWarpWelcomeMessage(document.get("warpWelcomeMessage", String.class));
+        island.setWarpWelcomeMessageEnabled(Boolean.TRUE.equals(document.get("warpWelcomeMessageEnabled", Boolean.class)));
         island.setCoreDisplayMode(defaultString(document.get("coreDisplayMode", String.class), "ALL"));
         island.setPinnedUpgradeKey(defaultString(document.get("pinnedUpgradeKey", String.class), "MILESTONE"));
         island.setIslandTimeMode(defaultString(document.get("islandTimeMode", String.class), "NORMAL"));

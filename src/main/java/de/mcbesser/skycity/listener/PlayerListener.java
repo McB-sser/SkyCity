@@ -1989,6 +1989,8 @@ public class PlayerListener implements Listener {
 
         if (!coreService.isAwaitingIslandTitleInput(senderId)
                 && !coreService.isAwaitingIslandWarpInput(senderId)
+                && !coreService.isAwaitingIslandWarpRenameInput(senderId)
+                && !coreService.isAwaitingIslandWarpWelcomeMessageInput(senderId)
                 && !coreService.isAwaitingPlayerPermissionSearch(senderId)
                 && !coreService.isAwaitingParcelRenameInput(senderId)
                 && !coreService.isCheckpointTitleInputPending(senderId)
@@ -2007,6 +2009,14 @@ public class PlayerListener implements Listener {
             }
             if (coreService.isAwaitingIslandWarpInput(event.getPlayer().getUniqueId())) {
                 coreService.handleIslandWarpChatInput(event.getPlayer(), msg);
+                return;
+            }
+            if (coreService.isAwaitingIslandWarpRenameInput(event.getPlayer().getUniqueId())) {
+                coreService.handleIslandWarpRenameChatInput(event.getPlayer(), msg);
+                return;
+            }
+            if (coreService.isAwaitingIslandWarpWelcomeMessageInput(event.getPlayer().getUniqueId())) {
+                coreService.handleIslandWarpWelcomeMessageChatInput(event.getPlayer(), msg);
                 return;
             }
             if (coreService.isAwaitingParcelRenameInput(event.getPlayer().getUniqueId())) {

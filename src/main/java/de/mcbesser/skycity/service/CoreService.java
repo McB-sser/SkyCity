@@ -7,6 +7,7 @@ import de.mcbesser.skycity.model.IslandLevelDefinition;
 import de.mcbesser.skycity.model.ParcelData;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -145,6 +146,8 @@ public class CoreService {
    private final Map<UUID, Integer> limitHintHideTasks = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandWarpInput = new ConcurrentHashMap<>();
+   private final Map<UUID, UUID> pendingIslandWarpRenameInput = new ConcurrentHashMap<>();
+   private final Map<UUID, UUID> pendingIslandWarpWelcomeMessageInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingParcelRenameInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingCheckpointTitleInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingCartoTeleporterTitleInput = new ConcurrentHashMap<>();
@@ -1658,50 +1661,114 @@ public class CoreService {
       String permissionLore = this.islandService.isSpawnIsland(island)
          ? ChatColor.GRAY + "Owner und Member verwalten"
          : ChatColor.GRAY + "Master, Owner und Member verwalten";
-      if (System.currentTimeMillis() >= 0L) {
-         inv.setItem(11, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
-         inv.setItem(13, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
-         inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Klick = Warpname und Position per Chat setzen")));
-         if (canManagePermissions) {
-            inv.setItem(29, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(permissionLore)));
-         }
-         inv.setItem(31, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
-         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
-         return inv;
+      inv.setItem(11, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
+      inv.setItem(13, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
+      inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Linksklick = Warpname und Position setzen", ChatColor.YELLOW + "Rechtsklick = Eigene Warps verwalten")));
+      if (canManagePermissions) {
+         inv.setItem(29, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(permissionLore)));
       }
-      IslandService.IslandTimeMode timeMode = this.islandService.getIslandTimeMode(island);
-      Material timeIcon = switch (timeMode) {
-         case DAY -> Material.SUNFLOWER;
-         case SUNSET -> Material.ORANGE_DYE;
-         case MIDNIGHT -> Material.ENDER_PEARL;
-         case NORMAL -> Material.CLOCK;
-      };
-      inv.setItem(
-         11,
-         this.named(
-            timeIcon,
-            ChatColor.GOLD + "Tag/Nacht-Zyklus",
-            List.of(
-               ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.islandTimeModeLabel(timeMode),
-               ChatColor.YELLOW + "Klick = Zeitmodus-Shop",
-               ChatColor.GRAY + "Wirkt nur auf diese Insel"
-            )
-         )
-      );
-      inv.setItem(15, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Biom-Men\u00fc", List.of(ChatColor.GRAY + "Chunkweise und inselweit setzen")));
-      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
-      inv.setItem(10, this.named(Material.SHULKER_BOX, ChatColor.LIGHT_PURPLE + "Core \u00f6ffnen", List.of(ChatColor.GRAY + "Core-Men\u00fc mit Upgrades und CoreBank")));
-      inv.setItem(11, this.named(Material.CHEST_MINECART, ChatColor.AQUA + "Inselbl\u00f6cke", List.of(ChatColor.GRAY + "Gesammelte Core-Items / Mengen")));
-      inv.setItem(12, this.named(Material.LECTERN, ChatColor.GOLD + "Blockwertigkeit", List.of(ChatColor.GRAY + "Wert pro Block f\u00fcr Insel-Level")));
-      inv.setItem(13, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
-      inv.setItem(14, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
-      inv.setItem(20, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(ChatColor.GRAY + "Master, Owner und Member verwalten")));
-      inv.setItem(24, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
-      inv.setItem(15, this.named(Material.GRAY_STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "-", List.of()));
-      inv.setItem(40, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
+      inv.setItem(31, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
       return inv;
    }
 
+   public Inventory createOwnedWarpMenu(Player viewer) {
+      Inventory inv = Bukkit.createInventory(new OwnedWarpInventoryHolder(viewer == null ? null : viewer.getUniqueId(), 0), 54, "Eigene Warps");
+      this.fillWithPanes(inv);
+      if (viewer == null) {
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zurück", List.of(ChatColor.GRAY + "Zur Insel")));
+         return inv;
+      }
+
+      List<IslandData> warpIslands = this.islandService.getAllIslands().stream()
+         .filter(island -> this.islandService.isIslandOwner(island, viewer.getUniqueId()))
+         .filter(island -> island.getWarpLocation() != null && island.getWarpName() != null && !island.getWarpName().isBlank())
+         .sorted(Comparator.comparing(this.islandService::getIslandWarpDisplay, String.CASE_INSENSITIVE_ORDER))
+         .toList();
+
+      if (warpIslands.isEmpty()) {
+         inv.setItem(22, this.named(Material.BARRIER, ChatColor.RED + "Keine eigenen Warps", List.of(ChatColor.GRAY + "Setze zuerst einen Warp auf deiner Insel.")));
+         inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zurück", List.of(ChatColor.GRAY + "Zur Insel")));
+         return inv;
+      }
+
+      for (int index = 0; index < warpIslands.size() && index < 45; index++) {
+         IslandData island = warpIslands.get(index);
+         inv.setItem(index, this.named(
+            Material.ENDER_PEARL,
+            ChatColor.AQUA + this.islandService.getIslandWarpDisplay(island),
+            List.of(
+               ChatColor.GRAY + "Insel: " + this.islandService.getIslandTitleDisplay(island),
+               ChatColor.GRAY + "Master: " + this.islandService.getIslandMasterDisplay(island),
+               ChatColor.YELLOW + "Klick = Verwalten",
+               ChatColor.DARK_GRAY.toString() + island.getOwner()
+            )
+         ));
+      }
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zurück", List.of(ChatColor.GRAY + "Zur Insel")));
+      return inv;
+   }
+
+   public Inventory createOwnedWarpActionMenu(IslandData island) {
+      Inventory inv = Bukkit.createInventory(new OwnedWarpActionInventoryHolder(island.getOwner()), 27, "Warp verwalten");
+      this.fillWithPanes(inv);
+      String welcomeMessage = island.getWarpWelcomeMessage();
+      boolean welcomeEnabled = island.isWarpWelcomeMessageEnabled();
+      String welcomePreview = (welcomeMessage == null || welcomeMessage.isBlank())
+         ? "-"
+         : (welcomeMessage.length() > 32 ? welcomeMessage.substring(0, 29) + "..." : welcomeMessage);
+      inv.setItem(10, this.named(
+         Material.NAME_TAG,
+         ChatColor.GOLD + "Warp umbenennen",
+         List.of(
+            ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island),
+            ChatColor.YELLOW + "Klick = Neuen Namen im Chat eingeben"
+         )
+      ));
+      inv.setItem(11, this.named(
+         Material.COMPASS,
+         ChatColor.GREEN + "Position aktualisieren",
+         List.of(
+            ChatColor.GRAY + "Setzt die Warp-Position auf deine aktuelle Position",
+            ChatColor.YELLOW + "Klick = Position aktualisieren"
+         )
+      ));
+      inv.setItem(12, this.named(
+         Material.WRITABLE_BOOK,
+         ChatColor.LIGHT_PURPLE + "Willkommensnachricht setzen",
+         List.of(
+            ChatColor.GRAY + "Aktuell: " + welcomePreview,
+            ChatColor.YELLOW + "Klick = Nachricht im Chat eingeben"
+         )
+      ));
+      inv.setItem(13, this.named(
+         Material.ENDER_PEARL,
+         ChatColor.AQUA + this.islandService.getIslandWarpDisplay(island),
+         List.of(
+            ChatColor.GRAY + "Insel: " + this.islandService.getIslandTitleDisplay(island),
+            ChatColor.GRAY + "Nachricht: " + welcomePreview,
+            ChatColor.GRAY + "Status: " + (welcomeEnabled ? ChatColor.GREEN + "AN" : ChatColor.RED + "AUS")
+         )
+      ));
+      inv.setItem(15, this.named(
+         welcomeEnabled ? Material.LIME_DYE : Material.GRAY_DYE,
+         (welcomeEnabled ? ChatColor.GREEN : ChatColor.RED) + "Willkommensnachricht",
+         List.of(
+            ChatColor.GRAY + "Status: " + (welcomeEnabled ? ChatColor.GREEN + "AN" : ChatColor.RED + "AUS"),
+            ChatColor.YELLOW + "Klick = Umschalten"
+         )
+      ));
+      inv.setItem(16, this.named(
+         Material.BARRIER,
+         ChatColor.RED + "Warp löschen",
+         List.of(
+            ChatColor.GRAY + "Entfernt Name, Position und Willkommensnachricht",
+            ChatColor.YELLOW + "Klick = Sofort löschen"
+         )
+      ));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zurück", List.of(ChatColor.GRAY + "Zur Warp-Liste")));
+      return inv;
+   }
    private Material iconForBiome(Biome biome) {
       if (biome == null) {
          return Material.GRASS_BLOCK;
@@ -3603,6 +3670,8 @@ public class CoreService {
    public void cancelAllPendingInputs(UUID playerId) {
       pendingIslandTitleInput.remove(playerId);
       pendingIslandWarpInput.remove(playerId);
+      pendingIslandWarpRenameInput.remove(playerId);
+      pendingIslandWarpWelcomeMessageInput.remove(playerId);
       pendingParcelRenameInput.remove(playerId);
       pendingCheckpointTitleInput.remove(playerId);
       pendingCartoTeleporterTitleInput.remove(playerId);
@@ -3625,6 +3694,34 @@ public class CoreService {
 
    public boolean isAwaitingIslandWarpInput(UUID playerId) {
       return playerId != null && this.pendingIslandWarpInput.containsKey(playerId);
+   }
+
+   public void beginIslandWarpRenameInput(Player player, IslandData island) {
+      if (player != null && island != null) {
+         this.pendingIslandWarpRenameInput.put(player.getUniqueId(), island.getOwner());
+         player.closeInventory();
+         player.sendMessage(ChatColor.GOLD + "Warp-Umbenennung gestartet.");
+         player.sendMessage(ChatColor.YELLOW + "Schreibe jetzt den neuen Warpnamen in den Chat.");
+         player.sendMessage(ChatColor.GRAY + "Mit 'abbrechen' brichst du ab.");
+      }
+   }
+
+   public boolean isAwaitingIslandWarpRenameInput(UUID playerId) {
+      return playerId != null && this.pendingIslandWarpRenameInput.containsKey(playerId);
+   }
+
+   public void beginIslandWarpWelcomeMessageInput(Player player, IslandData island) {
+      if (player != null && island != null) {
+         this.pendingIslandWarpWelcomeMessageInput.put(player.getUniqueId(), island.getOwner());
+         player.closeInventory();
+         player.sendMessage(ChatColor.GOLD + "Willkommensnachricht gestartet.");
+         player.sendMessage(ChatColor.YELLOW + "Schreibe jetzt die Warp-Willkommensnachricht in den Chat.");
+         player.sendMessage(ChatColor.GRAY + "Mit 'clear' loeschst du die Nachricht, mit 'abbrechen' brichst du ab.");
+      }
+   }
+
+   public boolean isAwaitingIslandWarpWelcomeMessageInput(UUID playerId) {
+      return playerId != null && this.pendingIslandWarpWelcomeMessageInput.containsKey(playerId);
    }
 
    public void beginParcelRenameInput(Player player, IslandData island, ParcelData parcel) {
@@ -3742,6 +3839,8 @@ public class CoreService {
       if (msg.equalsIgnoreCase("clear")) {
          island.setWarpName(null);
          island.setWarpLocation(null);
+         island.setWarpWelcomeMessage(null);
+         island.setWarpWelcomeMessageEnabled(false);
          this.islandService.save();
          player.sendMessage(ChatColor.GREEN + "Warp zur\u00fcckgesetzt.");
          return;
@@ -3762,6 +3861,96 @@ public class CoreService {
       island.setWarpLocation(player.getLocation().clone());
       this.islandService.save();
       player.sendMessage(ChatColor.GREEN + "Warp gesetzt: " + ChatColor.GOLD + msg);
+   }
+
+   public void handleIslandWarpRenameChatInput(Player player, String message) {
+      if (player == null) {
+         return;
+      }
+      UUID islandOwner = this.pendingIslandWarpRenameInput.remove(player.getUniqueId());
+      if (islandOwner == null) {
+         return;
+      }
+      IslandData island = this.islandService.getIsland(islandOwner).orElse(null);
+      if (island == null) {
+         player.sendMessage(ChatColor.RED + "Insel nicht gefunden.");
+         return;
+      }
+      if (!this.islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
+         player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+         return;
+      }
+      if (island.getWarpLocation() == null || island.getWarpName() == null || island.getWarpName().isBlank()) {
+         player.sendMessage(ChatColor.RED + "Auf dieser Insel existiert kein Warp.");
+         return;
+      }
+      String msg = message == null ? "" : message.trim();
+      if (msg.equalsIgnoreCase("abbrechen") || msg.equalsIgnoreCase("cancel")) {
+         player.sendMessage(ChatColor.YELLOW + "Warp-Umbenennung abgebrochen.");
+         return;
+      }
+      if (msg.isBlank()) {
+         player.sendMessage(ChatColor.RED + "Warpname darf nicht leer sein.");
+         return;
+      }
+      if (msg.length() > 40) {
+         player.sendMessage(ChatColor.RED + "Warpname darf max. 40 Zeichen haben.");
+         return;
+      }
+      if (this.islandService.isIslandLabelTaken(msg, island.getOwner(), island.getWarpName())) {
+         player.sendMessage(ChatColor.RED + "Name ist bereits als Inselname oder Warp vergeben.");
+         return;
+      }
+      island.setWarpName(msg);
+      this.islandService.save();
+      player.sendMessage(ChatColor.GREEN + "Warp umbenannt: " + ChatColor.GOLD + msg);
+   }
+
+   public void handleIslandWarpWelcomeMessageChatInput(Player player, String message) {
+      if (player == null) {
+         return;
+      }
+      UUID islandOwner = this.pendingIslandWarpWelcomeMessageInput.remove(player.getUniqueId());
+      if (islandOwner == null) {
+         return;
+      }
+      IslandData island = this.islandService.getIsland(islandOwner).orElse(null);
+      if (island == null) {
+         player.sendMessage(ChatColor.RED + "Insel nicht gefunden.");
+         return;
+      }
+      if (!this.islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) {
+         player.sendMessage(ChatColor.RED + "Nur Master oder Owner.");
+         return;
+      }
+      if (island.getWarpLocation() == null || island.getWarpName() == null || island.getWarpName().isBlank()) {
+         player.sendMessage(ChatColor.RED + "Auf dieser Insel existiert kein Warp.");
+         return;
+      }
+      String msg = message == null ? "" : message.trim();
+      if (msg.equalsIgnoreCase("abbrechen") || msg.equalsIgnoreCase("cancel")) {
+         player.sendMessage(ChatColor.YELLOW + "Willkommensnachricht abgebrochen.");
+         return;
+      }
+      if (msg.equalsIgnoreCase("clear")) {
+         island.setWarpWelcomeMessage(null);
+         island.setWarpWelcomeMessageEnabled(false);
+         this.islandService.save();
+         player.sendMessage(ChatColor.GREEN + "Willkommensnachricht geloescht.");
+         return;
+      }
+      if (msg.isBlank()) {
+         player.sendMessage(ChatColor.RED + "Willkommensnachricht darf nicht leer sein.");
+         return;
+      }
+      if (msg.length() > 120) {
+         player.sendMessage(ChatColor.RED + "Willkommensnachricht darf max. 120 Zeichen haben.");
+         return;
+      }
+      island.setWarpWelcomeMessage(msg);
+      island.setWarpWelcomeMessageEnabled(true);
+      this.islandService.save();
+      player.sendMessage(ChatColor.GREEN + "Willkommensnachricht gesetzt.");
    }
 
    public void handleParcelRenameChatInput(Player player, String message) {
@@ -5963,6 +6152,18 @@ public class CoreService {
    }
 
    public static record IslandSettingsInventoryHolder(UUID islandOwner) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record OwnedWarpInventoryHolder(UUID viewerId, int page) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record OwnedWarpActionInventoryHolder(UUID islandOwner) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
