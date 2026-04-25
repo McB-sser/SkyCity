@@ -207,9 +207,9 @@ public class IslandService {
     public record IslandLoadBreakdown(int totalPercent, int blockPercent, int entityPercent) { }
     private record ChunkTemplateDef(String id, Material top, Material filler, Material feature, Biome biome, int minRadius, int maxRadius) { }
     private record ThemeHit(long seed, double density) { }
-    private record PregenerationTask(UUID islandOwner, int nextIndex) { }
+    public record PregenerationTask(UUID islandOwner, int nextIndex) { }
     private record IslandCreationTask(UUID playerId) { }
-    private record BarrierFloorRepairTask(int gridX, int gridZ, int nextChunkIndex) { }
+    public record BarrierFloorRepairTask(int gridX, int gridZ, int nextChunkIndex) { }
     private record PveMobArchetype(
             String key,
             EntityType entityType,
@@ -350,7 +350,7 @@ public class IslandService {
             this.cooldownUntil = cooldownUntil;
         }
     }
-    private record IslandAreaCleanupTask(UUID islandOwner, int gridX, int gridZ, int nextChunkIndex) { }
+    public record IslandAreaCleanupTask(UUID islandOwner, int gridX, int gridZ, int nextChunkIndex) { }
 
     private static final int ISLAND_CHUNKS = 64;
     private static final int TOTAL_CHUNKS = 4096;
@@ -1014,6 +1014,13 @@ public class IslandService {
             islandAreaCleanupQueue.offer(new IslandAreaCleanupTask(island.getOwner(), island.getGridX(), island.getGridZ(), 0));
             saveCleanupReservations(true);
         }
+    }
+
+    public void forceIslandAreaCleanup(int gridX, int gridZ) {
+        String plotKey = plotKey(gridX, gridZ);
+        reservedCleanupPlots.add(plotKey);
+        cleanupProgressByPlot.put(plotKey, 0);
+        healCleanupReservations(true);
     }
 
     private void removeIslandRuntimeState(IslandData island) {
@@ -6264,12 +6271,25 @@ public class IslandService {
         return islandAreaCleanupQueue.size();
     }
 
+    public java.util.List<PregenerationTask> getPregenerationTasks() {
+        return new java.util.ArrayList<>(pregenerationQueue);
+    }
+
+    public java.util.List<IslandAreaCleanupTask> getCleanupTasks() {
+        return new java.util.ArrayList<>(islandAreaCleanupQueue);
+    }
+
     public boolean hasBackgroundQueueWork() {
         return !pregenerationQueue.isEmpty() || !islandAreaCleanupQueue.isEmpty();
     }
 
     public boolean mustWaitForRecreationQueue(UUID playerId) {
         if (playerId == null || !recreationCooldownOwners.contains(playerId)) {
+            return false;
+        }
+        if (org.bukkit.Bukkit.getOfflinePlayer(playerId).isOp()) {
+            recreationCooldownOwners.remove(playerId);
+            saveCleanupReservations(true);
             return false;
         }
         if (hasBackgroundQueueWork()) {
@@ -6496,6 +6516,9 @@ public class IslandService {
 
     private boolean isIslandCreationRateLimited(UUID playerId) {
         if (playerId == null) {
+            return false;
+        }
+        if (org.bukkit.Bukkit.getOfflinePlayer(playerId).isOp()) {
             return false;
         }
         IslandCreationThrottleState state = islandCreationThrottleStates.get(playerId);

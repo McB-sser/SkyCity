@@ -149,8 +149,6 @@ public class CoreMenuListener implements Listener {
             handlePermissionPlayerListMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.PermissionMemberDetailInventoryHolder holder) {
             handlePermissionMemberDetailMenuClick(event, player, holder);
-        } else if (top.getHolder() instanceof CoreService.SelfPermissionConfirmInventoryHolder holder) {
-            handleSelfPermissionConfirmMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.IslandTrustMembersInventoryHolder holder) {
             handleIslandTrustMembersMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.IslandOwnersInventoryHolder holder) {
@@ -185,6 +183,8 @@ public class CoreMenuListener implements Listener {
             handleParcelWeatherShopMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelNightVisionShopInventoryHolder holder) {
             handleParcelNightVisionShopMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.AdminQueueInventoryHolder holder) {
+            handleAdminQueueClick(event, player, holder);
         }
     }
 
@@ -330,6 +330,11 @@ public class CoreMenuListener implements Listener {
                     player.openInventory(coreService.createCoreMenu(player, island));
                 }
             }
+            case 8 -> {
+                if (player.isOp()) {
+                    player.openInventory(coreService.createAdminQueueMenu(player, 0));
+                }
+            }
             case 20 -> { if (hasRights) player.openInventory(coreService.createIslandSettingsMenu(player, island)); }
             case 22 -> { if (hasRights) player.openInventory(coreService.createChunkSettingsMenu(player, island)); }
             case 24 -> { if (hasRights) player.openInventory(coreService.createParcelsMenu(player, island)); }
@@ -338,6 +343,17 @@ public class CoreMenuListener implements Listener {
             case 42 -> player.openInventory(coreService.createIslandOverviewMenu(player, island));
             default -> {
             }
+        }
+    }
+
+    private void handleAdminQueueClick(InventoryClickEvent event, Player player, CoreService.AdminQueueInventoryHolder holder) {
+        event.setCancelled(true);
+        if (event.getRawSlot() == 48) {
+            player.openInventory(coreService.createAdminQueueMenu(player, holder.page() - 1));
+        } else if (event.getRawSlot() == 50) {
+            player.openInventory(coreService.createAdminQueueMenu(player, holder.page() + 1));
+        } else if (event.getRawSlot() == 49) {
+            player.openInventory(coreService.createIslandMenu(player, islandService.getIsland(player.getUniqueId()).orElse(null)));
         }
     }
 
@@ -609,7 +625,17 @@ public class CoreMenuListener implements Listener {
             }
             case 15 -> {
                 if ("MASTER".equals(holder.role())) {
-                    player.openInventory(coreService.createSelfPermissionConfirmMenu(island, player.getUniqueId(), "MASTER_LEAVE", null, "PERMISSIONS_MASTER", 0, null));
+                    player.closeInventory();
+                    de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                            player,
+                            player.getUniqueId(),
+                            island,
+                            null,
+                            de.mcbesser.skycity.command.IslandCommand.ActionType.MASTER_LEAVE,
+                            null,
+                            "Du wirst deinen Master-Rang auf " + islandService.getIslandTitleDisplay(island) + " verlieren.",
+                            true
+                    );
                 } else {
                     player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), false, null, 0));
                 }
@@ -676,17 +702,17 @@ public class CoreMenuListener implements Listener {
                     player.openInventory(coreService.createPermissionsActionMenu(player, island, holder.role()));
                     return;
                 }
-                boolean add = islandService.grantOwnerRole(island, player.getUniqueId(), targetId);
-                if (add) {
-                    Player tPlayer = target.getPlayer();
-                    if (tPlayer != null) {
-                        tPlayer.sendMessage(ChatColor.GREEN + player.getName() + " hat dir auf " + islandService.getIslandTitleDisplay(island) + " Owner-Rechte gegeben.");
-                    }
-                    player.sendMessage(ChatColor.GREEN + "Owner-Rechte an " + (target.getName() == null ? "?" : target.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " vergeben.");
-                } else {
-                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-                }
-                player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), true, holder.searchFilter(), holder.page()));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        de.mcbesser.skycity.command.IslandCommand.ActionType.OWNER_ADD,
+                        null,
+                        "Möchtest du " + (target.getName() == null ? "?" : target.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " Owner-Rechte geben?",
+                        true
+                );
             } else if ("MEMBER".equals(holder.role())) {
                 if (!islandService.canManageMembers(island, player.getUniqueId()) && !player.isOp()) {
                     player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Member verwalten.");
@@ -717,16 +743,30 @@ public class CoreMenuListener implements Listener {
                     return;
                 }
                 if (selfRemove) {
-                    player.openInventory(coreService.createSelfPermissionConfirmMenu(island, targetId, "OWNER_SELF_REMOVE", null, "PLAYER_LIST_OWNER", holder.page(), holder.searchFilter()));
+                    player.closeInventory();
+                    de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                            player,
+                            targetId,
+                            island,
+                            null,
+                            de.mcbesser.skycity.command.IslandCommand.ActionType.OWNER_REMOVE,
+                            null,
+                            "Du wirst deine Owner-Rechte auf " + islandService.getIslandTitleDisplay(island) + " verlieren.",
+                            true
+                    );
                     return;
                 }
-                if (islandService.revokeOwnerRole(island, player.getUniqueId(), targetId)) {
-                    Player tPlayer = target.getPlayer();
-                    if (tPlayer != null) {
-                        tPlayer.sendMessage(ChatColor.RED + player.getName() + " hat dir auf " + islandService.getIslandTitleDisplay(island) + " die Owner-Rechte entzogen.");
-                    }
-                    player.sendMessage(ChatColor.RED + "Owner-Rechte von " + (target.getName() == null ? "?" : target.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " entfernt.");
-                }
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        de.mcbesser.skycity.command.IslandCommand.ActionType.OWNER_REMOVE,
+                        null,
+                        "Möchtest du " + (target.getName() == null ? "?" : target.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " die Owner-Rechte entziehen?",
+                        true
+                );
             } else if ("MEMBER".equals(holder.role())) {
                 if (!islandService.canManageMembers(island, player.getUniqueId()) && !player.isOp()) {
                     player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Member verwalten.");
@@ -747,75 +787,72 @@ public class CoreMenuListener implements Listener {
         UUID targetId = holder.targetPlayer();
         switch (event.getRawSlot()) {
             case 9 -> {
-                boolean changed = islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.ALL);
-                if (changed) {
-                    org.bukkit.OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
-                    Player tPlayer = target.getPlayer();
-                    String targetName = target.getName() == null ? "?" : target.getName();
-                    if (tPlayer != null) {
-                        tPlayer.sendMessage(ChatColor.GREEN + player.getName() + " hat dir auf " + islandService.getIslandTitleDisplay(island) + " Vollzugriff gegeben.");
-                    }
-                    player.sendMessage(ChatColor.GREEN + "Alle Member-Rechte f\u00fcr " + targetName + " auf " + islandService.getIslandTitleDisplay(island) + " vergeben.");
-                }
-                player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_ADD,
+                        de.mcbesser.skycity.service.IslandService.TrustPermission.ALL,
+                        "Möchtest du " + (Bukkit.getOfflinePlayer(targetId).getName() == null ? "?" : Bukkit.getOfflinePlayer(targetId).getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " Vollzugriff geben?",
+                        true
+                );
             }
             case 11 -> {
                 boolean granted = !island.getMemberBuildAccess().contains(targetId);
-                if (!granted && targetId.equals(player.getUniqueId())) {
-                    player.openInventory(coreService.createSelfPermissionConfirmMenu(island, targetId, "MEMBER_SELF_REVOKE", "BUILD", "MEMBER_DETAIL", 0, null));
-                    return;
-                }
-                boolean changed = granted
-                        ? islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.BUILD)
-                        : islandService.revokeMemberPermission(island, targetId, IslandService.TrustPermission.BUILD);
-                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-                else notifyMemberPermissionChange(player, island, targetId, IslandService.TrustPermission.BUILD, granted);
-                player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        granted ? de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_ADD : de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_REMOVE,
+                        de.mcbesser.skycity.service.IslandService.TrustPermission.BUILD,
+                        (targetId.equals(player.getUniqueId()) && !granted) ? "Du wirst dir auf " + islandService.getIslandTitleDisplay(island) + " das Bau-Recht entziehen." : "Möchtest du Bau-Recht " + (granted ? "an " : "von ") + (Bukkit.getOfflinePlayer(targetId).getName() == null ? "?" : Bukkit.getOfflinePlayer(targetId).getName()) + " auf " + islandService.getIslandTitleDisplay(island) + (granted ? " vergeben?" : " entfernen?"),
+                        true
+                );
             }
             case 13 -> {
                 boolean granted = !island.getMemberContainerAccess().contains(targetId);
-                if (!granted && targetId.equals(player.getUniqueId())) {
-                    player.openInventory(coreService.createSelfPermissionConfirmMenu(island, targetId, "MEMBER_SELF_REVOKE", "CONTAINER", "MEMBER_DETAIL", 0, null));
-                    return;
-                }
-                boolean changed = granted
-                        ? islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.CONTAINER)
-                        : islandService.revokeMemberPermission(island, targetId, IslandService.TrustPermission.CONTAINER);
-                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-                else notifyMemberPermissionChange(player, island, targetId, IslandService.TrustPermission.CONTAINER, granted);
-                player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        granted ? de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_ADD : de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_REMOVE,
+                        de.mcbesser.skycity.service.IslandService.TrustPermission.CONTAINER,
+                        (targetId.equals(player.getUniqueId()) && !granted) ? "Du wirst dir auf " + islandService.getIslandTitleDisplay(island) + " das Kisten-Recht entziehen." : "Möchtest du Kisten-Recht " + (granted ? "an " : "von ") + (Bukkit.getOfflinePlayer(targetId).getName() == null ? "?" : Bukkit.getOfflinePlayer(targetId).getName()) + " auf " + islandService.getIslandTitleDisplay(island) + (granted ? " vergeben?" : " entfernen?"),
+                        true
+                );
             }
             case 15 -> {
                 boolean granted = !island.getMemberRedstoneAccess().contains(targetId);
-                if (!granted && targetId.equals(player.getUniqueId())) {
-                    player.openInventory(coreService.createSelfPermissionConfirmMenu(island, targetId, "MEMBER_SELF_REVOKE", "REDSTONE", "MEMBER_DETAIL", 0, null));
-                    return;
-                }
-                boolean changed = granted
-                        ? islandService.grantMemberPermission(island, targetId, IslandService.TrustPermission.REDSTONE)
-                        : islandService.revokeMemberPermission(island, targetId, IslandService.TrustPermission.REDSTONE);
-                if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-                else notifyMemberPermissionChange(player, island, targetId, IslandService.TrustPermission.REDSTONE, granted);
-                player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        granted ? de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_ADD : de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_REMOVE,
+                        de.mcbesser.skycity.service.IslandService.TrustPermission.REDSTONE,
+                        (targetId.equals(player.getUniqueId()) && !granted) ? "Du wirst dir auf " + islandService.getIslandTitleDisplay(island) + " das Redstone-Recht entziehen." : "Möchtest du Redstone-Recht " + (granted ? "an " : "von ") + (Bukkit.getOfflinePlayer(targetId).getName() == null ? "?" : Bukkit.getOfflinePlayer(targetId).getName()) + " auf " + islandService.getIslandTitleDisplay(island) + (granted ? " vergeben?" : " entfernen?"),
+                        true
+                );
             }
             case 17 -> {
-                if (targetId.equals(player.getUniqueId())) {
-                    player.openInventory(coreService.createSelfPermissionConfirmMenu(island, targetId, "MEMBER_SELF_REVOKE", "ALL", "MEMBER_DETAIL", 0, null));
-                    return;
-                }
-                boolean rmBuild = island.getMemberBuildAccess().remove(targetId);
-                boolean rmCont = island.getMemberContainerAccess().remove(targetId);
-                boolean rmRed = island.getMemberRedstoneAccess().remove(targetId);
-                if (rmBuild || rmCont || rmRed) {
-                    org.bukkit.OfflinePlayer t = Bukkit.getOfflinePlayer(targetId);
-                    Player tPlayer = t.getPlayer();
-                    if (tPlayer != null) {
-                        tPlayer.sendMessage(ChatColor.RED + player.getName() + " hat dir auf " + islandService.getIslandTitleDisplay(island) + " alle Member-Rechte entzogen.");
-                    }
-                    player.sendMessage(ChatColor.RED + "Alle Member-Rechte von " + (t.getName() == null ? "?" : t.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " entfernt.");
-                    islandService.save();
-                }
-                player.openInventory(coreService.createPermissionPlayerListMenu(player, island, "MEMBER", false, null, 0));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        targetId,
+                        island,
+                        null,
+                        de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_REMOVE,
+                        de.mcbesser.skycity.service.IslandService.TrustPermission.ALL,
+                        targetId.equals(player.getUniqueId()) ? "Du wirst dir auf " + islandService.getIslandTitleDisplay(island) + " alle Member-Rechte entziehen." : "Möchtest du alle Member-Rechte von " + (Bukkit.getOfflinePlayer(targetId).getName() == null ? "?" : Bukkit.getOfflinePlayer(targetId).getName()) + " auf " + islandService.getIslandTitleDisplay(island) + " entfernen?",
+                        true
+                );
             }
             case 22 -> player.openInventory(coreService.createPermissionPlayerListMenu(player, island, "MEMBER", false, null, 0));
         }
@@ -2288,15 +2325,30 @@ public class CoreMenuListener implements Listener {
         if (target == null || target.getUniqueId() == null || islandService.isPrimaryMaster(island, target.getUniqueId())) return;
 
         if (event.isRightClick() && target.getUniqueId().equals(player.getUniqueId())) {
-            player.openInventory(coreService.createSelfPermissionConfirmMenu(island, target.getUniqueId(), "MEMBER_SELF_REVOKE", permission.name(), "ISLAND_TRUST", holder.page(), holder.filter()));
+            player.closeInventory();
+            de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                    player,
+                    target.getUniqueId(),
+                    island,
+                    null,
+                    de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_REMOVE,
+                    permission,
+                    "Du wirst dir auf " + islandService.getIslandTitleDisplay(island) + " das Recht entziehen.",
+                    true
+            );
             return;
         }
-        boolean changed = event.isRightClick()
-                ? islandService.revokeMemberPermission(island, target.getUniqueId(), permission)
-                : islandService.grantMemberPermission(island, target.getUniqueId(), permission);
-        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-        islandService.save();
-        player.openInventory(coreService.createIslandTrustMenu(player, island, permission, holder.page(), holder.filter()));
+        player.closeInventory();
+        de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                player,
+                target.getUniqueId(),
+                island,
+                null,
+                event.isRightClick() ? de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_REMOVE : de.mcbesser.skycity.command.IslandCommand.ActionType.MEMBER_ADD,
+                permission,
+                "Möchtest du Recht " + (event.isRightClick() ? "von " : "an ") + (target.getName() == null ? "?" : target.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + (event.isRightClick() ? " entfernen?" : " vergeben?"),
+                true
+        );
     }
 
     private void handleIslandOwnersMenuClick(InventoryClickEvent event, Player player, CoreService.IslandOwnersInventoryHolder holder) {
@@ -2340,18 +2392,30 @@ public class CoreMenuListener implements Listener {
             return;
         }
         if (selfRemove) {
-            player.openInventory(coreService.createSelfPermissionConfirmMenu(island, target.getUniqueId(), "OWNER_SELF_REMOVE", null, "ISLAND_OWNERS", holder.page(), holder.filter()));
+            player.closeInventory();
+            de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                    player,
+                    target.getUniqueId(),
+                    island,
+                    null,
+                    de.mcbesser.skycity.command.IslandCommand.ActionType.OWNER_REMOVE,
+                    null,
+                    "Du wirst deine Owner-Rechte auf " + islandService.getIslandTitleDisplay(island) + " verlieren.",
+                    true
+            );
             return;
         }
-        boolean changed = event.isRightClick()
-                ? islandService.revokeOwnerRole(island, player.getUniqueId(), target.getUniqueId())
-                : islandService.grantOwnerRole(island, player.getUniqueId(), target.getUniqueId());
-        if (!changed) {
-            player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-        } else if (selfRemove) {
-            player.sendMessage(ChatColor.YELLOW + "Du bist als Owner ausgetragen.");
-        }
-        player.openInventory(coreService.createIslandOwnersMenu(player, island, holder.page(), holder.filter()));
+        player.closeInventory();
+        de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                player,
+                target.getUniqueId(),
+                island,
+                null,
+                event.isRightClick() ? de.mcbesser.skycity.command.IslandCommand.ActionType.OWNER_REMOVE : de.mcbesser.skycity.command.IslandCommand.ActionType.OWNER_ADD,
+                null,
+                "Möchtest du " + (target.getName() == null ? "?" : target.getName()) + " auf " + islandService.getIslandTitleDisplay(island) + (event.isRightClick() ? " die Owner-Rechte entziehen?" : " Owner-Rechte geben?"),
+                true
+        );
     }
 
     private void handleIslandMasterMenuClick(InventoryClickEvent event, Player player, CoreService.IslandMasterMenuInventoryHolder holder) {
@@ -2384,7 +2448,17 @@ public class CoreMenuListener implements Listener {
                 player.openInventory(coreService.createIslandMasterMenu(player, island));
             }
             case 15 -> {
-                player.openInventory(coreService.createSelfPermissionConfirmMenu(island, player.getUniqueId(), "MASTER_LEAVE", null, "PERMISSIONS_MASTER", 0, null));
+                player.closeInventory();
+                de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                        player,
+                        player.getUniqueId(),
+                        island,
+                        null,
+                        de.mcbesser.skycity.command.IslandCommand.ActionType.MASTER_LEAVE,
+                        null,
+                        "Du wirst deinen Master-Rang auf " + islandService.getIslandTitleDisplay(island) + " verlieren.",
+                        true
+                );
             }
             case 22 -> player.openInventory(coreService.createIslandMenu(player, island));
             default -> { }
@@ -2475,73 +2549,7 @@ public class CoreMenuListener implements Listener {
         };
     }
 
-    private void handleSelfPermissionConfirmMenuClick(InventoryClickEvent event, Player player, CoreService.SelfPermissionConfirmInventoryHolder holder) {
-        event.setCancelled(true);
-        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
-        if (island == null) {
-            player.closeInventory();
-            return;
-        }
-        if (event.getRawSlot() == 15 || event.getRawSlot() == 22) {
-            reopenSelfPermissionReturnMenu(player, island, holder);
-            return;
-        }
-        if (event.getRawSlot() != 13) return;
 
-        switch (holder.action()) {
-            case "MASTER_LEAVE" -> {
-                if (islandService.leaveMasterRole(island, player.getUniqueId())) {
-                    player.sendMessage(ChatColor.YELLOW + "Du bist als Master von der Insel ausgetreten.");
-                    player.teleport(islandService.getSpawnLocation());
-                    sendNoIslandHelp(player);
-                } else {
-                    player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master.");
-                }
-                IslandData own = islandService.getIsland(player.getUniqueId()).orElse(null);
-                if (own != null) player.openInventory(coreService.createIslandMenu(player, own));
-                else player.closeInventory();
-            }
-            case "OWNER_SELF_REMOVE" -> {
-                boolean changed = islandService.revokeOwnerRole(island, player.getUniqueId(), player.getUniqueId());
-                if (!changed) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-                } else {
-                    player.sendMessage(ChatColor.YELLOW + "Du hast dich auf " + islandService.getIslandTitleDisplay(island) + " als Owner ausgetragen.");
-                }
-                reopenSelfPermissionReturnMenu(player, island, holder);
-            }
-            case "MEMBER_SELF_REVOKE" -> {
-                IslandService.TrustPermission permission = holder.permission() == null
-                        ? IslandService.TrustPermission.ALL
-                        : IslandService.TrustPermission.valueOf(holder.permission());
-                boolean changed = islandService.revokeMemberPermission(island, player.getUniqueId(), permission);
-                if (!changed) {
-                    player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-                } else if (permission == IslandService.TrustPermission.ALL) {
-                    player.sendMessage(ChatColor.YELLOW + "Du hast dir auf " + islandService.getIslandTitleDisplay(island) + " alle Member-Rechte entzogen.");
-                } else {
-                    player.sendMessage(ChatColor.YELLOW + "Du hast dir auf " + islandService.getIslandTitleDisplay(island) + " das Recht " + permissionDisplayName(permission) + " entzogen.");
-                }
-                reopenSelfPermissionReturnMenu(player, island, holder);
-            }
-        }
-    }
-
-    private void reopenSelfPermissionReturnMenu(Player player, IslandData island, CoreService.SelfPermissionConfirmInventoryHolder holder) {
-        switch (holder.returnView()) {
-            case "PERMISSIONS_MASTER" -> player.openInventory(coreService.createPermissionsActionMenu(player, island, "MASTER"));
-            case "PLAYER_LIST_OWNER" -> player.openInventory(coreService.createPermissionPlayerListMenu(player, island, "OWNER", false, holder.filter(), holder.page()));
-            case "MEMBER_DETAIL" -> player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, holder.targetPlayer()));
-            case "ISLAND_OWNERS" -> player.openInventory(coreService.createIslandOwnersMenu(player, island, holder.page(), holder.filter()));
-            case "ISLAND_TRUST" -> {
-                IslandService.TrustPermission permission = holder.permission() == null
-                        ? IslandService.TrustPermission.ALL
-                        : IslandService.TrustPermission.valueOf(holder.permission());
-                player.openInventory(coreService.createIslandTrustMenu(player, island, permission, holder.page(), holder.filter()));
-            }
-            default -> player.closeInventory();
-        }
-    }
 
     private void handleParcelMembersMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelMembersInventoryHolder holder) {
         event.setCancelled(true);
@@ -2573,11 +2581,17 @@ public class CoreMenuListener implements Listener {
         if (targetName == null || targetName.isBlank()) return;
         var target = player.getServer().getOfflinePlayer(targetName);
         if (target == null || target.getUniqueId() == null) return;
-        boolean changed = event.isRightClick()
-                ? islandService.revokeParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role)
-                : islandService.grantParcelRole(island, parcel, player.getUniqueId(), target.getUniqueId(), role);
-        if (!changed) player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
-        player.openInventory(coreService.createParcelMembersMenu(player, island, holder.relChunkX(), holder.relChunkZ(), role, holder.page(), holder.filter()));
+        player.closeInventory();
+        de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
+                player,
+                target.getUniqueId(),
+                island,
+                parcel,
+                event.isRightClick() ? de.mcbesser.skycity.command.IslandCommand.ActionType.PLOT_ROLE_REMOVE : de.mcbesser.skycity.command.IslandCommand.ActionType.PLOT_ROLE_ADD,
+                role == de.mcbesser.skycity.service.IslandService.ParcelRole.OWNER ? de.mcbesser.skycity.service.IslandService.TrustPermission.ALL : de.mcbesser.skycity.service.IslandService.TrustPermission.BUILD,
+                "Möchtest du Plot-Recht (" + role.name() + ") " + (event.isRightClick() ? "von " : "an ") + (target.getName() == null ? "?" : target.getName()) + (event.isRightClick() ? " entfernen?" : " vergeben?"),
+                true
+        );
     }
 
     private void handleParcelModerationMenuClick(InventoryClickEvent event, Player player, CoreService.ParcelModerationInventoryHolder holder) {
@@ -2662,7 +2676,6 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.ParcelPlayerManagementInventoryHolder
                 || top.getHolder() instanceof CoreService.TeleportInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandTrustMembersInventoryHolder
-                || top.getHolder() instanceof CoreService.SelfPermissionConfirmInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandOwnersInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandMasterMenuInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandMasterInviteInventoryHolder

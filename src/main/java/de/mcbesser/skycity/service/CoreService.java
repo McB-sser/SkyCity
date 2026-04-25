@@ -1112,6 +1112,62 @@ public class CoreService {
       
       inv.setItem(40, this.named(Material.COMPASS, ChatColor.AQUA + "Teleport-Men\u00fc", List.of(ChatColor.GRAY + "Hybrid-Funktion au\u00dferhalb der Kategorien")));
       inv.setItem(42, this.named(Material.CARTOGRAPHY_TABLE, ChatColor.GOLD + "Insel\u00fcbersicht", List.of(ChatColor.GRAY + "Inseln rund um deine Insel", ChatColor.YELLOW + "Klick = Karte \u00f6ffnen")));
+
+      if (viewer != null && viewer.isOp()) {
+         inv.setItem(8, this.named(Material.COMMAND_BLOCK, ChatColor.RED + "Admin Queue Monitoring", List.of(ChatColor.GRAY + "Zeigt Server-Aufgaben (Generierung, L\u00f6schung)")));
+      }
+      return inv;
+   }
+
+   public Inventory createAdminQueueMenu(Player player, int page) {
+      Inventory inv = Bukkit.createInventory(new CoreService.AdminQueueInventoryHolder(page), 54, "Admin Queues - Seite " + (page + 1));
+      this.fillWithPanes(inv);
+      
+      List<de.mcbesser.skycity.service.IslandService.PregenerationTask> pregen = this.islandService.getPregenerationTasks();
+      List<de.mcbesser.skycity.service.IslandService.IslandAreaCleanupTask> cleanup = this.islandService.getCleanupTasks();
+      
+      List<Object> combined = new ArrayList<>();
+      combined.addAll(pregen);
+      combined.addAll(cleanup);
+
+      int totalItems = combined.size();
+      int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / 28.0));
+      int safePage = Math.max(0, Math.min(totalPages - 1, page));
+      
+      int[] slots = new int[]{10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
+      int start = safePage * 28;
+      
+      for (int i = 0; i < 28; i++) {
+         int idx = start + i;
+         if (idx >= combined.size()) break;
+         Object task = combined.get(idx);
+         if (task instanceof de.mcbesser.skycity.service.IslandService.PregenerationTask pt) {
+            inv.setItem(slots[i], this.named(Material.LIME_WOOL, ChatColor.GREEN + "Generierung", List.of(
+                    ChatColor.GRAY + "Spieler-UUID: " + pt.islandOwner(),
+                    ChatColor.GRAY + "Typ: Pregeneration",
+                    ChatColor.GRAY + "Index: " + pt.nextIndex() + "/4096"
+            )));
+         } else if (task instanceof de.mcbesser.skycity.service.IslandService.IslandAreaCleanupTask ct) {
+            inv.setItem(slots[i], this.named(Material.RED_WOOL, ChatColor.RED + "L\u00f6schung", List.of(
+                    ChatColor.GRAY + "Spieler-UUID: " + ct.islandOwner(),
+                    ChatColor.GRAY + "Plot: " + ct.gridX() + ":" + ct.gridZ(),
+                    ChatColor.GRAY + "Index: " + ct.nextChunkIndex() + "/4096"
+            )));
+         }
+      }
+
+      inv.setItem(4, this.named(Material.PAPER, ChatColor.YELLOW + "Zusammenfassung", List.of(
+              ChatColor.GRAY + "Generierung: " + pregen.size() + " Tasks",
+              ChatColor.GRAY + "L\u00f6schung: " + cleanup.size() + " Tasks"
+      )));
+
+      if (safePage > 0) {
+         inv.setItem(48, this.named(Material.ARROW, ChatColor.YELLOW + "Vorherige Seite", List.of()));
+      }
+      if (safePage < totalPages - 1) {
+         inv.setItem(50, this.named(Material.ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
+      }
+      inv.setItem(49, this.named(Material.BARRIER, ChatColor.RED + "Schlie\u00dfen", List.of(ChatColor.GRAY + "Zur\u00fcck zum Men\u00fc")));
       return inv;
    }
 
@@ -5797,6 +5853,12 @@ public class CoreService {
    }
 
    public static record VisitorSettingsInventoryHolder(UUID islandOwner) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record AdminQueueInventoryHolder(int page) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
