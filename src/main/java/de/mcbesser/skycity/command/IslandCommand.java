@@ -144,8 +144,15 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.RED + "Spawn kann nicht bereinigt werden.");
                 return true;
             }
-            islandService.forceIslandAreaCleanup(gridX, gridZ);
-            player.sendMessage(ChatColor.GREEN + "Bereinigung f\u00fcr Plot " + gridX + ":" + gridZ + " manuell in die Queue eingereiht.");
+            
+            pendingActions.put(
+                    player.getUniqueId(),
+                    new PendingPermissionAction(null, null, null, ActionType.FORCE_CLEANUP, null, System.currentTimeMillis() + 15000L, false, gridX, gridZ)
+            );
+            player.sendMessage(ChatColor.DARK_RED + "Best\u00e4tigung erforderlich.");
+            player.sendMessage(ChatColor.RED + "Soll die Zone bei Plot " + gridX + ":" + gridZ + " wirklich gezwungen bereinigt werden?");
+            player.sendMessage(ChatColor.YELLOW + "Best\u00e4tigen: /accept");
+            player.sendMessage(ChatColor.GRAY + "Abbrechen: /cancel");
             return true;
         }
 
@@ -928,7 +935,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
     public void requestPermissionConfirmation(Player actor, UUID targetPlayer, IslandData island, de.mcbesser.skycity.model.ParcelData parcel, ActionType actionType, IslandService.TrustPermission permission, String text, boolean fromGui) {
         pendingActions.put(
                 actor.getUniqueId(),
-                new PendingPermissionAction(targetPlayer, island == null ? null : island.getOwner(), parcel, actionType, permission, System.currentTimeMillis() + 15000L, fromGui)
+                new PendingPermissionAction(targetPlayer, island == null ? null : island.getOwner(), parcel, actionType, permission, System.currentTimeMillis() + 15000L, fromGui, 0, 0)
         );
         actor.sendMessage(ChatColor.DARK_RED + "Best\u00e4tigung erforderlich.");
         actor.sendMessage(ChatColor.RED + text);
@@ -1023,6 +1030,16 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.YELLOW + "Keine \u00c4nderung.");
                 }
             }
+            case FORCE_CLEANUP -> {
+                int gx = pending.gridX();
+                int gz = pending.gridZ();
+                if (islandService.getIslandByGrid(gx, gz).isPresent()) {
+                    player.sendMessage(ChatColor.RED + "An dieser Stelle existiert noch eine registrierte Insel. Diese muss zuerst gel\u00f6scht werden.");
+                } else {
+                    islandService.forceIslandAreaCleanup(gx, gz);
+                    player.sendMessage(ChatColor.GREEN + "Bereinigung f\u00fcr Plot " + gx + ":" + gz + " manuell in die Queue eingereiht.");
+                }
+            }
         }
         
         if (pending.fromGui() && island != null) {
@@ -1060,10 +1077,11 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         MEMBER_ADD,
         MEMBER_REMOVE,
         PLOT_ROLE_ADD,
-        PLOT_ROLE_REMOVE
+        PLOT_ROLE_REMOVE,
+        FORCE_CLEANUP
     }
 
-    public record PendingPermissionAction(UUID targetPlayer, UUID islandOwner, de.mcbesser.skycity.model.ParcelData parcel, ActionType actionType, IslandService.TrustPermission permission, long expiresAt, boolean fromGui) {}
+    public record PendingPermissionAction(UUID targetPlayer, UUID islandOwner, de.mcbesser.skycity.model.ParcelData parcel, ActionType actionType, IslandService.TrustPermission permission, long expiresAt, boolean fromGui, int gridX, int gridZ) {}
 }
 
 

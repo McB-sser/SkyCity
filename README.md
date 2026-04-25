@@ -608,6 +608,14 @@ Einige Eingaben wie Inselname, Warpname oder Grundstuecksname laufen ueber den C
 /is punban <spieler>
 ```
 
+### Administration (Nur für OPs)
+
+```text
+/is forcecleanup
+```
+- **Admin Queue Monitoring**: Im Hauptmenü (`/is`) gibt es oben rechts einen speziellen Button, über den Administratoren die laufenden Hintergrund-Aufgaben (Insel-Generierung und -Löschung) live überwachen können.
+- **Manuelle Bereinigung**: Mit `/is forcecleanup` können Administratoren eine fehlerhafte oder nicht zugeordnete Zone am aktuellen Standpunkt manuell in die Lösch-Warteschlange (Cleanup-Queue) zwingen. Diese Aktion muss zur Sicherheit mit `/accept` bestätigt oder mit `/cancel` abgebrochen werden.
+
 ### Grundstuecke
 
 ```text
