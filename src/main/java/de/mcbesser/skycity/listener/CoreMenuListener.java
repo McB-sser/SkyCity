@@ -129,6 +129,8 @@ public class CoreMenuListener implements Listener {
             handleVisitorSettingsClick(event, player, holder.islandOwner());
         } else if (top.getHolder() instanceof CoreService.CheckpointSettingsInventoryHolder holder) {
             handleCheckpointSettingsClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.CheckpointColorInventoryHolder holder) {
+            handleCheckpointColorClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelInventoryHolder holder) {
             handleParcelMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder holder) {
@@ -1386,11 +1388,38 @@ public class CoreMenuListener implements Listener {
         if (event.getRawSlot() == 11) { // Set Title
             coreService.startCheckpointTitleInput(player, holder.islandOwner(), holder.locationKey());
         } else if (event.getRawSlot() == 13) { // Change Color
-            playerListener.cycleCheckpointTitleColor(island, holder.locationKey());
-            playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
-            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            player.openInventory(coreService.createCheckpointColorMenu(holder.islandOwner(), holder.locationKey()));
         } else if (event.getRawSlot() == 15) { // Toggle Show Title
             playerListener.toggleCheckpointTitle(island, holder.locationKey());
+            playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        }
+    }
+
+    private void handleCheckpointColorClick(InventoryClickEvent event, Player player, CoreService.CheckpointColorInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getRawSlot() == 22) {
+            playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
+            return;
+        }
+        org.bukkit.ChatColor targetColor = switch (event.getRawSlot()) {
+            case 9 -> org.bukkit.ChatColor.WHITE;
+            case 10 -> org.bukkit.ChatColor.RED;
+            case 11 -> org.bukkit.ChatColor.GOLD;
+            case 12 -> org.bukkit.ChatColor.YELLOW;
+            case 13 -> org.bukkit.ChatColor.GREEN;
+            case 14 -> org.bukkit.ChatColor.AQUA;
+            case 15 -> org.bukkit.ChatColor.BLUE;
+            case 16 -> org.bukkit.ChatColor.LIGHT_PURPLE;
+            default -> null;
+        };
+        if (targetColor != null) {
+            playerListener.setCheckpointTitleColor(island, holder.locationKey(), targetColor);
             playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
             player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
         }

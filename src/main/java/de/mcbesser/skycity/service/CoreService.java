@@ -1511,8 +1511,23 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new CheckpointSettingsInventoryHolder(islandOwner, locationKey), 27, "Checkpoint");
       this.fillWithPanes(inv);
       inv.setItem(11, this.named(Material.OAK_SIGN, ChatColor.YELLOW + "Titel setzen", java.util.List.of(ChatColor.GRAY + "Aktuell: " + (title == null ? "Keiner" : titleColor + title))));
-      inv.setItem(13, this.named(Material.GLOWSTONE_DUST, ChatColor.GOLD + "Farbe \u00e4ndern", java.util.List.of(ChatColor.GRAY + "Aktuell: " + titleColor + titleColor.name())));
+      inv.setItem(13, this.named(Material.GLOWSTONE_DUST, ChatColor.GOLD + "Farbe \u00e4ndern", java.util.List.of(ChatColor.GRAY + "Klicken, um eine Farbe auszuw\u00e4hlen")));
       inv.setItem(15, this.named(showTitle ? Material.LIME_DYE : Material.GRAY_DYE, (showTitle ? ChatColor.GREEN : ChatColor.RED) + "Titel anzeigen: " + (showTitle ? "An" : "Aus"), java.util.List.of(ChatColor.GRAY + "Zeigt den Titel \u00fcber dem Block")));
+      return inv;
+   }
+
+   public Inventory createCheckpointColorMenu(UUID islandOwner, String locationKey) {
+      Inventory inv = Bukkit.createInventory(new CheckpointColorInventoryHolder(islandOwner, locationKey), 27, "Titel Farbe");
+      this.fillWithPanes(inv);
+      inv.setItem(9, this.named(Material.WHITE_DYE, ChatColor.WHITE + "Wei\u00df", null));
+      inv.setItem(10, this.named(Material.RED_DYE, ChatColor.RED + "Rot", null));
+      inv.setItem(11, this.named(Material.GOLD_NUGGET, ChatColor.GOLD + "Gold", null));
+      inv.setItem(12, this.named(Material.YELLOW_DYE, ChatColor.YELLOW + "Gelb", null));
+      inv.setItem(13, this.named(Material.GREEN_DYE, ChatColor.GREEN + "Gr\u00fcn", null));
+      inv.setItem(14, this.named(Material.LIGHT_BLUE_DYE, ChatColor.AQUA + "T\u00fcrkis", null));
+      inv.setItem(15, this.named(Material.BLUE_DYE, ChatColor.BLUE + "Blau", null));
+      inv.setItem(16, this.named(Material.PINK_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
       return inv;
    }
 
@@ -5925,6 +5940,12 @@ public class CoreService {
    }
 
    public static record CheckpointSettingsInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record CheckpointColorInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

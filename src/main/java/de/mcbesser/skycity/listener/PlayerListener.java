@@ -1320,6 +1320,9 @@ public class PlayerListener implements Listener {
         if (lastTick != null && now - lastTick < 600L) return activeTags;
         checkpointParticleTickWindow.put(player.getUniqueId(), now);
         java.util.Set<String> shown = new java.util.HashSet<>();
+        
+        activateRegisteredCheckpointDisplays(player, island, activeTags, shown);
+        
         int horizontalRange = (int) Math.ceil(resolveMarkerViewRange());
         int horizontalRangeSquared = horizontalRange * horizontalRange;
         int chunkRadius = Math.max(1, (horizontalRange + 15) / 16);
@@ -1382,7 +1385,6 @@ public class PlayerListener implements Listener {
                 }
             }
         }
-        activateRegisteredCheckpointDisplays(player, island, activeTags, shown);
         return activeTags;
     }
 
@@ -1492,6 +1494,7 @@ public class PlayerListener implements Listener {
         display.setPersistent(false);
         display.setDefaultBackground(true);
         display.setShadowed(true);
+        display.setSeeThrough(false);
     }
 
     private void ensureCheckpointHolo(Location location, String tag) {
@@ -2516,6 +2519,7 @@ public class PlayerListener implements Listener {
 
     private boolean tryOpenCheckpointSettings(Player player, Block clicked) {
         if (player == null || clicked == null || !isPressurePlate(clicked.getType())) return false;
+        if (!player.isSneaking()) return false;
         IslandData island = islandService.getIslandAt(clicked.getLocation());
         if (island == null) return false;
         String locationKey = checkpointLocationKey(clicked.getLocation());
@@ -2558,24 +2562,12 @@ public class PlayerListener implements Listener {
         }
     }
 
-    public void cycleCheckpointTitleColor(IslandData island, String locationKey) {
+    public void setCheckpointTitleColor(IslandData island, String locationKey, org.bukkit.ChatColor newColor) {
         String raw = island.getCheckpointStructures().get(locationKey);
         if (raw == null) return;
         RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
         if (cp == null) return;
-        org.bukkit.ChatColor[] colors = {
-            org.bukkit.ChatColor.WHITE, org.bukkit.ChatColor.RED, org.bukkit.ChatColor.GOLD, 
-            org.bukkit.ChatColor.YELLOW, org.bukkit.ChatColor.GREEN, org.bukkit.ChatColor.AQUA, 
-            org.bukkit.ChatColor.BLUE, org.bukkit.ChatColor.LIGHT_PURPLE
-        };
-        int nextIdx = 0;
-        for (int i = 0; i < colors.length; i++) {
-            if (colors[i] == cp.titleColor()) {
-                nextIdx = (i + 1) % colors.length;
-                break;
-            }
-        }
-        updateCheckpointTitleSettings(island, locationKey, cp.title(), colors[nextIdx], cp.showTitle());
+        updateCheckpointTitleSettings(island, locationKey, cp.title(), newColor, cp.showTitle());
     }
 
     public void toggleCheckpointTitle(IslandData island, String locationKey) {
