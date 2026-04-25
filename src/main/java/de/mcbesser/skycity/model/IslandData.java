@@ -30,6 +30,7 @@ public class IslandData {
     private final Map<String, Integer> cachedBlockCounts = new HashMap<>();
     private final Map<String, Float> checkpointPlateYaw = new HashMap<>();
     private final Map<String, String> checkpointStructures = new HashMap<>();
+    private final Map<String, String> cartographyTeleporters = new HashMap<>();
     private final Map<String, ParcelData> parcels = new HashMap<>();
     private final Map<String, Long> growthBoostUntil = new HashMap<>();
     private final Map<String, Integer> growthBoostTier = new HashMap<>();
@@ -102,6 +103,7 @@ public class IslandData {
     public Map<String, Integer> getCachedBlockCounts() { return cachedBlockCounts; }
     public Map<String, Float> getCheckpointPlateYaw() { return checkpointPlateYaw; }
     public Map<String, String> getCheckpointStructures() { return checkpointStructures; }
+    public Map<String, String> getCartographyTeleporters() { return cartographyTeleporters; }
     public Map<String, ParcelData> getParcels() { return parcels; }
     public Map<String, Long> getGrowthBoostUntil() { return growthBoostUntil; }
     public Map<String, Integer> getGrowthBoostTier() { return growthBoostTier; }

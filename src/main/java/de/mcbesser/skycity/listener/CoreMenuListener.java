@@ -131,6 +131,12 @@ public class CoreMenuListener implements Listener {
             handleCheckpointSettingsClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.CheckpointColorInventoryHolder holder) {
             handleCheckpointColorClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.CartoTeleporterSettingsInventoryHolder holder) {
+            handleCartoTeleporterSettingsClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.CartoTeleporterColorInventoryHolder holder) {
+            handleCartoTeleporterColorClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.CartoTeleporterTargetInventoryHolder holder) {
+            handleCartoTeleporterTargetClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelInventoryHolder holder) {
             handleParcelMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder holder) {
@@ -1421,6 +1427,83 @@ public class CoreMenuListener implements Listener {
         if (targetColor != null) {
             playerListener.setCheckpointTitleColor(island, holder.locationKey(), targetColor);
             playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        }
+    }
+
+    private void handleCartoTeleporterSettingsClick(InventoryClickEvent event, Player player, CoreService.CartoTeleporterSettingsInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getRawSlot() == 10) { // Change Target
+            player.openInventory(coreService.createCartoTeleporterTargetMenu(holder.islandOwner(), holder.locationKey()));
+        } else if (event.getRawSlot() == 12) { // Set Title
+            coreService.startCartoTeleporterTitleInput(player, holder.islandOwner(), holder.locationKey());
+        } else if (event.getRawSlot() == 14) { // Change Color
+            player.openInventory(coreService.createCartoTeleporterColorMenu(holder.islandOwner(), holder.locationKey()));
+        } else if (event.getRawSlot() == 16) { // Toggle Show Title
+            playerListener.toggleCartoTeleporterTitle(island, holder.locationKey());
+            playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        }
+    }
+
+    private void handleCartoTeleporterColorClick(InventoryClickEvent event, Player player, CoreService.CartoTeleporterColorInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getRawSlot() == 22) {
+            playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+            return;
+        }
+        org.bukkit.ChatColor targetColor = switch (event.getRawSlot()) {
+            case 9 -> org.bukkit.ChatColor.WHITE;
+            case 10 -> org.bukkit.ChatColor.RED;
+            case 11 -> org.bukkit.ChatColor.GOLD;
+            case 12 -> org.bukkit.ChatColor.YELLOW;
+            case 13 -> org.bukkit.ChatColor.GREEN;
+            case 14 -> org.bukkit.ChatColor.AQUA;
+            case 15 -> org.bukkit.ChatColor.BLUE;
+            case 16 -> org.bukkit.ChatColor.LIGHT_PURPLE;
+            default -> null;
+        };
+        if (targetColor != null) {
+            playerListener.setCartoTeleporterTitleColor(island, holder.locationKey(), targetColor);
+            playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        }
+    }
+
+    private void handleCartoTeleporterTargetClick(InventoryClickEvent event, Player player, CoreService.CartoTeleporterTargetInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getRawSlot() == 22) {
+            playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+            return;
+        }
+        String targetType = switch (event.getRawSlot()) {
+            case 11 -> "ISLAND";
+            case 13 -> "PLOT";
+            case 15 -> "WARP";
+            default -> null;
+        };
+        if (targetType != null) {
+            if ("PLOT".equals(targetType) || "WARP".equals(targetType)) {
+                coreService.startCartoTeleporterTargetInput(player, holder.islandOwner(), holder.locationKey(), targetType);
+            } else {
+                playerListener.setCartoTeleporterTarget(island, holder.locationKey(), targetType, null);
+                playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+            }
             player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
         }
     }

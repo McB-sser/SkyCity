@@ -147,6 +147,8 @@ public class CoreService {
    private final Map<UUID, UUID> pendingIslandWarpInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingParcelRenameInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingCheckpointTitleInput = new ConcurrentHashMap<>();
+   private final Map<UUID, String> pendingCartoTeleporterTitleInput = new ConcurrentHashMap<>();
+   private final Map<UUID, String> pendingCartoTeleporterTargetInput = new ConcurrentHashMap<>();
    private final Map<UUID, PermissionSearchContext> pendingPermissionSearch = new ConcurrentHashMap<>();
    private int displayTaskId = -1;
    private int animalLookTaskId = -1;
@@ -1527,6 +1529,44 @@ public class CoreService {
       inv.setItem(14, this.named(Material.LIGHT_BLUE_DYE, ChatColor.AQUA + "T\u00fcrkis", null));
       inv.setItem(15, this.named(Material.BLUE_DYE, ChatColor.BLUE + "Blau", null));
       inv.setItem(16, this.named(Material.PINK_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
+      return inv;
+   }
+
+   public Inventory createCartoTeleporterSettingsMenu(UUID islandOwner, String locationKey, String title, org.bukkit.ChatColor titleColor, boolean showTitle, String targetType, String targetName) {
+      Inventory inv = Bukkit.createInventory(new CartoTeleporterSettingsInventoryHolder(islandOwner, locationKey), 27, "Teleporter Einstellungen");
+      this.fillWithPanes(inv);
+      
+      String targetDisplay = targetType == null ? "Keines" : targetType + (targetName != null ? " (" + targetName + ")" : "");
+      
+      inv.setItem(10, this.named(Material.COMPASS, ChatColor.AQUA + "Ziel \u00e4ndern", java.util.List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + targetDisplay)));
+      inv.setItem(12, this.named(Material.OAK_SIGN, ChatColor.YELLOW + "Titel setzen", java.util.List.of(ChatColor.GRAY + "Aktuell: " + (title == null ? "Keiner" : titleColor + title))));
+      inv.setItem(14, this.named(Material.GLOWSTONE_DUST, ChatColor.GOLD + "Farbe \u00e4ndern", java.util.List.of(ChatColor.GRAY + "Klicken, um eine Farbe auszuw\u00e4hlen")));
+      inv.setItem(16, this.named(showTitle ? Material.LIME_DYE : Material.GRAY_DYE, (showTitle ? ChatColor.GREEN : ChatColor.RED) + "Titel anzeigen: " + (showTitle ? "An" : "Aus"), java.util.List.of(ChatColor.GRAY + "Zeigt den Titel \u00fcber dem Teleporter")));
+      return inv;
+   }
+
+   public Inventory createCartoTeleporterColorMenu(UUID islandOwner, String locationKey) {
+      Inventory inv = Bukkit.createInventory(new CartoTeleporterColorInventoryHolder(islandOwner, locationKey), 27, "Teleporter Farbe");
+      this.fillWithPanes(inv);
+      inv.setItem(9, this.named(Material.WHITE_DYE, ChatColor.WHITE + "Wei\u00df", null));
+      inv.setItem(10, this.named(Material.RED_DYE, ChatColor.RED + "Rot", null));
+      inv.setItem(11, this.named(Material.GOLD_NUGGET, ChatColor.GOLD + "Gold", null));
+      inv.setItem(12, this.named(Material.YELLOW_DYE, ChatColor.YELLOW + "Gelb", null));
+      inv.setItem(13, this.named(Material.GREEN_DYE, ChatColor.GREEN + "Gr\u00fcn", null));
+      inv.setItem(14, this.named(Material.LIGHT_BLUE_DYE, ChatColor.AQUA + "T\u00fcrkis", null));
+      inv.setItem(15, this.named(Material.BLUE_DYE, ChatColor.BLUE + "Blau", null));
+      inv.setItem(16, this.named(Material.PINK_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
+      return inv;
+   }
+
+   public Inventory createCartoTeleporterTargetMenu(UUID islandOwner, String locationKey) {
+      Inventory inv = Bukkit.createInventory(new CartoTeleporterTargetInventoryHolder(islandOwner, locationKey), 27, "Zieltyp w\u00e4hlen");
+      this.fillWithPanes(inv);
+      inv.setItem(11, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel Spawn", java.util.List.of(ChatColor.GRAY + "Teleportiert zum Insel-Spawn")));
+      inv.setItem(13, this.named(Material.OAK_FENCE, ChatColor.GOLD + "Grundst\u00fcck (Plot)", java.util.List.of(ChatColor.GRAY + "Teleportiert zu einem GS")));
+      inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.LIGHT_PURPLE + "Warp", java.util.List.of(ChatColor.GRAY + "Teleportiert zu einem Warp")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
       return inv;
    }
@@ -3387,11 +3427,106 @@ public class CoreService {
       player.sendMessage(ChatColor.GREEN + "Checkpoint-Titel gesetzt: " + ChatColor.WHITE + cleanTitle);
    }
 
+   public void startCartoTeleporterTitleInput(Player player, UUID islandOwner, String locationKey) {
+      if (player != null && islandOwner != null && locationKey != null) {
+         this.pendingCartoTeleporterTitleInput.put(player.getUniqueId(), islandOwner.toString() + "|" + locationKey);
+         player.closeInventory();
+         player.sendMessage(ChatColor.GOLD + "Teleporter-Titel Eingabe gestartet.");
+         player.sendMessage(ChatColor.GRAY + "Bitte gib den neuen Titel im Chat ein oder 'cancel' zum Abbrechen.");
+      }
+   }
+
+   public boolean isCartoTeleporterTitleInputPending(UUID playerId) {
+      return playerId != null && this.pendingCartoTeleporterTitleInput.containsKey(playerId);
+   }
+
+   public void handleCartoTeleporterTitleChatInput(Player player, String message) {
+      if (player == null) return;
+      String data = this.pendingCartoTeleporterTitleInput.remove(player.getUniqueId());
+      if (data == null) return;
+      String[] parts = data.split("\\|");
+      if (parts.length != 2) return;
+      UUID islandOwner = UUID.fromString(parts[0]);
+      String locationKey = parts[1];
+      IslandData island = this.islandService.getIsland(islandOwner).orElse(null);
+      if (island == null) return;
+
+      if ("cancel".equalsIgnoreCase(message.trim())) {
+         player.sendMessage(ChatColor.RED + "Eingabe abgebrochen.");
+         return;
+      }
+
+      String raw = island.getCartographyTeleporters().get(locationKey);
+      if (raw == null) return;
+      
+      String targetType = null;
+      String targetName = null;
+      org.bukkit.ChatColor titleColor = org.bukkit.ChatColor.WHITE;
+      boolean showTitle = false;
+      
+      String[] rawParts = raw.split("\\|", -1);
+      if (rawParts.length >= 2) {
+         targetType = rawParts[0].isEmpty() ? null : rawParts[0];
+         targetName = rawParts[1].isEmpty() ? null : rawParts[1];
+      }
+      if (rawParts.length >= 5) {
+         try { titleColor = org.bukkit.ChatColor.valueOf(rawParts[3]); } catch (Exception ignored) {}
+         showTitle = "1".equals(rawParts[4]);
+      }
+
+      String title = message.trim();
+      if ("none".equalsIgnoreCase(title) || "clear".equalsIgnoreCase(title)) {
+         title = null;
+      } else if (title.length() > 32) {
+         title = title.substring(0, 32);
+         player.sendMessage(ChatColor.YELLOW + "Titel wurde auf 32 Zeichen gek\u00fcrzt.");
+      }
+
+      this.plugin.getPlayerListener().updateCartoTeleporterSettings(island, locationKey, targetType, targetName, title, titleColor, showTitle);
+      player.sendMessage(ChatColor.GREEN + "Teleporter-Titel gesetzt: " + titleColor + (title == null ? "Keiner" : title));
+   }
+
+   public void startCartoTeleporterTargetInput(Player player, UUID islandOwner, String locationKey, String targetType) {
+      if (player != null && islandOwner != null && locationKey != null && targetType != null) {
+         this.pendingCartoTeleporterTargetInput.put(player.getUniqueId(), islandOwner.toString() + "|" + locationKey + "|" + targetType);
+         player.closeInventory();
+         player.sendMessage(ChatColor.GOLD + "Teleporter-Ziel (" + targetType + ") Eingabe gestartet.");
+         player.sendMessage(ChatColor.GRAY + "Bitte gib den exakten Namen des Ziels im Chat ein oder 'cancel' zum Abbrechen.");
+      }
+   }
+
+   public boolean isCartoTeleporterTargetInputPending(UUID playerId) {
+      return playerId != null && this.pendingCartoTeleporterTargetInput.containsKey(playerId);
+   }
+
+   public void handleCartoTeleporterTargetChatInput(Player player, String message) {
+      if (player == null) return;
+      String data = this.pendingCartoTeleporterTargetInput.remove(player.getUniqueId());
+      if (data == null) return;
+      String[] parts = data.split("\\|");
+      if (parts.length != 3) return;
+      UUID islandOwner = UUID.fromString(parts[0]);
+      String locationKey = parts[1];
+      String targetType = parts[2];
+      IslandData island = this.islandService.getIsland(islandOwner).orElse(null);
+      if (island == null) return;
+
+      if ("cancel".equalsIgnoreCase(message.trim())) {
+         player.sendMessage(ChatColor.RED + "Eingabe abgebrochen.");
+         return;
+      }
+
+      this.plugin.getPlayerListener().setCartoTeleporterTarget(island, locationKey, targetType, message.trim());
+      player.sendMessage(ChatColor.GREEN + "Teleporter-Ziel aktualisiert: " + targetType + " -> " + message.trim());
+   }
+
    public void cancelAllPendingInputs(UUID playerId) {
       pendingIslandTitleInput.remove(playerId);
       pendingIslandWarpInput.remove(playerId);
       pendingParcelRenameInput.remove(playerId);
       pendingCheckpointTitleInput.remove(playerId);
+      pendingCartoTeleporterTitleInput.remove(playerId);
+      pendingCartoTeleporterTargetInput.remove(playerId);
    }
 
    public boolean isAwaitingIslandTitleInput(UUID playerId) {
@@ -5946,6 +6081,24 @@ public class CoreService {
    }
 
    public static record CheckpointColorInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record CartoTeleporterSettingsInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record CartoTeleporterColorInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record CartoTeleporterTargetInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

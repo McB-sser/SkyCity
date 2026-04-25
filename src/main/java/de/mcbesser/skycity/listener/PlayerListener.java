@@ -356,6 +356,7 @@ public class PlayerListener implements Listener {
         updateCheckpoint(event.getPlayer(), event.getTo());
         if (tryHandleLavaRescue(event.getPlayer(), event.getTo())) return;
         if (changedBlock && tryHandleJumpPad(event.getPlayer(), event.getFrom(), event.getTo())) return;
+        if (changedBlock && tryHandleCartoTeleporter(event.getPlayer(), event.getFrom(), event.getTo())) return;
         if (changedBlock && tryHandleLinkedCheckpointTeleport(event.getPlayer(), event.getFrom(), event.getTo())) return;
         handleParcelBanEntryCountdown(event.getPlayer(), event.getTo());
         handleParcelPvpWhitelistCountdown(event.getPlayer(), event.getTo());
@@ -448,6 +449,10 @@ public class PlayerListener implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         
         if (tryOpenCheckpointSettings(event.getPlayer(), event.getClickedBlock())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (tryOpenCartoTeleporterSettings(event.getPlayer(), event.getClickedBlock())) {
             event.setCancelled(true);
             return;
         }
@@ -888,6 +893,64 @@ public class PlayerListener implements Listener {
                 .put(marker.woolType(), marker.plateLocation());
     }
 
+    private boolean tryHandleCartoTeleporter(Player player, Location from, Location to) {
+        if (player == null || from == null || to == null || from.getWorld() == null) return false;
+        if (isLinkedCheckpointTeleportProtected(player.getUniqueId())) return false;
+        if (to.getY() <= from.getY() + 0.12D) return false;
+        Block plateBlock = findPressurePlateAt(to);
+        if (plateBlock == null || !isCartographyTableBelow(plateBlock)) return false;
+        
+        IslandData island = islandService.getIslandAt(plateBlock.getLocation());
+        if (island == null) return false;
+        String locationKey = checkpointLocationKey(plateBlock.getLocation());
+        String raw = island.getCartographyTeleporters().get(locationKey);
+        if (raw == null) return false;
+        
+        String[] parts = raw.split("\\|", -1);
+        if (parts.length < 2) return false;
+        String targetType = parts[0];
+        String targetName = parts[1];
+        if (targetType.isEmpty()) return false;
+        
+        Location targetLoc = null;
+        if ("ISLAND".equals(targetType)) {
+            targetLoc = island.getIslandSpawn();
+        } else if ("PLOT".equals(targetType)) {
+            if (!targetName.isEmpty()) {
+                ParcelData targetParcel = null;
+                for (ParcelData p : island.getParcels().values()) {
+                    if (targetName.equalsIgnoreCase(p.getName())) {
+                        targetParcel = p;
+                        break;
+                    }
+                }
+                if (targetParcel != null) {
+                    targetLoc = targetParcel.getSpawn();
+                }
+            }
+        } else if ("WARP".equals(targetType)) {
+            if (!targetName.isEmpty()) {
+                for (IslandData otherIsland : islandService.getAllIslands()) {
+                    if (targetName.equalsIgnoreCase(otherIsland.getWarpName())) {
+                        targetLoc = otherIsland.getWarpLocation();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (targetLoc != null) {
+            targetLoc = orientCheckpointLocation(player, targetLoc);
+            linkedCheckpointTeleportUntil.put(player.getUniqueId(), System.currentTimeMillis() + 1_500L);
+            player.teleport(targetLoc);
+            playCheckpointTeleportSound(player, targetLoc);
+            return true;
+        } else {
+            player.sendMessage(ChatColor.RED + "Das eingestellte Ziel (" + targetType + (targetName.isEmpty() ? "" : " " + targetName) + ") konnte nicht gefunden werden.");
+            return false;
+        }
+    }
+
     private boolean tryHandleLinkedCheckpointTeleport(Player player, Location from, Location to) {
         if (player == null || from == null || to == null || from.getWorld() == null) return false;
         if (isLinkedCheckpointTeleportProtected(player.getUniqueId())) return false;
@@ -1322,6 +1385,7 @@ public class PlayerListener implements Listener {
         java.util.Set<String> shown = new java.util.HashSet<>();
         
         activateRegisteredCheckpointDisplays(player, island, activeTags, shown);
+        activateRegisteredCartoTeleporters(player, island, activeTags);
         
         int horizontalRange = (int) Math.ceil(resolveMarkerViewRange());
         int horizontalRangeSquared = horizontalRange * horizontalRange;
@@ -1430,6 +1494,43 @@ public class PlayerListener implements Listener {
         }
     }
 
+    private void activateRegisteredCartoTeleporters(Player player, IslandData island, java.util.Set<String> activeTags) {
+        if (player == null || island == null || activeTags == null || player.getWorld() == null) return;
+        double maxDistance = resolveMarkerViewRange();
+        double maxDistanceSquared = maxDistance * maxDistance;
+        for (Map.Entry<String, String> entry : island.getCartographyTeleporters().entrySet()) {
+            Location location = checkpointLocationFromKey(entry.getKey());
+            if (location == null || location.getWorld() != player.getWorld()) continue;
+            if (player.getLocation().distanceSquared(location) > maxDistanceSquared) continue;
+            
+            String raw = entry.getValue();
+            String targetType = null;
+            String targetName = null;
+            String title = null;
+            org.bukkit.ChatColor titleColor = org.bukkit.ChatColor.WHITE;
+            boolean showTitle = false;
+            
+            String[] parts = raw.split("\\|", -1);
+            if (parts.length >= 2) {
+                targetType = parts[0].isEmpty() ? null : parts[0];
+                targetName = parts[1].isEmpty() ? null : parts[1];
+            }
+            if (parts.length >= 5) {
+                title = parts[2].isEmpty() ? null : parts[2];
+                try { titleColor = org.bukkit.ChatColor.valueOf(parts[3]); } catch (Exception ignored) {}
+                showTitle = "1".equals(parts[4]);
+            }
+
+            String tag = checkpointHoloTag(location);
+            activeTags.add(tag);
+            String textTag = tag + "_text";
+            activeTags.add(textTag);
+            
+            ensureCartoTeleporterHolo(location, tag, targetType, targetName, title, titleColor, showTitle);
+            spawnCheckpointGlow(player, location); // Same enderman particles
+        }
+    }
+
     private void spawnCheckpointGlow(Player player, Location location) {
         if (player == null || location == null) return;
         player.spawnParticle(Particle.PORTAL, location.clone().add(0.0, 0.25, 0.0), 6, 0.14, 0.06, 0.14, 0.02);
@@ -1493,6 +1594,73 @@ public class PlayerListener implements Listener {
         display.setDefaultBackground(true);
         display.setShadowed(true);
         display.setSeeThrough(false);
+    }
+
+    private void ensureCartoTeleporterHolo(Location location, String tag, String targetType, String targetName, String title, org.bukkit.ChatColor titleColor, boolean showTitle) {
+        if (location == null || location.getWorld() == null || tag == null) return;
+        
+        // Ensure Text Display
+        String textTag = tag + "_text";
+        if (!showTitle || title == null || title.isBlank()) {
+            removeTrackedWorldDisplay(checkpointDisplaysByTag, location, textTag);
+        } else {
+            if (hasNearbyDisplayViewer(location)) {
+                Location textLocation = location.clone().add(0.0, 1.2, 0.0);
+                Entity textTracked = getTrackedDisplay(checkpointDisplaysByTag, textTag);
+                if (textTracked instanceof org.bukkit.entity.TextDisplay textDisplay) {
+                    if (textDisplay.getLocation().distanceSquared(textLocation) > 0.01D) textDisplay.teleport(textLocation);
+                    configureTextDisplay(textDisplay, titleColor + title);
+                } else {
+                    org.bukkit.entity.TextDisplay newTextDisplay = location.getWorld().spawn(textLocation, org.bukkit.entity.TextDisplay.class, display -> {
+                        display.addScoreboardTag(textTag);
+                        configureTextDisplay(display, titleColor + title);
+                    });
+                    checkpointDisplaysByTag.put(textTag, newTextDisplay.getUniqueId());
+                }
+            } else {
+                removeTrackedWorldDisplay(checkpointDisplaysByTag, location, textTag);
+            }
+        }
+        
+        // Ensure Item Display
+        final Material iconMaterial;
+        if ("ISLAND".equals(targetType)) iconMaterial = Material.COMPASS;
+        else if ("PLOT".equals(targetType)) iconMaterial = Material.NAME_TAG;
+        else if ("WARP".equals(targetType)) iconMaterial = Material.ENDER_PEARL;
+        else iconMaterial = Material.MAP;
+
+        if (!hasNearbyDisplayViewer(location)) {
+            removeTrackedWorldDisplay(checkpointDisplaysByTag, location, tag);
+            return;
+        }
+
+        Location displayLocation = location.clone().add(0.0, 0.4, 0.0);
+        Entity tracked = getTrackedDisplay(checkpointDisplaysByTag, tag);
+        if (tracked instanceof ItemDisplay display) {
+            if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                display.teleport(displayLocation);
+            }
+            display.setItemStack(new ItemStack(iconMaterial));
+            configureCheckpointDisplay(display);
+            return;
+        }
+        for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
+            if (entity instanceof ItemDisplay display && display.getScoreboardTags().contains(tag)) {
+                checkpointDisplaysByTag.put(tag, display.getUniqueId());
+                if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                    display.teleport(displayLocation);
+                }
+                display.setItemStack(new ItemStack(iconMaterial));
+                configureCheckpointDisplay(display);
+                return;
+            }
+        }
+        ItemDisplay newDisplay = location.getWorld().spawn(displayLocation, ItemDisplay.class, display -> {
+            display.addScoreboardTag(tag);
+            display.setItemStack(new ItemStack(iconMaterial));
+            configureCheckpointDisplay(display);
+        });
+        checkpointDisplaysByTag.put(tag, newDisplay.getUniqueId());
     }
 
     private void ensureCheckpointHolo(Location location, String tag) {
@@ -1802,7 +1970,9 @@ public class PlayerListener implements Listener {
                 && !coreService.isAwaitingIslandWarpInput(senderId)
                 && !coreService.isAwaitingPlayerPermissionSearch(senderId)
                 && !coreService.isAwaitingParcelRenameInput(senderId)
-                && !coreService.isCheckpointTitleInputPending(senderId)) return;
+                && !coreService.isCheckpointTitleInputPending(senderId)
+                && !coreService.isCartoTeleporterTitleInputPending(senderId)
+                && !coreService.isCartoTeleporterTargetInputPending(senderId)) return;
         event.setCancelled(true);
         String msg = event.getMessage();
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -1824,6 +1994,15 @@ public class PlayerListener implements Listener {
             }
             if (coreService.isCheckpointTitleInputPending(event.getPlayer().getUniqueId())) {
                 coreService.handleCheckpointTitleChatInput(event.getPlayer(), msg);
+                return;
+            }
+            if (coreService.isCartoTeleporterTitleInputPending(event.getPlayer().getUniqueId())) {
+                coreService.handleCartoTeleporterTitleChatInput(event.getPlayer(), msg);
+                return;
+            }
+            if (coreService.isCartoTeleporterTargetInputPending(event.getPlayer().getUniqueId())) {
+                coreService.handleCartoTeleporterTargetChatInput(event.getPlayer(), msg);
+                return;
             }
         });
     }
@@ -2543,6 +2722,66 @@ public class PlayerListener implements Listener {
         return true;
     }
 
+    private boolean isCartographyTableBelow(Block plate) {
+        if (plate == null) return false;
+        Block below1 = plate.getRelative(org.bukkit.block.BlockFace.DOWN);
+        if (below1.getType() == Material.CARTOGRAPHY_TABLE) return true;
+        Block below2 = below1.getRelative(org.bukkit.block.BlockFace.DOWN);
+        return below2.getType() == Material.CARTOGRAPHY_TABLE;
+    }
+
+    private boolean tryOpenCartoTeleporterSettings(Player player, Block clicked) {
+        if (player == null || clicked == null || !isPressurePlate(clicked.getType())) return false;
+        if (!player.isSneaking()) return false;
+        if (!isCartographyTableBelow(clicked)) return false;
+        IslandData island = islandService.getIslandAt(clicked.getLocation());
+        if (island == null) return false;
+        
+        ParcelData parcel = islandService.getParcelAt(island, clicked.getLocation());
+        boolean canBuild = player.isOp() || islandService.hasBuildAccess(player.getUniqueId(), island) 
+                || (parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId()));
+        if (!canBuild) return false;
+
+        String locationKey = checkpointLocationKey(clicked.getLocation());
+        String raw = island.getCartographyTeleporters().get(locationKey);
+        
+        String targetType = null;
+        String targetName = null;
+        String title = null;
+        org.bukkit.ChatColor titleColor = org.bukkit.ChatColor.WHITE;
+        boolean showTitle = false;
+        
+        if (raw != null) {
+            String[] parts = raw.split("\\|", -1);
+            if (parts.length >= 2) {
+                targetType = parts[0].isEmpty() ? null : parts[0];
+                targetName = parts[1].isEmpty() ? null : parts[1];
+            }
+            if (parts.length >= 5) {
+                title = parts[2].isEmpty() ? null : parts[2];
+                try {
+                    titleColor = org.bukkit.ChatColor.valueOf(parts[3]);
+                } catch (IllegalArgumentException ignored) {}
+                showTitle = "1".equals(parts[4]);
+            }
+        } else {
+            island.getCartographyTeleporters().put(locationKey, "||||0");
+            islandService.save();
+        }
+
+        player.openInventory(coreService.createCartoTeleporterSettingsMenu(
+                island.getOwner(),
+                locationKey,
+                title,
+                titleColor,
+                showTitle,
+                targetType,
+                targetName
+        ));
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0F, 1.0F);
+        return true;
+    }
+
     public void updateCheckpointTitleSettings(IslandData island, String locationKey, String title, org.bukkit.ChatColor titleColor, boolean showTitle) {
         if (island == null || locationKey == null) return;
         String raw = island.getCheckpointStructures().get(locationKey);
@@ -2582,6 +2821,77 @@ public class PlayerListener implements Listener {
         RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
         if (cp == null) return;
         player.openInventory(coreService.createCheckpointSettingsMenu(island.getOwner(), locationKey, cp.title(), cp.titleColor(), cp.showTitle()));
+    }
+
+    public void updateCartoTeleporterSettings(IslandData island, String locationKey, String targetType, String targetName, String title, org.bukkit.ChatColor titleColor, boolean showTitle) {
+        if (island == null || locationKey == null) return;
+        String newRaw = (targetType == null ? "" : targetType) + "|" +
+                (targetName == null ? "" : targetName) + "|" +
+                (title == null ? "" : title) + "|" +
+                (titleColor == null ? org.bukkit.ChatColor.WHITE.name() : titleColor.name()) + "|" +
+                (showTitle ? "1" : "0");
+        island.getCartographyTeleporters().put(locationKey, newRaw);
+        islandService.save();
+        
+        Location loc = checkpointLocationFromKey(locationKey);
+        if (loc != null) {
+            String tag = checkpointHoloTag(loc);
+            ensureCartoTeleporterHolo(loc, tag, targetType, targetName, title, titleColor, showTitle);
+        }
+    }
+
+    public void setCartoTeleporterTitleColor(IslandData island, String locationKey, org.bukkit.ChatColor newColor) {
+        String raw = island.getCartographyTeleporters().get(locationKey);
+        if (raw == null) return;
+        String[] parts = raw.split("\\|", -1);
+        String targetType = parts.length > 0 ? parts[0] : "";
+        String targetName = parts.length > 1 ? parts[1] : "";
+        String title = parts.length > 2 ? parts[2] : "";
+        boolean showTitle = parts.length > 4 && "1".equals(parts[4]);
+        updateCartoTeleporterSettings(island, locationKey, targetType, targetName, title, newColor, showTitle);
+    }
+
+    public void toggleCartoTeleporterTitle(IslandData island, String locationKey) {
+        String raw = island.getCartographyTeleporters().get(locationKey);
+        if (raw == null) return;
+        String[] parts = raw.split("\\|", -1);
+        String targetType = parts.length > 0 ? parts[0] : "";
+        String targetName = parts.length > 1 ? parts[1] : "";
+        String title = parts.length > 2 ? parts[2] : "";
+        org.bukkit.ChatColor titleColor = org.bukkit.ChatColor.WHITE;
+        if (parts.length > 3 && !parts[3].isEmpty()) {
+            try { titleColor = org.bukkit.ChatColor.valueOf(parts[3]); } catch (IllegalArgumentException ignored) {}
+        }
+        boolean showTitle = parts.length > 4 && "1".equals(parts[4]);
+        updateCartoTeleporterSettings(island, locationKey, targetType, targetName, title, titleColor, !showTitle);
+    }
+
+    public void setCartoTeleporterTarget(IslandData island, String locationKey, String targetType, String targetName) {
+        String raw = island.getCartographyTeleporters().get(locationKey);
+        if (raw == null) return;
+        String[] parts = raw.split("\\|", -1);
+        String title = parts.length > 2 ? parts[2] : "";
+        org.bukkit.ChatColor titleColor = org.bukkit.ChatColor.WHITE;
+        if (parts.length > 3 && !parts[3].isEmpty()) {
+            try { titleColor = org.bukkit.ChatColor.valueOf(parts[3]); } catch (IllegalArgumentException ignored) {}
+        }
+        boolean showTitle = parts.length > 4 && "1".equals(parts[4]);
+        updateCartoTeleporterSettings(island, locationKey, targetType, targetName, title, titleColor, showTitle);
+    }
+
+    public void reopenCartoTeleporterSettingsMenu(Player player, IslandData island, String locationKey) {
+        String raw = island.getCartographyTeleporters().get(locationKey);
+        if (raw == null) return;
+        String[] parts = raw.split("\\|", -1);
+        String targetType = parts.length > 0 && !parts[0].isEmpty() ? parts[0] : null;
+        String targetName = parts.length > 1 && !parts[1].isEmpty() ? parts[1] : null;
+        String title = parts.length > 2 && !parts[2].isEmpty() ? parts[2] : null;
+        org.bukkit.ChatColor titleColor = org.bukkit.ChatColor.WHITE;
+        if (parts.length > 3 && !parts[3].isEmpty()) {
+            try { titleColor = org.bukkit.ChatColor.valueOf(parts[3]); } catch (IllegalArgumentException ignored) {}
+        }
+        boolean showTitle = parts.length > 4 && "1".equals(parts[4]);
+        player.openInventory(coreService.createCartoTeleporterSettingsMenu(island.getOwner(), locationKey, title, titleColor, showTitle, targetType, targetName));
     }
 
     private boolean tryResetCtfViaButton(Player player, Block clicked) {
