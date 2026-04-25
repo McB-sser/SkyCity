@@ -1551,7 +1551,7 @@ public class CoreMenuListener implements Listener {
             
             if ("PLOT".equals(holder.listType())) {
                 targetType = "PLOT";
-                targetName = displayName;
+                targetName = holder.islandOwner().toString() + ":" + displayName;
             } else if ("WARP".equals(holder.listType())) {
                 targetType = "WARP";
                 targetName = displayName;
@@ -2479,10 +2479,10 @@ public class CoreMenuListener implements Listener {
                                 String[] targetParts = plain.split(":");
                                 UUID parcelOwner = UUID.fromString(targetParts[1]);
                                 String chunkKey = targetParts[2];
-                                IslandData targetIsland = islandService.getIsland(parcelOwner).orElse(null);
-                                if (targetIsland != null) {
-                                    ParcelData parcel = targetIsland.getParcels().get(chunkKey);
-                                    if (parcel != null) targetName = parcel.getName();
+                                IslandData parcelIsland = islandService.getIsland(parcelOwner).orElse(null);
+                                if (parcelIsland != null) {
+                                    ParcelData pd = parcelIsland.getParcels().get(chunkKey);
+                                    if (pd != null) targetName = parcelOwner.toString() + ":" + pd.getName();
                                 }
                             } else if (plain.startsWith("warp:")) {
                                 targetType = "WARP";

@@ -1547,7 +1547,12 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new CartoTeleporterSettingsInventoryHolder(islandOwner, locationKey), 27, "Teleporter Einstellungen");
       this.fillWithPanes(inv);
       
-      String targetDisplay = targetType == null ? "Keines" : targetType + (targetName != null ? " (" + targetName + ")" : "");
+      String displayName = targetName;
+      if ("PLOT".equals(targetType) && targetName != null && targetName.contains(":")) {
+          String[] parts = targetName.split(":", 2);
+          if (parts.length == 2) displayName = parts[1];
+      }
+      String targetDisplay = targetType == null ? "Keines" : targetType + (displayName != null ? " (" + displayName + ")" : "");
       
       inv.setItem(10, this.named(Material.COMPASS, ChatColor.AQUA + "Ziel \u00e4ndern", java.util.List.of(ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + targetDisplay)));
       inv.setItem(12, this.named(Material.OAK_SIGN, ChatColor.YELLOW + "Titel setzen", java.util.List.of(ChatColor.GRAY + "Aktuell: " + (title == null ? "Keiner" : titleColor + title))));
@@ -1607,7 +1612,7 @@ public class CoreService {
           List<ParcelData> parcels = island.getParcels().values().stream().filter(p -> p.getSpawn() != null).toList();
           for (ParcelData parcel : parcels) {
               if (index >= startIndex && count < 28) {
-                  inv.setItem(count, this.named(Material.OAK_FENCE, ChatColor.GOLD + parcel.getName(), java.util.List.of(ChatColor.GRAY + "Klicken zum Ausw\u00e4hlen")));
+                  inv.setItem(count, this.named(Material.NAME_TAG, ChatColor.GOLD + parcel.getName(), java.util.List.of(ChatColor.GRAY + "Klicken zum Ausw\u00e4hlen")));
                   count++;
               }
               index++;

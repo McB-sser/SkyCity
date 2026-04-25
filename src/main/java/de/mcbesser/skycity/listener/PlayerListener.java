@@ -914,12 +914,36 @@ public class PlayerListener implements Listener {
         
         Location targetLoc = null;
         if ("ISLAND".equals(targetType)) {
-            targetLoc = island.getIslandSpawn();
+            if (targetName != null && !targetName.isEmpty()) {
+                try {
+                    UUID targetUuid = UUID.fromString(targetName);
+                    IslandData targetIsland = islandService.getIsland(targetUuid).orElse(null);
+                    if (targetIsland != null) {
+                        targetLoc = targetIsland.getIslandSpawn();
+                    }
+                } catch (IllegalArgumentException ignored) {}
+            } else {
+                targetLoc = island.getIslandSpawn();
+            }
         } else if ("PLOT".equals(targetType)) {
             if (!targetName.isEmpty()) {
+                IslandData searchIsland = island;
+                String searchPlotName = targetName;
+                if (targetName.contains(":")) {
+                    String[] nameParts = targetName.split(":", 2);
+                    try {
+                        UUID plotIslandOwner = UUID.fromString(nameParts[0]);
+                        IslandData otherIsland = islandService.getIsland(plotIslandOwner).orElse(null);
+                        if (otherIsland != null) {
+                            searchIsland = otherIsland;
+                            searchPlotName = nameParts[1];
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+                }
+                
                 ParcelData targetParcel = null;
-                for (ParcelData p : island.getParcels().values()) {
-                    if (targetName.equalsIgnoreCase(p.getName())) {
+                for (ParcelData p : searchIsland.getParcels().values()) {
+                    if (searchPlotName.equalsIgnoreCase(p.getName())) {
                         targetParcel = p;
                         break;
                     }
