@@ -146,6 +146,7 @@ public class CoreService {
    private final Map<UUID, UUID> pendingIslandTitleInput = new ConcurrentHashMap<>();
    private final Map<UUID, UUID> pendingIslandWarpInput = new ConcurrentHashMap<>();
    private final Map<UUID, String> pendingParcelRenameInput = new ConcurrentHashMap<>();
+   private final Map<UUID, String> pendingCheckpointTitleInput = new ConcurrentHashMap<>();
    private final Map<UUID, PermissionSearchContext> pendingPermissionSearch = new ConcurrentHashMap<>();
    private int displayTaskId = -1;
    private int animalLookTaskId = -1;
@@ -1503,6 +1504,15 @@ public class CoreService {
       }
 
       inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Aktueller Chunk " + displayX + ":" + displayZ, List.of(ChatColor.GRAY + "Shift-Rechtsklick auf ein Biom = inselweit")));
+      return inv;
+   }
+
+   public Inventory createCheckpointSettingsMenu(UUID islandOwner, String locationKey, String title, org.bukkit.ChatColor titleColor, boolean showTitle) {
+      Inventory inv = Bukkit.createInventory(new CheckpointSettingsInventoryHolder(islandOwner, locationKey), 27, "Checkpoint");
+      this.fillWithPanes(inv);
+      inv.setItem(11, this.named(Material.OAK_SIGN, ChatColor.YELLOW + "Titel setzen", java.util.List.of(ChatColor.GRAY + "Aktuell: " + (title == null ? "Keiner" : titleColor + title))));
+      inv.setItem(13, this.named(Material.GLOWSTONE_DUST, ChatColor.GOLD + "Farbe \u00e4ndern", java.util.List.of(ChatColor.GRAY + "Aktuell: " + titleColor + titleColor.name())));
+      inv.setItem(15, this.named(showTitle ? Material.LIME_DYE : Material.GRAY_DYE, (showTitle ? ChatColor.GREEN : ChatColor.RED) + "Titel anzeigen: " + (showTitle ? "An" : "Aus"), java.util.List.of(ChatColor.GRAY + "Zeigt den Titel \u00fcber dem Block")));
       return inv;
    }
 
@@ -3317,6 +3327,56 @@ public class CoreService {
          player.sendMessage(ChatColor.YELLOW + "Schreibe jetzt den Titel in den Chat.");
          player.sendMessage(ChatColor.GRAY + "Mit 'clear' l\u00f6schst du den Titel, mit 'abbrechen' brichst du ab.");
       }
+   }
+
+   public void startCheckpointTitleInput(Player player, UUID islandOwner, String locationKey) {
+      if (player != null && islandOwner != null && locationKey != null) {
+         this.pendingCheckpointTitleInput.put(player.getUniqueId(), islandOwner.toString() + "|" + locationKey);
+         player.closeInventory();
+         player.sendMessage(ChatColor.GOLD + "Checkpoint-Titel Eingabe gestartet.");
+         player.sendMessage(ChatColor.GRAY + "Bitte gib den neuen Titel im Chat ein oder 'cancel' zum Abbrechen.");
+      }
+   }
+
+   public boolean isCheckpointTitleInputPending(UUID playerId) {
+      return playerId != null && this.pendingCheckpointTitleInput.containsKey(playerId);
+   }
+
+   public void handleCheckpointTitleChatInput(Player player, String message) {
+      if (player == null) return;
+      String data = this.pendingCheckpointTitleInput.remove(player.getUniqueId());
+      if (data == null) return;
+      String[] parts = data.split("\\|");
+      if (parts.length != 2) return;
+      UUID islandOwner = UUID.fromString(parts[0]);
+      String locationKey = parts[1];
+      
+      if ("cancel".equalsIgnoreCase(message.trim())) {
+         player.sendMessage(ChatColor.RED + "Eingabe abgebrochen.");
+         return;
+      }
+      
+      IslandData island = this.islandService.getIsland(islandOwner).orElse(null);
+      if (island == null) return;
+      
+      String raw = island.getCheckpointStructures().get(locationKey);
+      if (raw == null) return;
+      
+      String cleanTitle = message.trim();
+      if (cleanTitle.length() > 32) {
+         cleanTitle = cleanTitle.substring(0, 32);
+         player.sendMessage(ChatColor.YELLOW + "Titel wurde auf 32 Zeichen gek\u00fcrzt.");
+      }
+      
+      playerListener.updateCheckpointTitleSettings(island, locationKey, cleanTitle, org.bukkit.ChatColor.WHITE, true);
+      player.sendMessage(ChatColor.GREEN + "Checkpoint-Titel gesetzt: " + ChatColor.WHITE + cleanTitle);
+   }
+
+   public void cancelAllPendingInputs(UUID playerId) {
+      pendingIslandTitleInput.remove(playerId);
+      pendingIslandWarpInput.remove(playerId);
+      pendingParcelRenameInput.remove(playerId);
+      pendingCheckpointTitleInput.remove(playerId);
    }
 
    public boolean isAwaitingIslandTitleInput(UUID playerId) {
@@ -5859,6 +5919,12 @@ public class CoreService {
    }
 
    public static record AdminQueueInventoryHolder(int page) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record CheckpointSettingsInventoryHolder(UUID islandOwner, String locationKey) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

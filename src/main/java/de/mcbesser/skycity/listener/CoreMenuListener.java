@@ -127,6 +127,8 @@ public class CoreMenuListener implements Listener {
             handleIslandSettingsClick(event, player, holder.islandOwner());
         } else if (top.getHolder() instanceof CoreService.VisitorSettingsInventoryHolder holder) {
             handleVisitorSettingsClick(event, player, holder.islandOwner());
+        } else if (top.getHolder() instanceof CoreService.CheckpointSettingsInventoryHolder holder) {
+            handleCheckpointSettingsClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelInventoryHolder holder) {
             handleParcelMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder holder) {
@@ -1372,6 +1374,26 @@ public class CoreMenuListener implements Listener {
         }
         player.sendMessage(ChatColor.RED + "Nur Master, Owner oder Plot-Owner k\u00f6nnen im GS-Shop kaufen.");
         return false;
+    }
+
+    private void handleCheckpointSettingsClick(InventoryClickEvent event, Player player, CoreService.CheckpointSettingsInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getRawSlot() == 11) { // Set Title
+            coreService.startCheckpointTitleInput(player, holder.islandOwner(), holder.locationKey());
+        } else if (event.getRawSlot() == 13) { // Change Color
+            playerListener.cycleCheckpointTitleColor(island, holder.locationKey());
+            playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        } else if (event.getRawSlot() == 15) { // Toggle Show Title
+            playerListener.toggleCheckpointTitle(island, holder.locationKey());
+            playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        }
     }
 
     private void handleVisitorSettingsClick(InventoryClickEvent event, Player player, UUID islandOwner) {
@@ -2668,6 +2690,7 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.ChunkMapInventoryHolder
                 || top.getHolder() instanceof CoreService.BiomeInventoryHolder
                 || top.getHolder() instanceof CoreService.VisitorSettingsInventoryHolder
+                || top.getHolder() instanceof CoreService.CheckpointSettingsInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelMemberSettingsInventoryHolder

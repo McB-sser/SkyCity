@@ -150,7 +150,7 @@ public class PlayerListener implements Listener {
 
     private record CombatTag(UUID attackerId, String parcelKey, long createdAt) { }
     private record CheckpointMarker(Material woolType, Material plateType, Location plateLocation) { }
-    private record RegisteredCheckpoint(String parcelKey, Material woolType, Material plateType, boolean lavaProtected) { }
+    private record RegisteredCheckpoint(String parcelKey, Material woolType, Material plateType, boolean lavaProtected, String title, org.bukkit.ChatColor titleColor, boolean showTitle) { }
     private record TeamScoreCache(long builtAt, List<TeamScoreEntry> entries) { }
     private record TeamScoreEntry(Material wool, int points) { }
     private record CombatScoreboardState(String zoneKey, long refreshedAt) { }
@@ -206,6 +206,7 @@ public class PlayerListener implements Listener {
         if (plugin.getCoreSidebar() != null) {
             plugin.getCoreSidebar().clear(event.getPlayer());
         }
+        coreService.cancelAllPendingInputs(event.getPlayer().getUniqueId());
         returnCtfFlagToBase(event.getPlayer().getUniqueId(), false);
         stopPreparationStatusMessages(event.getPlayer().getUniqueId());
         stopIslandCreateHintMessages(event.getPlayer().getUniqueId());
@@ -436,15 +437,23 @@ public class PlayerListener implements Listener {
                 && isMagicSnowballItem(event.getItem())) {
             pendingMagicSnowballThrows.put(event.getPlayer().getUniqueId(), System.currentTimeMillis() + 2000L);
         }
-        if (event.getClickedBlock() == null || event.getPlayer().isOp()) return;
+        if (event.getClickedBlock() == null) return;
         if (!skyWorldService.isSkyCityWorld(event.getClickedBlock().getWorld())) return;
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            if (tryPickupCtfFlag(event.getPlayer(), event.getClickedBlock())) {
+            if (!event.getPlayer().isOp() && tryPickupCtfFlag(event.getPlayer(), event.getClickedBlock())) {
                 event.setCancelled(true);
             }
             return;
         }
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        
+        if (tryOpenCheckpointSettings(event.getPlayer(), event.getClickedBlock())) {
+            event.setCancelled(true);
+            return;
+        }
+        
+        if (event.getPlayer().isOp()) return;
+        
         if (tryResetCtfViaButton(event.getPlayer(), event.getClickedBlock())) {
             event.setCancelled(true);
             return;
@@ -1010,15 +1019,21 @@ public class PlayerListener implements Listener {
 
     private RegisteredCheckpoint registeredCheckpointFromString(String raw) {
         if (raw == null || raw.isBlank()) return null;
-        String[] parts = raw.split("\\|");
-        if (parts.length != 4) return null;
+        String[] parts = raw.split("\\|", -1);
+        if (parts.length < 4) return null;
         try {
+            String title = parts.length > 4 && !parts[4].isEmpty() ? parts[4] : null;
+            org.bukkit.ChatColor color = parts.length > 5 && !parts[5].isEmpty() ? org.bukkit.ChatColor.valueOf(parts[5]) : org.bukkit.ChatColor.WHITE;
+            boolean showTitle = parts.length > 6 && "1".equals(parts[6]);
             return new RegisteredCheckpoint(
                     parts[0],
                     Material.valueOf(parts[1]),
                     Material.valueOf(parts[2]),
-                    "1".equals(parts[3]));
-        } catch (IllegalArgumentException ignored) {
+                    "1".equals(parts[3]),
+                    title,
+                    color,
+                    showTitle);
+        } catch (IllegalArgumentException e) {
             return null;
         }
     }
@@ -1391,9 +1406,18 @@ public class PlayerListener implements Listener {
             if (matches.size() == 1) {
                 String tag = checkpointHoloTag(matches.get(0));
                 activeTags.add(tag);
+                String textTag = tag + "_text";
+                activeTags.add(textTag);
                 ensureCheckpointHolo(matches.get(0), tag);
+                ensureCheckpointTextHolo(matches.get(0), tag, registeredCheckpointFromString(island.getCheckpointStructures().get(checkpointLocationKey(matches.get(0)))));
             } else if (matches.size() == 2) {
                 for (Location match : matches) {
+                    String tag = checkpointHoloTag(match);
+                    activeTags.add(tag);
+                    String textTag = tag + "_text";
+                    activeTags.add(textTag);
+                    ensureCheckpointHolo(match, tag);
+                    ensureCheckpointTextHolo(match, tag, registeredCheckpointFromString(island.getCheckpointStructures().get(checkpointLocationKey(match))));
                     spawnCheckpointGlow(player, match);
                 }
             } else if (matches.size() >= 3) {
@@ -1422,6 +1446,52 @@ public class PlayerListener implements Listener {
     private void playCheckpointActivateSound(Player player) {
         if (player == null) return;
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.35F, 0.85F);
+    }
+
+    private void ensureCheckpointTextHolo(Location location, String tag, RegisteredCheckpoint cp) {
+        if (location == null || location.getWorld() == null || tag == null) return;
+        String textTag = tag + "_text";
+        if (cp == null || !cp.showTitle() || cp.title() == null || cp.title().isBlank()) {
+            removeTrackedWorldDisplay(checkpointDisplaysByTag, location, textTag);
+            return;
+        }
+        if (!hasNearbyDisplayViewer(location)) {
+            removeTrackedWorldDisplay(checkpointDisplaysByTag, location, textTag);
+            return;
+        }
+        Location displayLocation = location.clone().add(0.0, 1.2, 0.0);
+        Entity tracked = getTrackedDisplay(checkpointDisplaysByTag, textTag);
+        if (tracked instanceof org.bukkit.entity.TextDisplay display) {
+            if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                display.teleport(displayLocation);
+            }
+            configureTextDisplay(display, cp.titleColor() + cp.title());
+            return;
+        }
+        for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
+            if (entity instanceof org.bukkit.entity.TextDisplay display && display.getScoreboardTags().contains(textTag)) {
+                checkpointDisplaysByTag.put(textTag, display.getUniqueId());
+                if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
+                    display.teleport(displayLocation);
+                }
+                configureTextDisplay(display, cp.titleColor() + cp.title());
+                return;
+            }
+        }
+        org.bukkit.entity.TextDisplay display = (org.bukkit.entity.TextDisplay) location.getWorld().spawnEntity(displayLocation, EntityType.TEXT_DISPLAY);
+        configureTextDisplay(display, cp.titleColor() + cp.title());
+        display.addScoreboardTag(textTag);
+        checkpointDisplaysByTag.put(textTag, display.getUniqueId());
+    }
+
+    private void configureTextDisplay(org.bukkit.entity.TextDisplay display, String text) {
+        if (display == null) return;
+        display.setText(text);
+        display.setBillboard(Display.Billboard.CENTER);
+        display.setViewRange(resolveMarkerViewRange());
+        display.setPersistent(false);
+        display.setDefaultBackground(true);
+        display.setShadowed(true);
     }
 
     private void ensureCheckpointHolo(Location location, String tag) {
@@ -1533,12 +1603,21 @@ public class PlayerListener implements Listener {
         if (marker == null) {
             return island.getCheckpointStructures().remove(locationKey) != null;
         }
+        String existingRaw = island.getCheckpointStructures().get(locationKey);
+        RegisteredCheckpoint existing = registeredCheckpointFromString(existingRaw);
+        String title = existing != null ? existing.title() : null;
+        org.bukkit.ChatColor titleColor = existing != null ? existing.titleColor() : org.bukkit.ChatColor.WHITE;
+        boolean showTitle = existing != null ? existing.showTitle() : false;
+
         ParcelData parcel = islandService.getParcelAt(island, plateBlock.getLocation());
         String serialized = serializeRegisteredCheckpoint(new RegisteredCheckpoint(
                 parcel == null ? "island" : parcel.getChunkKey(),
                 marker.woolType(),
                 marker.plateType(),
-                hasLavaDirectlyAbove(plateBlock)));
+                hasLavaDirectlyAbove(plateBlock),
+                title,
+                titleColor,
+                showTitle));
         String previous = island.getCheckpointStructures().put(locationKey, serialized);
         return !serialized.equals(previous);
     }
@@ -1551,7 +1630,13 @@ public class PlayerListener implements Listener {
                 + "|"
                 + checkpoint.plateType().name()
                 + "|"
-                + (checkpoint.lavaProtected() ? "1" : "0");
+                + (checkpoint.lavaProtected() ? "1" : "0")
+                + "|"
+                + (checkpoint.title() == null ? "" : checkpoint.title())
+                + "|"
+                + (checkpoint.titleColor() == null ? "" : checkpoint.titleColor().name())
+                + "|"
+                + (checkpoint.showTitle() ? "1" : "0");
     }
 
     private String checkpointLocationKey(Location location) {
@@ -1715,7 +1800,8 @@ public class PlayerListener implements Listener {
         if (!coreService.isAwaitingIslandTitleInput(senderId)
                 && !coreService.isAwaitingIslandWarpInput(senderId)
                 && !coreService.isAwaitingPlayerPermissionSearch(senderId)
-                && !coreService.isAwaitingParcelRenameInput(senderId)) return;
+                && !coreService.isAwaitingParcelRenameInput(senderId)
+                && !coreService.isCheckpointTitleInputPending(senderId)) return;
         event.setCancelled(true);
         String msg = event.getMessage();
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -1733,6 +1819,10 @@ public class PlayerListener implements Listener {
             }
             if (coreService.isAwaitingParcelRenameInput(event.getPlayer().getUniqueId())) {
                 coreService.handleParcelRenameChatInput(event.getPlayer(), msg);
+                return;
+            }
+            if (coreService.isCheckpointTitleInputPending(event.getPlayer().getUniqueId())) {
+                coreService.handleCheckpointTitleChatInput(event.getPlayer(), msg);
             }
         });
     }
@@ -2422,6 +2512,86 @@ public class PlayerListener implements Listener {
         }
         refreshParcelPvpScoreboards(island, parcel);
         return true;
+    }
+
+    private boolean tryOpenCheckpointSettings(Player player, Block clicked) {
+        if (player == null || clicked == null || !isPressurePlate(clicked.getType())) return false;
+        IslandData island = islandService.getIslandAt(clicked.getLocation());
+        if (island == null) return false;
+        String locationKey = checkpointLocationKey(clicked.getLocation());
+        String raw = island.getCheckpointStructures().get(locationKey);
+        if (raw == null) return false;
+        
+        ParcelData parcel = islandService.getParcelAt(island, clicked.getLocation());
+        boolean canBuild = player.isOp() || islandService.hasBuildAccess(player.getUniqueId(), island) 
+                || (parcel != null && islandService.isParcelUser(island, parcel, player.getUniqueId()));
+        if (!canBuild) return false;
+
+        RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
+        if (cp == null) return false;
+
+        player.openInventory(coreService.createCheckpointSettingsMenu(
+                island.getOwner(),
+                locationKey,
+                cp.title(),
+                cp.titleColor(),
+                cp.showTitle()
+        ));
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0F, 1.0F);
+        return true;
+    }
+
+    public void updateCheckpointTitleSettings(IslandData island, String locationKey, String title, org.bukkit.ChatColor titleColor, boolean showTitle) {
+        if (island == null || locationKey == null) return;
+        String raw = island.getCheckpointStructures().get(locationKey);
+        if (raw == null) return;
+        RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
+        if (cp == null) return;
+        RegisteredCheckpoint updated = new RegisteredCheckpoint(cp.parcelKey(), cp.woolType(), cp.plateType(), cp.lavaProtected(), title, titleColor, showTitle);
+        island.getCheckpointStructures().put(locationKey, serializeRegisteredCheckpoint(updated));
+        islandService.save();
+        
+        Location loc = checkpointLocationFromKey(locationKey);
+        if (loc != null) {
+            String tag = checkpointHoloTag(loc);
+            ensureCheckpointTextHolo(loc, tag, updated);
+        }
+    }
+
+    public void cycleCheckpointTitleColor(IslandData island, String locationKey) {
+        String raw = island.getCheckpointStructures().get(locationKey);
+        if (raw == null) return;
+        RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
+        if (cp == null) return;
+        org.bukkit.ChatColor[] colors = {
+            org.bukkit.ChatColor.WHITE, org.bukkit.ChatColor.RED, org.bukkit.ChatColor.GOLD, 
+            org.bukkit.ChatColor.YELLOW, org.bukkit.ChatColor.GREEN, org.bukkit.ChatColor.AQUA, 
+            org.bukkit.ChatColor.BLUE, org.bukkit.ChatColor.LIGHT_PURPLE
+        };
+        int nextIdx = 0;
+        for (int i = 0; i < colors.length; i++) {
+            if (colors[i] == cp.titleColor()) {
+                nextIdx = (i + 1) % colors.length;
+                break;
+            }
+        }
+        updateCheckpointTitleSettings(island, locationKey, cp.title(), colors[nextIdx], cp.showTitle());
+    }
+
+    public void toggleCheckpointTitle(IslandData island, String locationKey) {
+        String raw = island.getCheckpointStructures().get(locationKey);
+        if (raw == null) return;
+        RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
+        if (cp == null) return;
+        updateCheckpointTitleSettings(island, locationKey, cp.title(), cp.titleColor(), !cp.showTitle());
+    }
+
+    public void reopenCheckpointSettingsMenu(Player player, IslandData island, String locationKey) {
+        String raw = island.getCheckpointStructures().get(locationKey);
+        if (raw == null) return;
+        RegisteredCheckpoint cp = registeredCheckpointFromString(raw);
+        if (cp == null) return;
+        player.openInventory(coreService.createCheckpointSettingsMenu(island.getOwner(), locationKey, cp.title(), cp.titleColor(), cp.showTitle()));
     }
 
     private boolean tryResetCtfViaButton(Player player, Block clicked) {
