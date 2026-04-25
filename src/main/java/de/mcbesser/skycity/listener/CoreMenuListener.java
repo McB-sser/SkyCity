@@ -395,7 +395,7 @@ public class CoreMenuListener implements Listener {
             player.sendMessage(ChatColor.RED + "Zu dieser Insel kannst du dich aktuell nicht teleportieren.");
             return;
         }
-        player.teleport(target.getIslandSpawn());
+        player.teleport(islandService.findSafeLocation(target.getIslandSpawn()));
         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         player.closeInventory();
     }
@@ -410,7 +410,7 @@ public class CoreMenuListener implements Listener {
         Location target = floor.clone().add(0.5, 1.0, 0.5);
         target.setYaw(player.getLocation().getYaw());
         target.setPitch(player.getLocation().getPitch());
-        player.teleport(target);
+        player.teleport(islandService.findSafeLocation(target));
         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         player.closeInventory();
         player.sendMessage(ChatColor.AQUA + "Teleportiert zum leeren Inselplatz " + gridX + ":" + gridZ + ".");
@@ -440,7 +440,7 @@ public class CoreMenuListener implements Listener {
             return;
         }
         player.closeInventory();
-        player.teleport(islandService.getSpawnLocation());
+        player.teleport(islandService.findSafeLocation(islandService.getSpawnLocation()));
         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
         boolean queued = islandService.queueIslandCreation(player.getUniqueId(), new IslandPlot(gridX, gridZ), created -> {
             islandService.ensureCentralSpawnAndCoreSafe(created);
@@ -453,7 +453,7 @@ public class CoreMenuListener implements Listener {
             Player online = Bukkit.getPlayer(created.getOwner());
             if (online == null || !online.isOnline()) return;
             online.sendMessage(ChatColor.GREEN + "Deine Insel wurde auf Slot " + created.getGridX() + ":" + created.getGridZ() + " geclaimt.");
-            online.teleport(created.getIslandSpawn());
+            online.teleport(islandService.findSafeLocation(created.getIslandSpawn()));
             online.sendMessage(ChatColor.YELLOW + "Weitere Chunks werden jetzt im Hintergrund generiert.");
             startClaimStatusMessages(online);
         });
@@ -1910,10 +1910,10 @@ public class CoreMenuListener implements Listener {
 
     private void triggerBiomeVisualReload(Player player, org.bukkit.inventory.Inventory nextMenu) {
         org.bukkit.Location original = player.getLocation();
-        player.teleport(islandService.getSpawnLocation());
+        player.teleport(islandService.findSafeLocation(islandService.getSpawnLocation()));
         org.bukkit.Bukkit.getScheduler().runTaskLater(org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
             if (player.isOnline()) {
-                player.teleport(original);
+                player.teleport(islandService.findSafeLocation(original));
                 if (nextMenu != null) player.openInventory(nextMenu);
             }
         }, 5L);
@@ -2263,7 +2263,7 @@ public class CoreMenuListener implements Listener {
             if (plain.startsWith("island:") || plain.startsWith("parcel:") || plain.startsWith("warp:")) {
                 for (IslandService.TeleportTarget target : islandService.getTeleportTargetsFor(player.getUniqueId())) {
                     if (target.id().equals(plain)) {
-                        player.teleport(target.location());
+                        player.teleport(islandService.findSafeLocation(target.location()));
                         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.0F);
                         player.closeInventory();
                         return;
@@ -2441,7 +2441,7 @@ public class CoreMenuListener implements Listener {
                         && islandService.acceptMasterInvite(player.getUniqueId());
                 if (ok) {
                     player.sendMessage(ChatColor.GREEN + "Du bist der Insel als Master beigetreten.");
-                    if (inviteIsland != null && inviteIsland.getIslandSpawn() != null) player.teleport(inviteIsland.getIslandSpawn());
+                    if (inviteIsland != null && inviteIsland.getIslandSpawn() != null) player.teleport(islandService.findSafeLocation(inviteIsland.getIslandSpawn()));
                 } else {
                     player.sendMessage(ChatColor.RED + "Keine offene Master-Einladung.");
                 }

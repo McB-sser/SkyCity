@@ -97,7 +97,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.YELLOW + recreationWaitMessage);
                 return true;
             }
-            player.teleport(islandService.getSpawnLocation());
+            player.teleport(islandService.findSafeLocation(islandService.getSpawnLocation()));
             boolean queued = islandService.queueIslandCreation(player.getUniqueId(), null, created -> {
                 islandService.ensureCentralSpawnAndCoreSafe(created);
                 coreService.ensureCorePlaced(created);
@@ -169,7 +169,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         switch (sub) {
-            case "home" -> player.teleport(island.getIslandSpawn());
+            case "home" -> player.teleport(islandService.findSafeLocation(island.getIslandSpawn()));
             case "setspawn" -> {
                 island.setIslandSpawn(player.getLocation().clone());
                 islandService.save();
@@ -325,7 +325,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.RED + "Warp nicht gefunden.");
             return true;
         }
-        player.teleport(target.location());
+        player.teleport(islandService.findSafeLocation(target.location()));
         player.sendMessage(ChatColor.GREEN + "Teleportiert zu " + ChatColor.GOLD + target.displayName());
         return true;
     }
@@ -900,7 +900,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             }
             islandService.ensureCentralSpawnAndCoreSafe(own);
             islandService.ensureTemplateAtLocation(own, own.getIslandSpawn());
-            live.teleport(own.getIslandSpawn());
+            live.teleport(islandService.findSafeLocation(own.getIslandSpawn()));
             live.sendMessage(ChatColor.GREEN + "Deine Insel ist bereit (Startbereich). Du wurdest teleportiert.");
             if (!islandService.isIslandReady(playerId)) {
                 live.sendMessage(ChatColor.YELLOW + "Weitere Chunks werden jetzt im Hintergrund generiert.");
@@ -978,7 +978,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     stopGenerationStatusMessages(player.getUniqueId());
                     stopInitialTeleportTask(player.getUniqueId());
                     player.sendMessage(prefix + ChatColor.YELLOW + "Du bist als Master ausgetreten.");
-                    player.teleport(islandService.getSpawnLocation());
+                    player.teleport(islandService.findSafeLocation(islandService.getSpawnLocation()));
                     sendNoIslandHelp(player);
                 } else {
                     player.sendMessage(ChatColor.RED + "Du bist auf keiner Insel als zus\u00e4tzlicher Master eingetragen.");

@@ -4880,6 +4880,63 @@ public class IslandService {
     }
 
     public Location getSpawnLocation() { return new Location(skyWorldService.getWorld(), 0.5, SkyWorldService.SPAWN_Y + 1, 0.5); }
+    
+    public Location findSafeLocation(Location target) {
+        if (target == null || target.getWorld() == null) return getSpawnLocation();
+        Location current = target.clone();
+        
+        if (isSafeLocation(current)) return current;
+        
+        for (int i = 1; i <= 15; i++) {
+            current.add(0, 1, 0);
+            if (isSafeLocation(current)) return current;
+        }
+        
+        current = target.clone();
+        for (int i = 1; i <= 15; i++) {
+            current.subtract(0, 1, 0);
+            if (isSafeLocation(current)) return current;
+        }
+        
+        for (int rx = -3; rx <= 3; rx++) {
+            for (int rz = -3; rz <= 3; rz++) {
+                if (rx == 0 && rz == 0) continue;
+                Location scan = target.clone().add(rx, 0, rz);
+                if (isSafeLocation(scan)) return scan;
+                for (int i = 1; i <= 15; i++) {
+                    Location up = scan.clone().add(0, i, 0);
+                    if (isSafeLocation(up)) return up;
+                    Location down = scan.clone().subtract(0, i, 0);
+                    if (isSafeLocation(down)) return down;
+                }
+            }
+        }
+        
+        IslandData island = getIslandAt(target);
+        if (island != null && island.getIslandSpawn() != null) {
+            if (isSafeLocation(island.getIslandSpawn())) return island.getIslandSpawn();
+        }
+        return getSpawnLocation();
+    }
+
+    public boolean isSafeLocation(Location loc) {
+        if (loc == null || loc.getWorld() == null) return false;
+        org.bukkit.block.Block feet = loc.getBlock();
+        org.bukkit.block.Block head = feet.getRelative(org.bukkit.block.BlockFace.UP);
+        org.bukkit.block.Block ground = feet.getRelative(org.bukkit.block.BlockFace.DOWN);
+
+        if (!feet.isPassable() && feet.getType() != org.bukkit.Material.WATER) return false;
+        if (!head.isPassable() && head.getType() != org.bukkit.Material.WATER) return false;
+        
+        if (ground.isPassable()) return false;
+        if (ground.getType() == org.bukkit.Material.LAVA || ground.getType() == org.bukkit.Material.FIRE || 
+            ground.getType() == org.bukkit.Material.MAGMA_BLOCK || ground.getType() == org.bukkit.Material.CAMPFIRE || 
+            ground.getType() == org.bukkit.Material.SOUL_CAMPFIRE || ground.getType() == org.bukkit.Material.SWEET_BERRY_BUSH || 
+            ground.getType() == org.bukkit.Material.WITHER_ROSE || ground.getType() == org.bukkit.Material.CACTUS) {
+            return false;
+        }
+        return true;
+    }
     public boolean isSpawnIsland(IslandData island) { return island != null && SPAWN_ISLAND_OWNER.equals(island.getOwner()); }
     public ItemStack createPlotWand() {
         ItemStack wand = new ItemStack(Material.STICK);
