@@ -830,7 +830,23 @@ public class PlayerListener implements Listener {
         }
         IslandData island = islandService.getIslandAt(location);
         if (island == null) return islandService.getSpawnLocation();
+        
+        ensureCheckpointStructureRegistry(island);
         ParcelData parcel = islandService.getParcelAt(island, location);
+        String parcelKey = parcel == null ? "island" : parcel.getChunkKey();
+
+        java.util.List<Location> singleTargets = new java.util.ArrayList<>();
+        for (Map.Entry<String, String> entry : island.getCheckpointStructures().entrySet()) {
+            RegisteredCheckpoint cp = registeredCheckpointFromString(entry.getValue());
+            if (cp != null && !cp.lavaProtected() && parcelKey.equals(cp.parcelKey())) {
+                Location loc = checkpointLocationFromKey(entry.getKey());
+                if (loc != null) singleTargets.add(loc);
+            }
+        }
+        if (singleTargets.size() == 1 && isSafeFromLava(singleTargets.get(0))) {
+            return orientCheckpointLocation(player, singleTargets.get(0));
+        }
+        
         if (parcel != null && isSafeFromLava(parcel.getSpawn())) {
             return parcel.getSpawn();
         }
