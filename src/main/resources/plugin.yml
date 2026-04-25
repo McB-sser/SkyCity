@@ -17,6 +17,8 @@ commands:
     description: Best\u00e4tigt eine Aktion
   cancel:
     description: Bricht eine Aktion ab
+  ignore:
+    description: Ignoriert einen Spieler
 permissions:
   skycity.admin:
     default: op

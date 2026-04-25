@@ -352,6 +352,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+                if (isIgnoredForCommands(player, target)) return;
                 if (target.getUniqueId().equals(player.getUniqueId()) && (island.getOwner().equals(player.getUniqueId()) || island.getMasters().contains(player.getUniqueId()))) {
                     player.sendMessage(ChatColor.RED + "Du bist bereits Master.");
                     return;
@@ -397,6 +398,8 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         String action = args[1].toLowerCase(Locale.ROOT);
         org.bukkit.OfflinePlayer target = org.bukkit.Bukkit.getOfflinePlayer(args[2]);
         
+        if ("add".equals(action) && isIgnoredForCommands(player, target)) return;
+
         if ("add".equals(action)) {
             island.getMasters().add(target.getUniqueId());
             islandService.save();
@@ -419,6 +422,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
         switch (action) {
             case "add" -> {
+                if (isIgnoredForCommands(player, target)) return;
                 if ((!islandService.canAddOwner(island, player.getUniqueId()) && !player.isOp())) {
                     player.sendMessage(ChatColor.RED + "Nur Master oder Owner k\u00f6nnen Owner hinzuf\u00fcgen.");
                     return;
@@ -500,6 +504,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             case "unban" -> {
                 islandService.setIslandBan(island, target.getUniqueId(), false);
                 player.sendMessage(ChatColor.YELLOW + "Spieler entbannt.");
+                checkAndSendUnmuteButtons(player, target);
             }
             default -> { }
         }
@@ -533,6 +538,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             case "punban" -> {
                 islandService.setParcelBan(island, parcel, player.getUniqueId(), target.getUniqueId(), false);
                 player.sendMessage(ChatColor.YELLOW + "Spieler vom GS entbannt.");
+                checkAndSendUnmuteButtons(player, target);
             }
             default -> { }
         }
@@ -650,6 +656,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             return;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[3]);
+        if (add && isIgnoredForCommands(player, target)) return;
         requestPermissionConfirmation(
                 player,
                 target.getUniqueId(),
@@ -739,6 +746,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         }
         String islandName = islandService.getIslandTitleDisplay(island);
         String targetName = target.getName() == null ? "?" : target.getName();
+        if (grant && isIgnoredForCommands(player, target)) return;
         String permissionName = switch (permission) {
             case BUILD -> "Bauen";
             case CONTAINER -> "Kisten";
@@ -1082,6 +1090,36 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
     }
 
     public record PendingPermissionAction(UUID targetPlayer, UUID islandOwner, de.mcbesser.skycity.model.ParcelData parcel, ActionType actionType, IslandService.TrustPermission permission, long expiresAt, boolean fromGui, int gridX, int gridZ) {}
+    
+    private boolean isIgnoredForCommands(Player actor, OfflinePlayer target) {
+        if (islandService.hasIgnore(target.getUniqueId(), actor.getUniqueId(), IslandService.IgnoreType.COMMANDS)) {
+            if (islandService.hasIgnore(target.getUniqueId(), actor.getUniqueId(), IslandService.IgnoreType.CHAT)) {
+                actor.sendMessage(ChatColor.RED + "Spieler nicht gefunden oder Aktion nicht m\u00f6glich.");
+            } else {
+                actor.sendMessage(ChatColor.RED + "Dieser Spieler ignoriert Anfragen von dir.");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void checkAndSendUnmuteButtons(Player player, OfflinePlayer target) {
+        IslandService.IgnoreType type = islandService.getIgnoreType(player.getUniqueId(), target.getUniqueId());
+        if (type != null) {
+            player.sendMessage(ChatColor.RED + "Hinweis: Dieser Spieler befindet sich noch auf deiner Ignore-Liste (" + type.name() + ").");
+            net.md_5.bungee.api.chat.TextComponent msg = new net.md_5.bungee.api.chat.TextComponent("Klicke hier, um ihn zu entmuten: ");
+            msg.setColor(net.md_5.bungee.api.ChatColor.YELLOW);
+
+            net.md_5.bungee.api.chat.TextComponent unmuteBtn = new net.md_5.bungee.api.chat.TextComponent("[Entmuten]");
+            unmuteBtn.setColor(net.md_5.bungee.api.ChatColor.GREEN);
+            unmuteBtn.setBold(true);
+            unmuteBtn.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(net.md_5.bungee.api.chat.ClickEvent.Action.RUN_COMMAND, "/ignore " + (target.getName() != null ? target.getName() : target.getUniqueId().toString()) + " remove"));
+            unmuteBtn.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT, new net.md_5.bungee.api.chat.hover.content.Text("Entfernt den Spieler von der Ignore-Liste")));
+            
+            msg.addExtra(unmuteBtn);
+            player.spigot().sendMessage(msg);
+        }
+    }
 }
 
 

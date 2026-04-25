@@ -1691,10 +1691,15 @@ public class PlayerListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onAsyncChat(AsyncPlayerChatEvent event) {
-        if (!coreService.isAwaitingIslandTitleInput(event.getPlayer().getUniqueId())
-                && !coreService.isAwaitingIslandWarpInput(event.getPlayer().getUniqueId())
-                && !coreService.isAwaitingPlayerPermissionSearch(event.getPlayer().getUniqueId())
-                && !coreService.isAwaitingParcelRenameInput(event.getPlayer().getUniqueId())) return;
+        UUID senderId = event.getPlayer().getUniqueId();
+        event.getRecipients().removeIf(recipient -> 
+            islandService.hasIgnore(recipient.getUniqueId(), senderId, IslandService.IgnoreType.CHAT)
+        );
+
+        if (!coreService.isAwaitingIslandTitleInput(senderId)
+                && !coreService.isAwaitingIslandWarpInput(senderId)
+                && !coreService.isAwaitingPlayerPermissionSearch(senderId)
+                && !coreService.isAwaitingParcelRenameInput(senderId)) return;
         event.setCancelled(true);
         String msg = event.getMessage();
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -1714,6 +1719,22 @@ public class PlayerListener implements Listener {
                 coreService.handleParcelRenameChatInput(event.getPlayer(), msg);
             }
         });
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onCommandPreprocess(org.bukkit.event.player.PlayerCommandPreprocessEvent event) {
+        String message = event.getMessage().toLowerCase(java.util.Locale.ROOT);
+        if (message.startsWith("/msg ") || message.startsWith("/tell ") || message.startsWith("/w ")) {
+            String[] args = message.split(" ");
+            if (args.length > 1) {
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target != null) {
+                    if (islandService.hasIgnore(target.getUniqueId(), event.getPlayer().getUniqueId(), IslandService.IgnoreType.CHAT)) {
+                        event.setCancelled(true);
+                    }
+                }
+            }
+        }
     }
 
     private void startPreparationStatusMessages(Player player) {

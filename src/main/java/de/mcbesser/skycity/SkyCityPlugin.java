@@ -90,6 +90,10 @@ public class SkyCityPlugin extends JavaPlugin {
         getCommand("warp").setTabCompleter(islandCommand);
         getCommand("accept").setExecutor(islandCommand);
         getCommand("cancel").setExecutor(islandCommand);
+        
+        de.mcbesser.skycity.command.IgnoreCommand ignoreCommand = new de.mcbesser.skycity.command.IgnoreCommand(this, islandService, coreService);
+        getCommand("ignore").setExecutor(ignoreCommand);
+        getCommand("ignore").setTabCompleter(ignoreCommand);
 
         completeRuntimeInitializationIfReady();
         Bukkit.getScheduler().runTask(this, this::completeRuntimeInitializationIfReady);

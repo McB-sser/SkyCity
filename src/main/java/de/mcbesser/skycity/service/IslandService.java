@@ -80,6 +80,7 @@ import java.util.stream.Collectors;
 
 public class IslandService {
     public enum TrustPermission { BUILD, CONTAINER, REDSTONE, ALL }
+    public enum IgnoreType { CHAT, COMMANDS, ALL }
     public enum ParcelRole { OWNER, MEMBER, PVP }
     public enum IslandTimeMode {
         NORMAL,
@@ -407,6 +408,11 @@ public class IslandService {
     private final Nitrite database;
     private final NitriteCollection islandCollection;
     private final NitriteCollection cleanupCollection;
+    private final NitriteCollection ignoreCollection;
+    
+    // Map<ActorUUID, Map<TargetUUID, IgnoreType>>
+    // Means: actor ignores target with given type
+    private final Map<UUID, Map<UUID, IgnoreType>> playerIgnores = new HashMap<>();
     private final List<ChunkTemplateDef> templates = new ArrayList<>();
     private final Queue<PregenerationTask> pregenerationQueue = new ArrayDeque<>();
     private final Set<UUID> queuedPregenerationOwners = new HashSet<>();
@@ -468,6 +474,7 @@ public class IslandService {
                 .openOrCreate();
         this.islandCollection = database.getCollection("islands");
         this.cleanupCollection = database.getCollection("island_cleanup");
+        this.ignoreCollection = database.getCollection("player_ignores");
         this.plotWandKey = new NamespacedKey(plugin, "plot_wand");
         ensureTemplateFile();
         loadTemplates();
@@ -488,6 +495,7 @@ public class IslandService {
             return;
         }
         loadNitriteData();
+        loadIgnores();
         loadCleanupReservations();
         ensureSpawnIsland();
     }
@@ -628,6 +636,66 @@ public class IslandService {
         finalizeLoadedIslands();
     }
 
+    private void loadIgnores() {
+        for (Document doc : ignoreCollection.find()) {
+            try {
+                UUID actor = UUID.fromString(doc.get("actor", String.class));
+                UUID target = UUID.fromString(doc.get("target", String.class));
+                IgnoreType type = IgnoreType.valueOf(doc.get("type", String.class));
+                playerIgnores.computeIfAbsent(actor, k -> new HashMap<>()).put(target, type);
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Konnte Ignore-Einstellung nicht laden: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void saveIgnores(boolean commit) {
+        ignoreCollection.remove(Filter.ALL);
+        for (Map.Entry<UUID, Map<UUID, IgnoreType>> actorEntry : playerIgnores.entrySet()) {
+            for (Map.Entry<UUID, IgnoreType> targetEntry : actorEntry.getValue().entrySet()) {
+                Document doc = Document.createDocument("actor", actorEntry.getKey().toString())
+                        .put("target", targetEntry.getKey().toString())
+                        .put("type", targetEntry.getValue().name());
+                ignoreCollection.insert(doc);
+            }
+        }
+        if (commit) database.commit();
+    }
+
+    public boolean hasIgnore(UUID actor, UUID target, IgnoreType type) {
+        if (actor == null || target == null || type == null) return false;
+        Map<UUID, IgnoreType> targets = playerIgnores.get(actor);
+        if (targets == null) return false;
+        IgnoreType active = targets.get(target);
+        if (active == null) return false;
+        return active == IgnoreType.ALL || active == type;
+    }
+
+    public void setIgnore(UUID actor, UUID target, IgnoreType type) {
+        if (actor == null || target == null) return;
+        playerIgnores.computeIfAbsent(actor, k -> new HashMap<>()).put(target, type);
+        saveIgnores(true);
+    }
+
+    public void removeIgnore(UUID actor, UUID target) {
+        if (actor == null || target == null) return;
+        Map<UUID, IgnoreType> targets = playerIgnores.get(actor);
+        if (targets != null) {
+            targets.remove(target);
+            if (targets.isEmpty()) {
+                playerIgnores.remove(actor);
+            }
+            saveIgnores(true);
+        }
+    }
+
+    public IgnoreType getIgnoreType(UUID actor, UUID target) {
+        if (actor == null || target == null) return null;
+        Map<UUID, IgnoreType> targets = playerIgnores.get(actor);
+        if (targets == null) return null;
+        return targets.get(target);
+    }
+
     private void loadCleanupReservations() {
         for (Document document : cleanupCollection.find()) {
             try {
@@ -705,6 +773,7 @@ public class IslandService {
         for (IslandData island : islands.values()) {
             islandCollection.insert(toDocument(island));
         }
+        saveIgnores(false);
         saveCleanupReservations(false);
         database.commit();
     }
