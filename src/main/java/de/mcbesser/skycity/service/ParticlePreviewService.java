@@ -78,16 +78,24 @@ public class ParticlePreviewService {
                 it.remove();
                 continue;
             }
-            IslandData island = islandService.getIsland(player.getUniqueId()).orElse(null);
-            if (island == null) continue;
-            IslandData islandAtPlayer = islandService.getIslandAt(player.getLocation());
-            if (islandAtPlayer == null || !islandAtPlayer.getOwner().equals(island.getOwner())) {
+            IslandData previewIsland = resolvePreviewIsland(player);
+            if (previewIsland == null) {
                 lastPreviewChunk.remove(player.getUniqueId());
                 continue;
             }
             checkAndSendChunkStatusOnChange(player);
-            draw(player, island);
+            draw(player, previewIsland);
         }
+    }
+
+    private IslandData resolvePreviewIsland(Player player) {
+        if (player == null) return null;
+        IslandData islandAtPlayer = islandService.getIslandAt(player.getLocation());
+        if (islandAtPlayer == null) return null;
+        if (player.isOp() || islandService.hasBuildAccess(player.getUniqueId(), islandAtPlayer)) {
+            return islandAtPlayer;
+        }
+        return null;
     }
 
     private void draw(Player player, IslandData island) {
