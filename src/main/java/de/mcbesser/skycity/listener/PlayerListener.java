@@ -964,7 +964,7 @@ public class PlayerListener implements Listener {
         }
         
         if (targetLoc != null) {
-            targetLoc = orientCheckpointLocation(player, targetLoc);
+            targetLoc = orientCartographyTargetLocation(islandService.findSafeLocation(targetLoc));
             linkedCheckpointTeleportUntil.put(player.getUniqueId(), System.currentTimeMillis() + 1_500L);
             player.teleport(targetLoc);
             playCheckpointTeleportSound(player, targetLoc);
@@ -1266,6 +1266,18 @@ public class PlayerListener implements Listener {
         Float yaw = island == null ? null : islandService.getCheckpointPlateYaw(island, location);
         oriented.setYaw(yaw != null ? yaw : (player == null ? oriented.getYaw() : player.getLocation().getYaw()));
         oriented.setPitch(0.0F);
+        return oriented;
+    }
+
+    private Location orientCartographyTargetLocation(Location location) {
+        if (location == null) return null;
+        Location oriented = location.clone();
+        IslandData island = islandService.getIslandAt(location);
+        Float yaw = island == null ? null : islandService.getCheckpointPlateYaw(island, location);
+        if (yaw != null) {
+            oriented.setYaw(yaw);
+            oriented.setPitch(0.0F);
+        }
         return oriented;
     }
 

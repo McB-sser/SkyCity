@@ -606,6 +606,7 @@ public class CoreMenuListener implements Listener {
         if (event.getClickedInventory() == null || !event.getClickedInventory().equals(event.getView().getTopInventory())) return;
         if (event.getRawSlot() != 49 && (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)) return;
         boolean canManagePermissions = islandService.isIslandOwner(island, player.getUniqueId()) || player.isOp();
+        boolean canOpenPermissions = canManagePermissions || islandService.hasAnyMemberPermission(island, player.getUniqueId());
         switch (event.getRawSlot()) {
             case 11 -> {
                 island.setIslandSpawn(player.getLocation().clone());
@@ -634,7 +635,7 @@ public class CoreMenuListener implements Listener {
                 }
             }
             case 29 -> {
-                if (!canManagePermissions) {
+                if (!canOpenPermissions) {
                     player.openInventory(coreService.createIslandSettingsMenu(player, island));
                     return;
                 }
@@ -650,7 +651,10 @@ public class CoreMenuListener implements Listener {
     private void handlePermissionsHubMenuClick(InventoryClickEvent event, Player player, CoreService.PermissionsHubInventoryHolder holder) {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
-        if (island == null || !islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) return;
+        boolean hasPendingMasterInvite = island != null
+                && islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null
+                && island.getOwner().equals(islandService.getPendingMasterInviteIsland(player.getUniqueId()).getOwner());
+        if (island == null || (!islandService.isIslandAssociated(island, player.getUniqueId()) && !hasPendingMasterInvite && !player.isOp())) return;
         if (event.getClickedInventory() == null || !event.getClickedInventory().equals(event.getView().getTopInventory())) return;
         if (event.getRawSlot() != 22 && (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)) return;
         if (event.getRawSlot() != 22 && isDecorativePane(event.getCurrentItem())) return;
@@ -664,13 +668,27 @@ public class CoreMenuListener implements Listener {
                         || islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null
                         || player.isOp();
                 if (!canOpenMasterMenu) {
-                    player.openInventory(coreService.createIslandSettingsMenu(player, island));
+                    player.openInventory(coreService.createPermissionsHubMenu(player, island));
                     return;
                 }
                 player.openInventory(coreService.createPermissionsActionMenu(player, island, "MASTER"));
             }
-            case 13 -> player.openInventory(coreService.createPermissionsActionMenu(player, island, "OWNER"));
-            case 15 -> player.openInventory(coreService.createPermissionsActionMenu(player, island, "MEMBER"));
+            case 13 -> {
+                if (islandService.isIslandOwner(island, player.getUniqueId()) || player.isOp()) {
+                    player.openInventory(coreService.createPermissionsActionMenu(player, island, "OWNER"));
+                } else {
+                    player.openInventory(coreService.createPermissionsHubMenu(player, island));
+                }
+            }
+            case 15 -> {
+                if (islandService.canManageMembers(island, player.getUniqueId())
+                        || islandService.hasAnyMemberPermission(island, player.getUniqueId())
+                        || player.isOp()) {
+                    player.openInventory(coreService.createPermissionsActionMenu(player, island, "MEMBER"));
+                } else {
+                    player.openInventory(coreService.createPermissionsHubMenu(player, island));
+                }
+            }
             case 22 -> player.openInventory(coreService.createIslandSettingsMenu(player, island));
         }
     }
@@ -678,7 +696,18 @@ public class CoreMenuListener implements Listener {
     private void handlePermissionsActionMenuClick(InventoryClickEvent event, Player player, CoreService.PermissionsActionInventoryHolder holder) {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
-        if (island == null || !islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) return;
+        boolean allowed = island != null && switch (holder.role()) {
+            case "MASTER" -> islandService.isIslandOwner(island, player.getUniqueId())
+                    || (islandService.getPendingMasterInviteIsland(player.getUniqueId()) != null
+                    && island.getOwner().equals(islandService.getPendingMasterInviteIsland(player.getUniqueId()).getOwner()))
+                    || player.isOp();
+            case "OWNER" -> islandService.isIslandOwner(island, player.getUniqueId()) || player.isOp();
+            case "MEMBER" -> islandService.canManageMembers(island, player.getUniqueId())
+                    || islandService.hasAnyMemberPermission(island, player.getUniqueId())
+                    || player.isOp();
+            default -> false;
+        };
+        if (!allowed) return;
         if (islandService.isSpawnIsland(island) && "MASTER".equals(holder.role())) {
             if (event.getRawSlot() == 22) {
                 player.openInventory(coreService.createPermissionsHubMenu(player, island));
@@ -732,7 +761,11 @@ public class CoreMenuListener implements Listener {
                             true
                     );
                 } else {
-                    player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), false, null, 0));
+                    if ("MEMBER".equals(holder.role()) && !islandService.canManageMembers(island, player.getUniqueId()) && !player.isOp()) {
+                        player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, player.getUniqueId()));
+                    } else {
+                        player.openInventory(coreService.createPermissionPlayerListMenu(player, island, holder.role(), false, null, 0));
+                    }
                 }
             }
             case 22 -> player.openInventory(coreService.createPermissionsHubMenu(player, island));
@@ -878,10 +911,16 @@ public class CoreMenuListener implements Listener {
     private void handlePermissionMemberDetailMenuClick(InventoryClickEvent event, Player player, CoreService.PermissionMemberDetailInventoryHolder holder) {
         event.setCancelled(true);
         IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
-        if (island == null || !islandService.isIslandOwner(island, player.getUniqueId()) && !player.isOp()) return;
         UUID targetId = holder.targetPlayer();
+        boolean canManageMembers = island != null && (islandService.canManageMembers(island, player.getUniqueId()) || player.isOp());
+        boolean selfMember = island != null && targetId.equals(player.getUniqueId()) && islandService.hasAnyMemberPermission(island, targetId);
+        if (island == null || (!canManageMembers && !selfMember)) return;
         switch (event.getRawSlot()) {
             case 9 -> {
+                if (!canManageMembers) {
+                    player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                    return;
+                }
                 player.closeInventory();
                 de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
                         player,
@@ -896,6 +935,10 @@ public class CoreMenuListener implements Listener {
             }
             case 11 -> {
                 boolean granted = !island.getMemberBuildAccess().contains(targetId);
+                if (!canManageMembers && granted) {
+                    player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                    return;
+                }
                 player.closeInventory();
                 de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
                         player,
@@ -910,6 +953,10 @@ public class CoreMenuListener implements Listener {
             }
             case 13 -> {
                 boolean granted = !island.getMemberContainerAccess().contains(targetId);
+                if (!canManageMembers && granted) {
+                    player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                    return;
+                }
                 player.closeInventory();
                 de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
                         player,
@@ -924,6 +971,10 @@ public class CoreMenuListener implements Listener {
             }
             case 15 -> {
                 boolean granted = !island.getMemberRedstoneAccess().contains(targetId);
+                if (!canManageMembers && granted) {
+                    player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                    return;
+                }
                 player.closeInventory();
                 de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
                         player,
@@ -937,6 +988,13 @@ public class CoreMenuListener implements Listener {
                 );
             }
             case 17 -> {
+                boolean hasAnyMember = island.getMemberBuildAccess().contains(targetId)
+                        || island.getMemberContainerAccess().contains(targetId)
+                        || island.getMemberRedstoneAccess().contains(targetId);
+                if (!hasAnyMember) {
+                    player.openInventory(coreService.createPermissionMemberDetailMenu(player, island, targetId));
+                    return;
+                }
                 player.closeInventory();
                 de.mcbesser.skycity.command.IslandCommand.instance.requestPermissionConfirmation(
                         player,
@@ -949,7 +1007,13 @@ public class CoreMenuListener implements Listener {
                         true
                 );
             }
-            case 22 -> player.openInventory(coreService.createPermissionPlayerListMenu(player, island, "MEMBER", false, null, 0));
+            case 22 -> {
+                if (canManageMembers) {
+                    player.openInventory(coreService.createPermissionPlayerListMenu(player, island, "MEMBER", false, null, 0));
+                } else {
+                    player.openInventory(coreService.createPermissionsActionMenu(player, island, "MEMBER"));
+                }
+            }
         }
     }
 

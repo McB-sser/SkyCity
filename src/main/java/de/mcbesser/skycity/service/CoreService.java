@@ -1657,15 +1657,24 @@ public class CoreService {
    public Inventory createIslandSettingsMenu(Player viewer, IslandData island) {
       Inventory inv = Bukkit.createInventory(new IslandSettingsInventoryHolder(island.getOwner()), 54, "Insel");
       this.fillWithPanes(inv);
+      boolean hasMemberPermissions = viewer != null && this.islandService.hasAnyMemberPermission(island, viewer.getUniqueId());
       boolean canManagePermissions = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || viewer.isOp());
+      boolean canOpenPermissions = canManagePermissions || hasMemberPermissions;
       String permissionLore = this.islandService.isSpawnIsland(island)
          ? ChatColor.GRAY + "Owner und Member verwalten"
          : ChatColor.GRAY + "Master, Owner und Member verwalten";
       inv.setItem(11, this.named(Material.RESPAWN_ANCHOR, ChatColor.GREEN + "Inselspawn setzen", List.of(ChatColor.GRAY + "Setzt Inselspawn auf deine Position")));
       inv.setItem(13, this.named(Material.NAME_TAG, ChatColor.GOLD + "Inseltitel setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandTitleDisplay(island), ChatColor.YELLOW + "Klick = Titel per Chat eingeben")));
       inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Warp setzen", List.of(ChatColor.GRAY + "Aktuell: " + this.islandService.getIslandWarpDisplay(island), ChatColor.YELLOW + "Linksklick = Warpname und Position setzen", ChatColor.YELLOW + "Rechtsklick = Eigene Warps verwalten")));
-      if (canManagePermissions) {
-         inv.setItem(29, this.named(Material.PLAYER_HEAD, ChatColor.GOLD + "Berechtigungen", List.of(permissionLore)));
+      if (canOpenPermissions) {
+         inv.setItem(
+            29,
+            this.named(
+               Material.PLAYER_HEAD,
+               ChatColor.GOLD + "Berechtigungen",
+               List.of(canManagePermissions ? permissionLore : ChatColor.GRAY + "Eigene Member-Rechte ansehen oder entfernen")
+            )
+         );
       }
       inv.setItem(31, this.named(Material.OAK_DOOR, ChatColor.YELLOW + "Besucherrechte Insel", List.of(ChatColor.GRAY + "T\u00fcren, Container, Farmen, Reiten")));
       inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Inselansicht")));
@@ -3004,11 +3013,25 @@ public class CoreService {
 
          OfflinePlayer p = filtered.get(idx);
          boolean member = this.islandHasTrustPermission(island, p.getUniqueId(), permission);
+         boolean owner = island.getOwners().contains(p.getUniqueId());
+         boolean master = this.islandService.isIslandMaster(island, p.getUniqueId());
          List<String> lore = new ArrayList<>();
          lore.add(ChatColor.GRAY + "Online: " + (p.isOnline() ? "ja" : "nein"));
-         lore.add(ChatColor.GRAY + "Status: " + (member ? "ist Member (" + permission.name().toLowerCase(Locale.ROOT) + ")" : "kein Member-Recht"));
-         lore.add(ChatColor.YELLOW + "Linksklick = vergeben");
-         lore.add(ChatColor.YELLOW + "Rechtsklick = entfernen");
+         lore.add(ChatColor.GRAY + "Status: " + (master
+            ? "ist Master"
+            : owner
+            ? "ist Owner"
+            : member
+            ? "ist Member (" + permission.name().toLowerCase(Locale.ROOT) + ")"
+            : "kein Member-Recht"));
+         if (master || owner) {
+            lore.add(ChatColor.YELLOW + "Linksklick = zu Member herabstufen");
+         } else if (member) {
+            lore.add(ChatColor.YELLOW + "Linksklick = vergeben");
+            lore.add(ChatColor.YELLOW + "Rechtsklick = entfernen");
+         } else {
+            lore.add(ChatColor.YELLOW + "Linksklick = vergeben");
+         }
          inv.setItem(
             GRID_SLOTS.get(i), this.named(member ? Material.LIME_DYE : Material.GRAY_DYE, (member ? ChatColor.GREEN : ChatColor.AQUA) + p.getName(), lore)
          );
@@ -3167,13 +3190,23 @@ public class CoreService {
       this.fillWithPanes(inv);
       boolean isOp = viewer != null && viewer.isOp();
       boolean spawnIsland = this.islandService.isSpawnIsland(island);
+      boolean hasMemberPermissions = viewer != null && this.islandService.hasAnyMemberPermission(island, viewer.getUniqueId());
       boolean canOpenMasterMenu = viewer != null && (this.islandService.isIslandOwner(island, viewer.getUniqueId()) || this.islandService.getPendingMasterInviteIsland(viewer.getUniqueId()) != null || isOp);
       boolean canInviteMasters = viewer != null && (this.islandService.canInviteMaster(island, viewer.getUniqueId()) || viewer.isOp());
       boolean canAddOwners = viewer != null && (this.islandService.canAddOwner(island, viewer.getUniqueId()) || viewer.isOp());
       boolean canManageMembers = viewer != null && (this.islandService.canManageMembers(island, viewer.getUniqueId()) || viewer.isOp());
       if (!spawnIsland && canOpenMasterMenu) inv.setItem(11, this.named(Material.NETHER_STAR, ChatColor.GOLD + "Master-Rechte", List.of(ChatColor.GRAY + "Einladungen annehmen oder als Master verwalten")));
       if (canAddOwners) inv.setItem(13, this.named(Material.WRITABLE_BOOK, ChatColor.YELLOW + "Owner-Rechte", List.of(ChatColor.GRAY + "Owner verwalten")));
-      if (canManageMembers) inv.setItem(15, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Member-Rechte", List.of(ChatColor.GRAY + "Member verwalten")));
+      if (canManageMembers || hasMemberPermissions) {
+         inv.setItem(
+            15,
+            this.named(
+               Material.PLAYER_HEAD,
+               ChatColor.AQUA + "Member-Rechte",
+               List.of(ChatColor.GRAY + (canManageMembers ? "Member verwalten" : "Eigene Member-Rechte ansehen oder entfernen"))
+            )
+         );
+      }
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Insel-Einstellungen")));
       return inv;
    }
@@ -3182,6 +3215,8 @@ public class CoreService {
       Inventory inv = Bukkit.createInventory(new PermissionsActionInventoryHolder(island.getOwner(), role), 27, role + " verwalten");
       this.fillWithPanes(inv);
       boolean isOp = viewer != null && viewer.isOp();
+      boolean hasMemberPermissions = viewer != null && this.islandService.hasAnyMemberPermission(island, viewer.getUniqueId());
+      boolean canManageMembers = viewer != null && (this.islandService.canManageMembers(island, viewer.getUniqueId()) || isOp);
       if (this.islandService.isSpawnIsland(island) && "MASTER".equals(role)) {
          inv.setItem(13, this.named(Material.BARRIER, ChatColor.RED + "Kein Master am Spawn", List.of(ChatColor.GRAY + "Nutze stattdessen Owner- oder Member-Rechte.")));
          inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zu Berechtigungen")));
@@ -3190,13 +3225,13 @@ public class CoreService {
       boolean canAdd = viewer != null && switch (role) {
          case "MASTER" -> this.islandService.canInviteMaster(island, viewer.getUniqueId()) || isOp;
          case "OWNER" -> this.islandService.canAddOwner(island, viewer.getUniqueId()) || isOp;
-         case "MEMBER" -> this.islandService.canManageMembers(island, viewer.getUniqueId()) || isOp;
+         case "MEMBER" -> canManageMembers;
          default -> false;
       };
       boolean canRemove = viewer != null && switch (role) {
          case "MASTER" -> false;
          case "OWNER" -> this.islandService.canRemoveOwner(island, viewer.getUniqueId()) || isOp;
-         case "MEMBER" -> this.islandService.canManageMembers(island, viewer.getUniqueId()) || isOp;
+         case "MEMBER" -> canManageMembers || hasMemberPermissions;
          default -> false;
       };
       if (canAdd) inv.setItem(11, this.named(Material.EMERALD, ChatColor.GREEN + "Spieler hinzuf\u00fcgen", List.of(ChatColor.GRAY + "Suchen und " + role + " hinzuf\u00fcgen")));
@@ -3207,6 +3242,15 @@ public class CoreService {
          if (viewer != null && (island.getMasters().contains(viewer.getUniqueId()) || isOp)) {
             inv.setItem(15, this.named(Material.RED_BED, ChatColor.DARK_RED + "Als Master austreten", List.of(ChatColor.GRAY + "Du verl\u00e4sst den Master-Rang", ChatColor.YELLOW + "Klick = austreten")));
          }
+      } else if ("MEMBER".equals(role) && canRemove && !canManageMembers) {
+         inv.setItem(
+            15,
+            this.named(
+               Material.BARRIER,
+               ChatColor.RED + "Eigene Member-Rechte",
+               List.of(ChatColor.GRAY + "Deine aktuellen Rechte ansehen", ChatColor.GRAY + "oder dich selbst austragen")
+            )
+         );
       } else if (canRemove) {
          inv.setItem(15, this.named(Material.BARRIER, ChatColor.RED + ("MEMBER".equals(role) ? "Spieler entfernen oder bearbeiten" : "Spieler entfernen"), "MEMBER".equals(role) ? List.of(ChatColor.GRAY + "Aktuelle Member anzeigen,", ChatColor.GRAY + "Rechte anpassen oder entfernen") : List.of(ChatColor.GRAY + "Aktuelle " + role + "s anzeigen und entfernen")));
       }
@@ -3289,14 +3333,41 @@ public class CoreService {
       boolean hasBuild = island.getMemberBuildAccess().contains(targetPlayer);
       boolean hasContainer = island.getMemberContainerAccess().contains(targetPlayer);
       boolean hasRedstone = island.getMemberRedstoneAccess().contains(targetPlayer);
+      boolean isAnyMember = hasBuild || hasContainer || hasRedstone;
+      boolean canManageMembers = viewer != null && (this.islandService.canManageMembers(island, viewer.getUniqueId()) || viewer.isOp());
+      boolean selfMemberOnly = viewer != null && targetPlayer.equals(viewer.getUniqueId()) && isAnyMember && !canManageMembers;
 
       inv.setItem(4, createPlayerHead(t, ChatColor.GOLD + (t.getName() != null ? t.getName() : "Unbekannt"), List.of()));
-      inv.setItem(9, this.named(Material.EMERALD, ChatColor.GREEN + "Alle Rechte vergeben", List.of(ChatColor.GRAY + "Gibt dem Member", ChatColor.GRAY + "alle verf\u00fcgbaren Rechte", ChatColor.YELLOW + "Klick = Zuweisen")));
-      inv.setItem(11, this.named(hasBuild ? Material.DIAMOND_PICKAXE : Material.WOODEN_PICKAXE, (hasBuild ? ChatColor.GREEN : ChatColor.RED) + "Bauen", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
-      inv.setItem(13, this.named(hasContainer ? Material.OXIDIZED_COPPER_CHEST : Material.CHEST, (hasContainer ? ChatColor.GREEN : ChatColor.RED) + "Kisten", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
-      inv.setItem(15, this.named(hasRedstone ? Material.REDSTONE_TORCH : Material.REDSTONE, (hasRedstone ? ChatColor.GREEN : ChatColor.RED) + "Redstone", List.of(ChatColor.YELLOW + "Klick = Umschalten")));
-      inv.setItem(17, this.named(Material.BARRIER, ChatColor.RED + "Member entfernen", List.of(ChatColor.GRAY + "Nimmt alle Member-Rechte", ChatColor.YELLOW + "Klick = Entfernen")));
-      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur Liste")));
+      inv.setItem(
+         9,
+         canManageMembers
+            ? this.named(Material.EMERALD, ChatColor.GREEN + "Alle Rechte vergeben", List.of(ChatColor.GRAY + "Gibt dem Spieler", ChatColor.GRAY + "alle Member-Rechte", ChatColor.YELLOW + "Klick = Zuweisen"))
+            : this.named(Material.GRAY_DYE, ChatColor.GRAY + "Alle Rechte vergeben", List.of(ChatColor.GRAY + "Als Member kannst du dir", ChatColor.GRAY + "keine weiteren Rechte geben."))
+      );
+      inv.setItem(
+         11,
+         canManageMembers
+            ? this.named(hasBuild ? Material.DIAMOND_PICKAXE : Material.WOODEN_PICKAXE, (hasBuild ? ChatColor.GREEN : ChatColor.RED) + "Bauen", List.of(ChatColor.YELLOW + "Klick = Umschalten"))
+            : this.named(hasBuild ? Material.DIAMOND_PICKAXE : Material.GRAY_DYE, (hasBuild ? ChatColor.GREEN : ChatColor.GRAY) + "Bauen", List.of(ChatColor.YELLOW + (hasBuild ? "Klick = Entfernen" : "Nicht vorhanden")))
+      );
+      inv.setItem(
+         13,
+         canManageMembers
+            ? this.named(hasContainer ? Material.OXIDIZED_COPPER_CHEST : Material.CHEST, (hasContainer ? ChatColor.GREEN : ChatColor.RED) + "Kisten", List.of(ChatColor.YELLOW + "Klick = Umschalten"))
+            : this.named(hasContainer ? Material.OXIDIZED_COPPER_CHEST : Material.GRAY_DYE, (hasContainer ? ChatColor.GREEN : ChatColor.GRAY) + "Kisten", List.of(ChatColor.YELLOW + (hasContainer ? "Klick = Entfernen" : "Nicht vorhanden")))
+      );
+      inv.setItem(
+         15,
+         canManageMembers
+            ? this.named(hasRedstone ? Material.REDSTONE_TORCH : Material.REDSTONE, (hasRedstone ? ChatColor.GREEN : ChatColor.RED) + "Redstone", List.of(ChatColor.YELLOW + "Klick = Umschalten"))
+            : this.named(hasRedstone ? Material.REDSTONE_TORCH : Material.GRAY_DYE, (hasRedstone ? ChatColor.GREEN : ChatColor.GRAY) + "Redstone", List.of(ChatColor.YELLOW + (hasRedstone ? "Klick = Entfernen" : "Nicht vorhanden")))
+      );
+      if (isAnyMember) {
+         inv.setItem(17, this.named(Material.BARRIER, ChatColor.RED + "Member entfernen", List.of(ChatColor.GRAY + "Nimmt alle Member-Rechte", ChatColor.YELLOW + "Klick = Entfernen")));
+      } else {
+         inv.setItem(17, this.named(Material.GRAY_DYE, ChatColor.GRAY + "Kein Member", List.of(ChatColor.GRAY + "Dieser Spieler hat aktuell keine Member-Rechte.")));
+      }
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + (selfMemberOnly ? "Zu Member-Rechten" : "Zur Liste"))));
       return inv;
    }
 

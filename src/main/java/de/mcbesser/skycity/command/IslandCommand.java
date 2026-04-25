@@ -735,10 +735,6 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(org.bukkit.ChatColor.RED + "Nur Master oder Owner.");
             return;
         }
-        if (target.getUniqueId().equals(player.getUniqueId()) && (island.getOwner().equals(player.getUniqueId()) || island.getMasters().contains(player.getUniqueId()) || island.getOwners().contains(player.getUniqueId()))) {
-            player.sendMessage(org.bukkit.ChatColor.RED + "Du bist bereits Master oder Owner.");
-            return;
-        }
         if (islandService.isPrimaryMaster(island, target.getUniqueId())) {
             player.sendMessage(org.bukkit.ChatColor.RED + "Der primäre Master kann nicht als Member eingetragen werden.");
             return;
@@ -949,6 +945,9 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
     }
 
     public void requestPermissionConfirmation(Player actor, UUID targetPlayer, IslandData island, de.mcbesser.skycity.model.ParcelData parcel, ActionType actionType, IslandService.TrustPermission permission, String text, boolean fromGui) {
+        if (text == null || (island != null && parcel == null && targetPlayer != null && isIslandRoleAction(actionType))) {
+            text = buildIslandRoleConfirmationText(actor == null ? null : actor.getUniqueId(), targetPlayer, island, actionType, permission);
+        }
         pendingActions.put(
                 actor.getUniqueId(),
                 new PendingPermissionAction(targetPlayer, island == null ? null : island.getOwner(), parcel, actionType, permission, System.currentTimeMillis() + 15000L, fromGui, 0, 0)
@@ -957,6 +956,81 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         actor.sendMessage(ChatColor.RED + text);
         actor.sendMessage(ChatColor.YELLOW + "Best\u00e4tigen: /accept");
         actor.sendMessage(ChatColor.GRAY + "Abbrechen: /cancel");
+    }
+
+    public void requestRolePermissionConfirmation(Player actor, UUID targetPlayer, IslandData island, de.mcbesser.skycity.model.ParcelData parcel, ActionType actionType, IslandService.TrustPermission permission, boolean fromGui) {
+        requestPermissionConfirmation(actor, targetPlayer, island, parcel, actionType, permission, null, fromGui);
+    }
+
+    private boolean isIslandRoleAction(ActionType actionType) {
+        return actionType == ActionType.MASTER_LEAVE
+                || actionType == ActionType.OWNER_ADD
+                || actionType == ActionType.OWNER_REMOVE
+                || actionType == ActionType.MEMBER_ADD
+                || actionType == ActionType.MEMBER_REMOVE;
+    }
+
+    private String buildIslandRoleConfirmationText(UUID actorId, UUID targetId, IslandData island, ActionType actionType, IslandService.TrustPermission permission) {
+        if (targetId == null) return "Möchtest du diese Aktion wirklich ausführen?";
+        String islandName = island == null ? "dieser Insel" : islandService.getIslandTitleDisplay(island);
+        OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
+        String targetName = target.getName() == null ? "?" : target.getName();
+        boolean self = actorId != null && actorId.equals(targetId);
+        String currentRole = getIslandRoleName(island, targetId);
+        String permissionName = getPermissionName(permission);
+
+        return switch (actionType) {
+            case MASTER_LEAVE -> self && currentRole != null
+                    ? "Du bist aktuell " + currentRole + ". Möchtest du dich auf " + islandName + wirklichAufMasterLeaveText(island, targetId)
+                    : "Möchtest du den Master-Rang auf " + islandName + " wirklich aufgeben?";
+            case OWNER_ADD -> {
+                if (self && "Master".equals(currentRole)) {
+                    yield "Du bist aktuell Master. Möchtest du dich auf " + islandName + " wirklich zu Owner herabstufen?";
+                }
+                if ("Master".equals(currentRole)) {
+                    yield "Möchtest du " + targetName + " auf " + islandName + " wirklich von Master zu Owner herabstufen?";
+                }
+                yield "Möchtest du " + targetName + " auf " + islandName + " Owner-Rechte geben?";
+            }
+            case OWNER_REMOVE -> self
+                    ? "Du bist aktuell Owner. Möchtest du dir auf " + islandName + " wirklich die Owner-Rechte entziehen?"
+                    : "Möchtest du " + targetName + " auf " + islandName + " die Owner-Rechte entziehen?";
+            case MEMBER_ADD -> {
+                if (self && currentRole != null && !"Member".equals(currentRole)) {
+                    yield "Du bist aktuell " + currentRole + ". Möchtest du dich auf " + islandName + " wirklich zu Member herabstufen?";
+                }
+                if ("Owner".equals(currentRole) || "Master".equals(currentRole)) {
+                    yield "Möchtest du " + targetName + " auf " + islandName + " wirklich von " + currentRole + " zu Member herabstufen?";
+                }
+                yield "Möchtest du " + permissionName + "-Recht an " + targetName + " auf " + islandName + " vergeben?";
+            }
+            case MEMBER_REMOVE -> self
+                    ? "Du bist aktuell Member. Möchtest du dir auf " + islandName + " wirklich " + memberRemovalTargetText(permission) + " entziehen?"
+                    : "Möchtest du " + permissionName + "-Recht von " + targetName + " auf " + islandName + " entfernen?";
+            default -> "Möchtest du diese Aktion wirklich ausführen?";
+        };
+    }
+
+    private String wirklichAufMasterLeaveText(IslandData island, UUID targetId) {
+        if (island != null && targetId != null && islandService.isPrimaryMaster(island, targetId)) {
+            return " wirklich als Master austragen?";
+        }
+        return " wirklich aus der Master-Rolle austragen?";
+    }
+
+    private String memberRemovalTargetText(IslandService.TrustPermission permission) {
+        if (permission == null || permission == IslandService.TrustPermission.ALL) {
+            return "alle Member-Rechte";
+        }
+        return "das Recht " + getPermissionName(permission);
+    }
+
+    private String getIslandRoleName(IslandData island, UUID targetId) {
+        if (island == null || targetId == null) return null;
+        if (islandService.isIslandMaster(island, targetId)) return "Master";
+        if (island.getOwners().contains(targetId)) return "Owner";
+        if (islandService.hasAnyMemberPermission(island, targetId)) return "Member";
+        return null;
     }
 
     private void handleConfirmCommand(Player player) {
