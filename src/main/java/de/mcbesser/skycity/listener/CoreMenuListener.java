@@ -137,6 +137,8 @@ public class CoreMenuListener implements Listener {
             handleCartoTeleporterColorClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.CartoTeleporterTargetInventoryHolder holder) {
             handleCartoTeleporterTargetClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.CartoTargetListInventoryHolder holder) {
+            handleCartoTargetListClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelInventoryHolder holder) {
             handleParcelMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.ParcelVisitorSettingsInventoryHolder holder) {
@@ -1409,19 +1411,27 @@ public class CoreMenuListener implements Listener {
             player.closeInventory();
             return;
         }
-        if (event.getRawSlot() == 22) {
+        if (event.getRawSlot() == 31) {
             playerListener.reopenCheckpointSettingsMenu(player, island, holder.locationKey());
             return;
         }
         org.bukkit.ChatColor targetColor = switch (event.getRawSlot()) {
-            case 9 -> org.bukkit.ChatColor.WHITE;
-            case 10 -> org.bukkit.ChatColor.RED;
-            case 11 -> org.bukkit.ChatColor.GOLD;
-            case 12 -> org.bukkit.ChatColor.YELLOW;
-            case 13 -> org.bukkit.ChatColor.GREEN;
-            case 14 -> org.bukkit.ChatColor.AQUA;
-            case 15 -> org.bukkit.ChatColor.BLUE;
-            case 16 -> org.bukkit.ChatColor.LIGHT_PURPLE;
+            case 10 -> org.bukkit.ChatColor.BLACK;
+            case 11 -> org.bukkit.ChatColor.DARK_BLUE;
+            case 12 -> org.bukkit.ChatColor.DARK_GREEN;
+            case 13 -> org.bukkit.ChatColor.DARK_AQUA;
+            case 14 -> org.bukkit.ChatColor.DARK_RED;
+            case 15 -> org.bukkit.ChatColor.DARK_PURPLE;
+            case 16 -> org.bukkit.ChatColor.GOLD;
+            case 19 -> org.bukkit.ChatColor.GRAY;
+            case 20 -> org.bukkit.ChatColor.DARK_GRAY;
+            case 21 -> org.bukkit.ChatColor.BLUE;
+            case 22 -> org.bukkit.ChatColor.GREEN;
+            case 23 -> org.bukkit.ChatColor.AQUA;
+            case 24 -> org.bukkit.ChatColor.RED;
+            case 25 -> org.bukkit.ChatColor.LIGHT_PURPLE;
+            case 26 -> org.bukkit.ChatColor.YELLOW;
+            case 27 -> org.bukkit.ChatColor.WHITE;
             default -> null;
         };
         if (targetColor != null) {
@@ -1458,19 +1468,27 @@ public class CoreMenuListener implements Listener {
             player.closeInventory();
             return;
         }
-        if (event.getRawSlot() == 22) {
+        if (event.getRawSlot() == 31) {
             playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
             return;
         }
         org.bukkit.ChatColor targetColor = switch (event.getRawSlot()) {
-            case 9 -> org.bukkit.ChatColor.WHITE;
-            case 10 -> org.bukkit.ChatColor.RED;
-            case 11 -> org.bukkit.ChatColor.GOLD;
-            case 12 -> org.bukkit.ChatColor.YELLOW;
-            case 13 -> org.bukkit.ChatColor.GREEN;
-            case 14 -> org.bukkit.ChatColor.AQUA;
-            case 15 -> org.bukkit.ChatColor.BLUE;
-            case 16 -> org.bukkit.ChatColor.LIGHT_PURPLE;
+            case 10 -> org.bukkit.ChatColor.BLACK;
+            case 11 -> org.bukkit.ChatColor.DARK_BLUE;
+            case 12 -> org.bukkit.ChatColor.DARK_GREEN;
+            case 13 -> org.bukkit.ChatColor.DARK_AQUA;
+            case 14 -> org.bukkit.ChatColor.DARK_RED;
+            case 15 -> org.bukkit.ChatColor.DARK_PURPLE;
+            case 16 -> org.bukkit.ChatColor.GOLD;
+            case 19 -> org.bukkit.ChatColor.GRAY;
+            case 20 -> org.bukkit.ChatColor.DARK_GRAY;
+            case 21 -> org.bukkit.ChatColor.BLUE;
+            case 22 -> org.bukkit.ChatColor.GREEN;
+            case 23 -> org.bukkit.ChatColor.AQUA;
+            case 24 -> org.bukkit.ChatColor.RED;
+            case 25 -> org.bukkit.ChatColor.LIGHT_PURPLE;
+            case 26 -> org.bukkit.ChatColor.YELLOW;
+            case 27 -> org.bukkit.ChatColor.WHITE;
             default -> null;
         };
         if (targetColor != null) {
@@ -1491,19 +1509,62 @@ public class CoreMenuListener implements Listener {
             playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
             return;
         }
-        String targetType = switch (event.getRawSlot()) {
-            case 11 -> "ISLAND";
-            case 13 -> "PLOT";
-            case 15 -> "WARP";
-            default -> null;
-        };
-        if (targetType != null) {
-            if ("PLOT".equals(targetType) || "WARP".equals(targetType)) {
-                coreService.startCartoTeleporterTargetInput(player, holder.islandOwner(), holder.locationKey(), targetType);
-            } else {
-                playerListener.setCartoTeleporterTarget(island, holder.locationKey(), targetType, null);
-                playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+        if (event.getRawSlot() == 10) { // ISLAND
+            playerListener.setCartoTeleporterTarget(island, holder.locationKey(), "ISLAND", null);
+            playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        } else if (event.getRawSlot() == 12) { // PLOT
+            player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), "PLOT", 0));
+        } else if (event.getRawSlot() == 14) { // WARP
+            player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), "WARP", 0));
+        } else if (event.getRawSlot() == 16) { // ALL_ISLANDS
+            player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), "ALL_ISLANDS", 0));
+        }
+    }
+
+    private void handleCartoTargetListClick(InventoryClickEvent event, Player player, CoreService.CartoTargetListInventoryHolder holder) {
+        event.setCancelled(true);
+        IslandData island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        if (island == null && !"ALL_ISLANDS".equals(holder.listType())) {
+            player.closeInventory();
+            return;
+        }
+        
+        int slot = event.getRawSlot();
+        if (slot == 49) { // Zurueck
+            player.openInventory(coreService.createCartoTeleporterTargetMenu(holder.islandOwner(), holder.locationKey()));
+            return;
+        } else if (slot == 45 && event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.ARROW) { // Vorherige Seite
+            player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), holder.listType(), holder.page() - 1));
+            return;
+        } else if (slot == 53 && event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.ARROW) { // Naechste Seite
+            player.openInventory(coreService.createCartoTargetListMenu(player.getUniqueId(), holder.islandOwner(), holder.locationKey(), holder.listType(), holder.page() + 1));
+            return;
+        }
+
+        org.bukkit.inventory.ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType() == Material.AIR) return;
+        if (slot < 45 && clicked.hasItemMeta() && clicked.getItemMeta().hasDisplayName()) {
+            String displayName = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+            String targetType = "ISLAND";
+            String targetName = "";
+            
+            if ("PLOT".equals(holder.listType())) {
+                targetType = "PLOT";
+                targetName = displayName;
+            } else if ("WARP".equals(holder.listType())) {
+                targetType = "WARP";
+                targetName = displayName;
+            } else if ("ALL_ISLANDS".equals(holder.listType())) {
+                targetType = "ISLAND";
+                // Get targetName from lore (UUID)
+                if (clicked.getItemMeta().hasLore() && clicked.getItemMeta().getLore().size() > 1) {
+                    targetName = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getLore().get(1));
+                }
             }
+            
+            playerListener.setCartoTeleporterTarget(island, holder.locationKey(), targetType, targetName);
+            playerListener.reopenCartoTeleporterSettingsMenu(player, island, holder.locationKey());
             player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
         }
     }

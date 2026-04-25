@@ -1519,17 +1519,27 @@ public class CoreService {
    }
 
    public Inventory createCheckpointColorMenu(UUID islandOwner, String locationKey) {
-      Inventory inv = Bukkit.createInventory(new CheckpointColorInventoryHolder(islandOwner, locationKey), 27, "Titel Farbe");
+      Inventory inv = Bukkit.createInventory(new CheckpointColorInventoryHolder(islandOwner, locationKey), 36, "Titel Farbe");
       this.fillWithPanes(inv);
-      inv.setItem(9, this.named(Material.WHITE_DYE, ChatColor.WHITE + "Wei\u00df", null));
-      inv.setItem(10, this.named(Material.RED_DYE, ChatColor.RED + "Rot", null));
-      inv.setItem(11, this.named(Material.GOLD_NUGGET, ChatColor.GOLD + "Gold", null));
-      inv.setItem(12, this.named(Material.YELLOW_DYE, ChatColor.YELLOW + "Gelb", null));
-      inv.setItem(13, this.named(Material.GREEN_DYE, ChatColor.GREEN + "Gr\u00fcn", null));
-      inv.setItem(14, this.named(Material.LIGHT_BLUE_DYE, ChatColor.AQUA + "T\u00fcrkis", null));
-      inv.setItem(15, this.named(Material.BLUE_DYE, ChatColor.BLUE + "Blau", null));
-      inv.setItem(16, this.named(Material.PINK_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
-      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
+      inv.setItem(10, this.named(Material.BLACK_DYE, ChatColor.BLACK + "Schwarz", null));
+      inv.setItem(11, this.named(Material.BLUE_DYE, ChatColor.DARK_BLUE + "Dunkelblau", null));
+      inv.setItem(12, this.named(Material.GREEN_DYE, ChatColor.DARK_GREEN + "Dunkelgr\u00fcn", null));
+      inv.setItem(13, this.named(Material.CYAN_DYE, ChatColor.DARK_AQUA + "Dunkelt\u00fcrkis", null));
+      inv.setItem(14, this.named(Material.RED_DYE, ChatColor.DARK_RED + "Dunkelrot", null));
+      inv.setItem(15, this.named(Material.PURPLE_DYE, ChatColor.DARK_PURPLE + "Dunkellila", null));
+      inv.setItem(16, this.named(Material.ORANGE_DYE, ChatColor.GOLD + "Gold", null));
+      
+      inv.setItem(19, this.named(Material.LIGHT_GRAY_DYE, ChatColor.GRAY + "Grau", null));
+      inv.setItem(20, this.named(Material.GRAY_DYE, ChatColor.DARK_GRAY + "Dunkelgrau", null));
+      inv.setItem(21, this.named(Material.LIGHT_BLUE_DYE, ChatColor.BLUE + "Blau", null));
+      inv.setItem(22, this.named(Material.LIME_DYE, ChatColor.GREEN + "Gr\u00fcn", null));
+      inv.setItem(23, this.named(Material.DIAMOND, ChatColor.AQUA + "T\u00fcrkis", null));
+      inv.setItem(24, this.named(Material.ROSE_BUSH, ChatColor.RED + "Rot", null));
+      inv.setItem(25, this.named(Material.MAGENTA_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
+      inv.setItem(26, this.named(Material.YELLOW_DYE, ChatColor.YELLOW + "Gelb", null));
+      inv.setItem(27, this.named(Material.WHITE_DYE, ChatColor.WHITE + "Wei\u00df", null));
+
+      inv.setItem(31, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
       return inv;
    }
 
@@ -1547,27 +1557,92 @@ public class CoreService {
    }
 
    public Inventory createCartoTeleporterColorMenu(UUID islandOwner, String locationKey) {
-      Inventory inv = Bukkit.createInventory(new CartoTeleporterColorInventoryHolder(islandOwner, locationKey), 27, "Teleporter Farbe");
+      Inventory inv = Bukkit.createInventory(new CartoTeleporterColorInventoryHolder(islandOwner, locationKey), 36, "Teleporter Farbe");
       this.fillWithPanes(inv);
-      inv.setItem(9, this.named(Material.WHITE_DYE, ChatColor.WHITE + "Wei\u00df", null));
-      inv.setItem(10, this.named(Material.RED_DYE, ChatColor.RED + "Rot", null));
-      inv.setItem(11, this.named(Material.GOLD_NUGGET, ChatColor.GOLD + "Gold", null));
-      inv.setItem(12, this.named(Material.YELLOW_DYE, ChatColor.YELLOW + "Gelb", null));
-      inv.setItem(13, this.named(Material.GREEN_DYE, ChatColor.GREEN + "Gr\u00fcn", null));
-      inv.setItem(14, this.named(Material.LIGHT_BLUE_DYE, ChatColor.AQUA + "T\u00fcrkis", null));
-      inv.setItem(15, this.named(Material.BLUE_DYE, ChatColor.BLUE + "Blau", null));
-      inv.setItem(16, this.named(Material.PINK_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
-      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
+      inv.setItem(10, this.named(Material.BLACK_DYE, ChatColor.BLACK + "Schwarz", null));
+      inv.setItem(11, this.named(Material.BLUE_DYE, ChatColor.DARK_BLUE + "Dunkelblau", null));
+      inv.setItem(12, this.named(Material.GREEN_DYE, ChatColor.DARK_GREEN + "Dunkelgr\u00fcn", null));
+      inv.setItem(13, this.named(Material.CYAN_DYE, ChatColor.DARK_AQUA + "Dunkelt\u00fcrkis", null));
+      inv.setItem(14, this.named(Material.RED_DYE, ChatColor.DARK_RED + "Dunkelrot", null));
+      inv.setItem(15, this.named(Material.PURPLE_DYE, ChatColor.DARK_PURPLE + "Dunkellila", null));
+      inv.setItem(16, this.named(Material.ORANGE_DYE, ChatColor.GOLD + "Gold", null));
+      
+      inv.setItem(19, this.named(Material.LIGHT_GRAY_DYE, ChatColor.GRAY + "Grau", null));
+      inv.setItem(20, this.named(Material.GRAY_DYE, ChatColor.DARK_GRAY + "Dunkelgrau", null));
+      inv.setItem(21, this.named(Material.LIGHT_BLUE_DYE, ChatColor.BLUE + "Blau", null));
+      inv.setItem(22, this.named(Material.LIME_DYE, ChatColor.GREEN + "Gr\u00fcn", null));
+      inv.setItem(23, this.named(Material.DIAMOND, ChatColor.AQUA + "T\u00fcrkis", null));
+      inv.setItem(24, this.named(Material.ROSE_BUSH, ChatColor.RED + "Rot", null));
+      inv.setItem(25, this.named(Material.MAGENTA_DYE, ChatColor.LIGHT_PURPLE + "Pink", null));
+      inv.setItem(26, this.named(Material.YELLOW_DYE, ChatColor.YELLOW + "Gelb", null));
+      inv.setItem(27, this.named(Material.WHITE_DYE, ChatColor.WHITE + "Wei\u00df", null));
+
+      inv.setItem(31, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
       return inv;
    }
 
    public Inventory createCartoTeleporterTargetMenu(UUID islandOwner, String locationKey) {
-      Inventory inv = Bukkit.createInventory(new CartoTeleporterTargetInventoryHolder(islandOwner, locationKey), 27, "Zieltyp w\u00e4hlen");
+      Inventory inv = Bukkit.createInventory(new CartoTeleporterTargetInventoryHolder(islandOwner, locationKey), 27, "Ziel w\u00e4hlen");
       this.fillWithPanes(inv);
-      inv.setItem(11, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Insel Spawn", java.util.List.of(ChatColor.GRAY + "Teleportiert zum Insel-Spawn")));
-      inv.setItem(13, this.named(Material.OAK_FENCE, ChatColor.GOLD + "Grundst\u00fcck (Plot)", java.util.List.of(ChatColor.GRAY + "Teleportiert zu einem GS")));
-      inv.setItem(15, this.named(Material.ENDER_PEARL, ChatColor.LIGHT_PURPLE + "Warp", java.util.List.of(ChatColor.GRAY + "Teleportiert zu einem Warp")));
+      inv.setItem(10, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Eigener Insel-Spawn", java.util.List.of(ChatColor.GRAY + "Teleportiert zu deiner Insel")));
+      inv.setItem(12, this.named(Material.OAK_FENCE, ChatColor.GOLD + "Eigene Plots", java.util.List.of(ChatColor.GRAY + "W\u00e4hle eines deiner Grundst\u00fccke")));
+      inv.setItem(14, this.named(Material.ENDER_PEARL, ChatColor.LIGHT_PURPLE + "Eigene Warps", java.util.List.of(ChatColor.GRAY + "W\u00e4hle einen deiner Warps")));
+      inv.setItem(16, this.named(Material.FILLED_MAP, ChatColor.AQUA + "Alle Inseln", java.util.List.of(ChatColor.GRAY + "\u00d6ffentliche Inseln durchsuchen")));
       inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", null));
+      return inv;
+   }
+
+   public Inventory createCartoTargetListMenu(UUID viewerId, UUID islandOwner, String locationKey, String listType, int page) {
+      Inventory inv = Bukkit.createInventory(new CartoTargetListInventoryHolder(islandOwner, locationKey, listType, page), 54, "Ziel w\u00e4hlen");
+      this.fillWithPanes(inv);
+      
+      IslandData island = islandService.getIsland(islandOwner).orElse(null);
+      if (island == null && !"ALL_ISLANDS".equals(listType)) return inv;
+
+      int startIndex = page * 28;
+      int count = 0;
+      int index = 0;
+
+      if ("PLOT".equals(listType)) {
+          List<ParcelData> parcels = island.getParcels().values().stream().filter(p -> p.getSpawn() != null).toList();
+          for (ParcelData parcel : parcels) {
+              if (index >= startIndex && count < 28) {
+                  inv.setItem(count, this.named(Material.OAK_FENCE, ChatColor.GOLD + parcel.getName(), java.util.List.of(ChatColor.GRAY + "Klicken zum Ausw\u00e4hlen")));
+                  count++;
+              }
+              index++;
+          }
+      } else if ("WARP".equals(listType)) {
+          List<IslandData> allIslands = new java.util.ArrayList<>(islandService.getAllIslands());
+          for (IslandData i : allIslands) {
+              if (i.getOwner().equals(islandOwner) && i.getWarpLocation() != null && i.getWarpName() != null && !i.getWarpName().isBlank()) {
+                  if (index >= startIndex && count < 28) {
+                      inv.setItem(count, this.named(Material.ENDER_PEARL, ChatColor.LIGHT_PURPLE + i.getWarpName(), java.util.List.of(ChatColor.GRAY + "Klicken zum Ausw\u00e4hlen")));
+                      count++;
+                  }
+                  index++;
+              }
+          }
+      } else if ("ALL_ISLANDS".equals(listType)) {
+          List<IslandService.TeleportTarget> targets = this.islandService.getTeleportTargetsFor(viewerId).stream()
+              .filter(t -> t.id().startsWith("island:"))
+              .toList();
+          for (IslandService.TeleportTarget target : targets) {
+              if (index >= startIndex && count < 28) {
+                  // ID is like "island:UUID"
+                  String targetName = target.id().substring(7); // UUID
+                  inv.setItem(count, this.named(Material.FILLED_MAP, target.displayName(), java.util.List.of(ChatColor.GRAY + "Klicken zum Ausw\u00e4hlen", ChatColor.DARK_GRAY + targetName)));
+                  count++;
+              }
+              index++;
+          }
+      }
+
+      int totalPages = Math.max(1, (int)Math.ceil((double)index / 28.0));
+      if (page > 0) inv.setItem(45, this.named(Material.ARROW, ChatColor.YELLOW + "Vorherige Seite", null));
+      if (page < totalPages - 1) inv.setItem(53, this.named(Material.ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", null));
+      inv.setItem(49, this.named(Material.BARRIER, ChatColor.RED + "Zur\u00fcck", null));
+
       return inv;
    }
 
@@ -6103,8 +6178,10 @@ public class CoreService {
          return null;
       }
    }
+
+   public static record CartoTargetListInventoryHolder(UUID islandOwner, String locationKey, String listType, int page) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
 }
-
-
-
-

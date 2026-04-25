@@ -1640,8 +1640,7 @@ public class PlayerListener implements Listener {
             if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                 display.teleport(displayLocation);
             }
-            display.setItemStack(new ItemStack(iconMaterial));
-            configureCheckpointDisplay(display);
+            configureItemDisplay(display, iconMaterial);
             return;
         }
         for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
@@ -1650,15 +1649,13 @@ public class PlayerListener implements Listener {
                 if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                     display.teleport(displayLocation);
                 }
-                display.setItemStack(new ItemStack(iconMaterial));
-                configureCheckpointDisplay(display);
+                configureItemDisplay(display, iconMaterial);
                 return;
             }
         }
         ItemDisplay newDisplay = location.getWorld().spawn(displayLocation, ItemDisplay.class, display -> {
             display.addScoreboardTag(tag);
-            display.setItemStack(new ItemStack(iconMaterial));
-            configureCheckpointDisplay(display);
+            configureItemDisplay(display, iconMaterial);
         });
         checkpointDisplaysByTag.put(tag, newDisplay.getUniqueId());
     }
@@ -1675,7 +1672,7 @@ public class PlayerListener implements Listener {
             if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                 display.teleport(displayLocation);
             }
-            configureCheckpointDisplay(display);
+            configureItemDisplay(display, Material.ENDER_EYE);
             return;
         }
         for (Entity entity : location.getWorld().getNearbyEntities(displayLocation, 0.4, 0.6, 0.4)) {
@@ -1688,12 +1685,12 @@ public class PlayerListener implements Listener {
                 if (display.getLocation().distanceSquared(displayLocation) > 0.01D) {
                     display.teleport(displayLocation);
                 }
-                configureCheckpointDisplay(display);
+                configureItemDisplay(display, Material.ENDER_EYE);
                 return;
             }
         }
         ItemDisplay display = (ItemDisplay) location.getWorld().spawnEntity(displayLocation, EntityType.ITEM_DISPLAY);
-        configureCheckpointDisplay(display);
+        configureItemDisplay(display, Material.ENDER_EYE);
         display.addScoreboardTag(tag);
         checkpointDisplaysByTag.put(tag, display.getUniqueId());
     }
@@ -1889,9 +1886,9 @@ public class PlayerListener implements Listener {
         return entity;
     }
 
-    private void configureCheckpointDisplay(ItemDisplay display) {
+    private void configureItemDisplay(ItemDisplay display, Material material) {
         if (display == null) return;
-        display.setItemStack(new ItemStack(Material.ENDER_EYE));
+        display.setItemStack(new ItemStack(material));
         display.setBillboard(Display.Billboard.CENTER);
         display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
         display.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.5F, 0.5F, 0.5F), new AxisAngle4f()));
