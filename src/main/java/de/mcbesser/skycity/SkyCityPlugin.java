@@ -135,6 +135,7 @@ public class SkyCityPlugin extends JavaPlugin {
     public NamespacedKey getCoreBlockKey() { return coreBlockKey; }
     public NamespacedKey getCoreDisplayModeKey() { return coreDisplayModeKey; }
     public CoreSidebar getCoreSidebar() { return coreSidebar; }
+    public PlayerListener getPlayerListener() { return playerListener; }
     public boolean hasVaultEconomy() { return vaultEconomy != null; }
 
     public double getVaultBalance(UUID playerId) {

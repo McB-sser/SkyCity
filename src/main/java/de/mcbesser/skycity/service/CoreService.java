@@ -3368,7 +3368,7 @@ public class CoreService {
          player.sendMessage(ChatColor.YELLOW + "Titel wurde auf 32 Zeichen gek\u00fcrzt.");
       }
       
-      playerListener.updateCheckpointTitleSettings(island, locationKey, cleanTitle, org.bukkit.ChatColor.WHITE, true);
+      this.plugin.getPlayerListener().updateCheckpointTitleSettings(island, locationKey, cleanTitle, org.bukkit.ChatColor.WHITE, true);
       player.sendMessage(ChatColor.GREEN + "Checkpoint-Titel gesetzt: " + ChatColor.WHITE + cleanTitle);
    }
 

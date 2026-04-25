@@ -316,6 +316,22 @@ Nur aktuelles Grundstueck:
 
 Spieler, die ein gebanntes Grundstueck betreten, erhalten einen Countdown und werden anschliessend automatisch entfernt, falls sie die Zone nicht verlassen.
 
+### Spieler ignorieren & Kontaktverbote
+
+Mit dem Ignore-System koennen Spieler andere Spieler gezielt ignorieren, um Belastigungen zu vermeiden:
+
+```text
+/ignore <spieler>
+```
+
+Dies oeffnet ein interaktives GUI, in dem verschiedene Blockaden fuer den gewaehlten Spieler aktiviert oder deaktiviert werden koennen:
+- **Chat**: Blockiert oeffentliche Chatnachrichten dieses Spielers. Es gibt hierfuer absichtlich keine Benachrichtigung an den blockierten Spieler.
+- **Befehle (Msg/Tel)**: Blockiert private Nachrichten und direkte Befehls-Kommunikation. Versucht der blockierte Spieler eine Nachricht zu senden, erhaelt er einen Hinweis, dass er blockiert wird.
+- **Master-Invites**: Verhindert, dass dieser Spieler Master-Einladungen senden kann. Dies schliesst Owner- und Member-Einladungen ebenfalls ein, um unerwuenschten Spam zu verhindern.
+- **Bann (Insel)**: Sperrt den Spieler komplett von der eigenen Insel aus (Insel-Bann).
+
+Zusaetzlich greifen diese Sperren intelligent ineinander. Wird z. B. jemand entbannt, erhaelt er einen Hinweis im Chat, falls noch weitere Ignore-Regeln (wie Chat-Mute) aktiv sind, und man kann diese bei Bedarf komfortabel ueber das GUI aufheben. *Hinweis: Spieler koennen sich nicht selbst ignorieren.*
+
 ## 12. PvP-Zonen auf Grundstuecken
 
 Grundstuecke koennen als aktive PvP-Zonen verwendet werden. Das ist eine besondere Funktion fuer Events, Arenen oder riskantere Handels-/Kampfbereiche.
@@ -390,8 +406,20 @@ Sonderfall `WHITE_WOOL`:
 
 Fallbacks und Sicherheit:
 
-- wenn kein gueltiges Woll-/Platten-Ziel gefunden wird, faellt das System auf Plotspawn, Inselspawn und zuletzt `/spawn` zurueck
+- bei einem direkten Lava-Kontakt ohne zuvor aktivierten Checkpoint prueft das System, ob es auf der Insel/dem Plot **genau einen** registrierten Checkpoint gibt. Wenn ja, wird der Spieler direkt dorthin gerettet.
+- wenn kein gueltiges Woll-/Platten-Ziel gefunden wird, sucht das System im Umkreis nach einem sicheren Block (solider Boden, keine Lava/Kaktus etc.). Findet es nichts, faellt das System auf Plotspawn, Inselspawn und zuletzt `/spawn` zurueck.
 - abgebaute oder geaenderte Zielplatten werden vor dem Teleport geprueft und automatisch verworfen
+
+### Checkpoint- und Teleporter-Titel (GUI)
+
+Spieler mit Baurechten (Owner, Master, oder Parcel-Member mit entsprechenden Rechten) koennen Checkpoints und Teleportern individuelle Namen geben.
+
+- **Oeffnen:** Einfach einen **Rechtsklick** auf die Druckplatte eines registrierten Checkpoints oder Teleporters ausfuehren.
+- **Titel setzen:** Im GUI auf das Schild klicken. Das GUI schliesst sich und der Name kann bequem in den Chat getippt werden (oder `cancel` zum Abbrechen).
+- **Farbe aendern:** Durch Klicken auf den Glowstone-Staub lassen sich verschiedene Farben fuer den Text durchschalten.
+- **Anzeige umschalten:** Der Titel kann jederzeit ueber den Farbstoff ein- oder ausgeschaltet werden.
+
+Ist der Titel aktiv, schwebt er als farbiges 3D-Hologramm (`TextDisplay`) direkt ueber dem Checkpoint-Marker (Enderauge). *Hinweis: Reine Jump-Pads (mit Schleimblock) unterstuetzen diese Titelfunktion bewusst nicht, um sie simpel und dynamisch zu halten.*
 
 Die Teamfarbenlogik fuer Parcel-Spiele ist absichtlich streng: Eine Teamfarbe wird nur erkannt, wenn ein Spieler direkt auf Wolle steht oder genau ein normaler, solider Block ueber passender Wolle liegt. Druckplatten, Wasser, Lava, Banner, Redstone-Komponenten, Schalter und aehnliche Mechaniken zaehlen bewusst nicht als gueltiger Zwischenblock.
 
