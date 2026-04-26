@@ -2168,6 +2168,25 @@ public class IslandService {
         return true;
     }
 
+    public boolean grantMasterRoleOverride(IslandData island, UUID target) {
+        if (island == null || target == null) return false;
+        if (isSpawnIsland(island) || isPrimaryMaster(island, target)) return false;
+
+        IslandData current = getIsland(target).orElse(null);
+        if (current != null && current != island) {
+            removeMasterFromIsland(current, target, false);
+        }
+
+        boolean changed = island.getOwners().remove(target);
+        changed |= clearMemberPermissions(island, target);
+        changed |= island.getMasters().add(target);
+        if (changed) {
+            island.setLastActiveAt(System.currentTimeMillis());
+            save();
+        }
+        return changed;
+    }
+
     public boolean leaveMasterRole(UUID playerId) {
         IslandData island = getIsland(playerId).orElse(null);
         if (island == null) return false;

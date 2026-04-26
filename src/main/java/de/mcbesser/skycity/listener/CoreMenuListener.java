@@ -351,7 +351,7 @@ public class CoreMenuListener implements Listener {
             }
             case 8 -> {
                 if (player.isOp()) {
-                    player.openInventory(coreService.createAdminQueueMenu(player, 0));
+                    player.openInventory(coreService.createAdminQueueMenu(player, 0, island.getOwner()));
                 }
             }
             case 20 -> { if (hasRights) player.openInventory(coreService.createIslandSettingsMenu(player, island)); }
@@ -443,15 +443,27 @@ public class CoreMenuListener implements Listener {
     private void handleAdminQueueClick(InventoryClickEvent event, Player player, CoreService.AdminQueueInventoryHolder holder) {
         event.setCancelled(true);
         if (event.getRawSlot() == 48) {
-            player.openInventory(coreService.createAdminQueueMenu(player, holder.page() - 1));
+            player.openInventory(coreService.createAdminQueueMenu(player, holder.page() - 1, holder.returnIslandOwner()));
         } else if (event.getRawSlot() == 50) {
-            player.openInventory(coreService.createAdminQueueMenu(player, holder.page() + 1));
+            player.openInventory(coreService.createAdminQueueMenu(player, holder.page() + 1, holder.returnIslandOwner()));
         } else if (event.getRawSlot() == 49) {
-            IslandData ownIsland = islandService.getIsland(player.getUniqueId()).orElse(null);
-            if (ownIsland != null) {
-                player.openInventory(coreService.createIslandMenu(player, ownIsland));
+            IslandData returnIsland = holder.returnIslandOwner() == null
+                    ? null
+                    : islandService.getIsland(holder.returnIslandOwner()).orElse(null);
+            if (returnIsland != null) {
+                player.openInventory(coreService.createIslandMenu(player, returnIsland));
             } else {
-                player.openInventory(coreService.createIslandMenu(player));
+                IslandData islandAtLocation = islandService.getIslandAt(player.getLocation());
+                if (islandAtLocation != null && (player.isOp() || islandService.isIslandAssociated(islandAtLocation, player.getUniqueId()))) {
+                    player.openInventory(coreService.createIslandMenu(player, islandAtLocation));
+                } else {
+                    IslandData ownIsland = islandService.getIsland(player.getUniqueId()).orElse(null);
+                    if (ownIsland != null) {
+                        player.openInventory(coreService.createIslandMenu(player, ownIsland));
+                    } else {
+                        player.openInventory(coreService.createIslandMenu(player));
+                    }
+                }
             }
         }
     }

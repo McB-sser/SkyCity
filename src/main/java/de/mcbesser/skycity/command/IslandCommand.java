@@ -265,7 +265,7 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
     private boolean usesCurrentIslandContext(String sub) {
         return switch (sub) {
             case "", "setspawn", "showchunks", "hidechunks", "chunkunlock", "title",
-                 "masterinvite", "owner", "member", "unmember",
+                 "masterinvite", "masterleave", "master", "owner", "member", "unmember",
                  "kick", "ban", "unban", "pkick", "pban", "punban", "plot" -> true;
             default -> false;
         };
@@ -399,6 +399,14 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(org.bukkit.ChatColor.RED + "Nur OP Spieler können Master direkt hinzufügen oder entfernen. Benutze /is masterinvite");
             return;
         }
+        if (island == null) {
+            player.sendMessage(org.bukkit.ChatColor.RED + "Du stehst auf keiner Insel und hast keine passende Insel im Kontext.");
+            return;
+        }
+        if (islandService.isSpawnIsland(island)) {
+            player.sendMessage(org.bukkit.ChatColor.RED + "Am Spawn gibt es keine Master-Rechte.");
+            return;
+        }
         if (args.length < 3) {
             player.sendMessage(org.bukkit.ChatColor.RED + "Nutze /is master <add|remove> <spieler>");
             return;
@@ -409,13 +417,26 @@ public class IslandCommand implements CommandExecutor, TabCompleter {
         if ("add".equals(action) && isIgnoredForCommands(player, target)) return;
 
         if ("add".equals(action)) {
-            island.getMasters().add(target.getUniqueId());
-            islandService.save();
-            player.sendMessage(org.bukkit.ChatColor.GREEN + "Master-Rechte an " + (target.getName() == null ? "?" : target.getName()) + " vergeben (OP Override).");
+            boolean changed = islandService.grantMasterRoleOverride(island, target.getUniqueId());
+            if (changed) {
+                player.sendMessage(org.bukkit.ChatColor.GREEN + "Master-Rechte an " + (target.getName() == null ? "?" : target.getName()) + " vergeben (OP Override).");
+                Player online = Bukkit.getPlayer(target.getUniqueId());
+                if (online != null) {
+                    online.sendMessage(org.bukkit.ChatColor.GREEN + "Du bist jetzt Master auf " + islandService.getIslandTitleDisplay(island) + ".");
+                }
+            } else {
+                player.sendMessage(org.bukkit.ChatColor.YELLOW + "Keine Ã„nderung.");
+            }
         } else if ("remove".equals(action)) {
-            island.getMasters().remove(target.getUniqueId());
-            islandService.save();
-            player.sendMessage(org.bukkit.ChatColor.RED + "Master-Rechte von " + (target.getName() == null ? "?" : target.getName()) + " entfernt (OP Override).");
+            if (islandService.leaveMasterRole(island, target.getUniqueId())) {
+                player.sendMessage(org.bukkit.ChatColor.RED + "Master-Rechte von " + (target.getName() == null ? "?" : target.getName()) + " entfernt (OP Override).");
+                Player online = Bukkit.getPlayer(target.getUniqueId());
+                if (online != null) {
+                    online.sendMessage(org.bukkit.ChatColor.RED + "Deine Master-Rechte auf " + islandService.getIslandTitleDisplay(island) + " wurden entfernt.");
+                }
+            } else {
+                player.sendMessage(org.bukkit.ChatColor.YELLOW + "Keine Ã„nderung.");
+            }
         } else {
             player.sendMessage(org.bukkit.ChatColor.RED + "Nutze /is master <add|remove> <spieler>");
         }

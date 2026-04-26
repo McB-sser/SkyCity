@@ -1126,7 +1126,20 @@ public class CoreService {
    }
 
    public Inventory createAdminQueueMenu(Player player, int page) {
-      Inventory inv = Bukkit.createInventory(new CoreService.AdminQueueInventoryHolder(page), 54, "Admin Queues - Seite " + (page + 1));
+      UUID returnIslandOwner = null;
+      if (player != null) {
+         IslandData islandAtLocation = this.islandService.getIslandAt(player.getLocation());
+         if (islandAtLocation != null && (player.isOp() || this.islandService.isIslandAssociated(islandAtLocation, player.getUniqueId()))) {
+            returnIslandOwner = islandAtLocation.getOwner();
+         } else {
+            returnIslandOwner = this.islandService.getIsland(player.getUniqueId()).map(IslandData::getOwner).orElse(null);
+         }
+      }
+      return this.createAdminQueueMenu(player, page, returnIslandOwner);
+   }
+
+   public Inventory createAdminQueueMenu(Player player, int page, UUID returnIslandOwner) {
+      Inventory inv = Bukkit.createInventory(new CoreService.AdminQueueInventoryHolder(page, returnIslandOwner), 54, "Admin Queues - Seite " + (page + 1));
       this.fillWithPanes(inv);
       
       List<de.mcbesser.skycity.service.IslandService.PregenerationTask> pregen = this.islandService.getPregenerationTasks();
@@ -1173,7 +1186,7 @@ public class CoreService {
       if (safePage < totalPages - 1) {
          inv.setItem(50, this.named(Material.ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
-      inv.setItem(49, this.named(Material.BARRIER, ChatColor.RED + "Schlie\u00dfen", List.of(ChatColor.GRAY + "Zur\u00fcck zum Men\u00fc")));
+      inv.setItem(49, this.named(Material.ARROW, ChatColor.YELLOW + "Zur\u00fcck", List.of(ChatColor.GRAY + "Zur vorherigen Inselansicht")));
       return inv;
    }
 
@@ -6482,7 +6495,7 @@ public class CoreService {
       }
    }
 
-   public static record AdminQueueInventoryHolder(int page) implements InventoryHolder {
+   public static record AdminQueueInventoryHolder(int page, UUID returnIslandOwner) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }
