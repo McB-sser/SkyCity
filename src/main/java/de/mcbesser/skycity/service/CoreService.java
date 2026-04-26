@@ -694,7 +694,7 @@ public class CoreService {
                ChatColor.GREEN + "Gespeichert: " + ChatColor.WHITE + island.getStoredExperience(),
                ChatColor.GRAY + "Linksklick: gesamte Spieler-EXP einlagern",
                ChatColor.GRAY + "Rechtsklick: 1 Level auszahlen",
-               ChatColor.GRAY + "Shift-Rechtsklick: 10 Level auszahlen"
+               ChatColor.GRAY + "Ducken + Rechtsklick: 10 Level auszahlen"
             )
          )
       );
@@ -707,7 +707,7 @@ public class CoreService {
                ChatColor.GRAY + "Items in Slots 27-35 legen",
                ChatColor.GRAY + "Materialien landen im Core-Fortschritt",
                ChatColor.GRAY + "f\u00fcr Meilensteine und Techtree",
-               ChatColor.YELLOW + "Sneak + Rechtsklick auf den Core",
+               ChatColor.YELLOW + "Ducken + Rechtsklick auf den Core",
                ChatColor.GRAY + "\u00f6ffnet die Shulker zum direkten Bef\u00fcllen"
             )
          )
@@ -1412,7 +1412,7 @@ public class CoreService {
             lore.add(ChatColor.AQUA + "Rechtsklick = Biom-Men\u00fc");
          }
          if (parcel != null) {
-            lore.add(ChatColor.GOLD + "Shift-Rechtsklick = GS-Men\u00fc");
+            lore.add(ChatColor.GOLD + "Ducken + Rechtsklick = GS-Men\u00fc");
          }
          if (current) {
             lore.add(ChatColor.AQUA + "Du stehst hier");
@@ -1506,7 +1506,7 @@ public class CoreService {
                      ChatColor.GRAY + "Kosten Inselweit: " + ChatColor.WHITE + biomeIslandCost,
                      ChatColor.GRAY + "Nur Master oder Owner",
                      ChatColor.YELLOW + "Linksklick = f\u00fcr Chunk setzen",
-                     ChatColor.GOLD + "Shift-Rechtsklick = auf Insel anwenden"
+                     ChatColor.GOLD + "Ducken + Rechtsklick = auf Insel anwenden"
                   )
                )
             );
@@ -1521,7 +1521,7 @@ public class CoreService {
          inv.setItem(50, this.named(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "N\u00e4chste Seite", List.of()));
       }
 
-      inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Aktueller Chunk " + displayX + ":" + displayZ, List.of(ChatColor.GRAY + "Shift-Rechtsklick auf ein Biom = inselweit")));
+      inv.setItem(49, this.named(Material.GRASS_BLOCK, ChatColor.GREEN + "Aktueller Chunk " + displayX + ":" + displayZ, List.of(ChatColor.GRAY + "Ducken + Rechtsklick auf ein Biom = inselweit")));
       return inv;
    }
 
@@ -2030,7 +2030,7 @@ public class CoreService {
                   shopRoleText,
                   ChatColor.YELLOW + "Linksklick: Wachstum Stufe 1",
                   ChatColor.YELLOW + "Rechtsklick: Wachstum Stufe 2",
-               ChatColor.YELLOW + "Shift-Rechtsklick: Wachstum Stufe 3"
+                        ChatColor.YELLOW + "Ducken + Rechtsklick: Wachstum Stufe 3"
             )
          )
       );
@@ -2057,7 +2057,7 @@ public class CoreService {
                ChatColor.GRAY + (freeShop ? "Kosten: " + ChatColor.GREEN + "kostenlos" : "Kosten: " + ChatColor.WHITE + this.islandService.getXpBottleCostPerBottle() + " XP (10% Verlust)"),
                shopRoleText,
                ChatColor.YELLOW + "Linksklick: 1 Flasche",
-               ChatColor.YELLOW + "Shift-Klick: 16 Flaschen"
+                        ChatColor.YELLOW + "Ducken + Klick: 16 Flaschen"
             )
          )
       );
@@ -2643,8 +2643,8 @@ public class CoreService {
             ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + this.islandService.formatParcelPrice(parcel, currentPrice),
             ChatColor.YELLOW + "Links = +100",
             ChatColor.YELLOW + "Rechts = -100",
-            ChatColor.YELLOW + "Shift-Links = +1000",
-            ChatColor.YELLOW + "Shift-Rechts = -1000"
+                ChatColor.YELLOW + "Ducken + Links = +1000",
+                ChatColor.YELLOW + "Ducken + Rechts = -1000"
          )));
       inv.setItem(24, this.named(vaultMode ? Material.EMERALD : Material.EXPERIENCE_BOTTLE, ChatColor.GREEN + "Zahlungsart",
          List.of(
@@ -2667,8 +2667,8 @@ public class CoreService {
                ChatColor.GRAY + "Aktuell: " + ChatColor.WHITE + parcel.getRentDurationAmount() + " " + this.islandService.formatParcelRentOffer(parcel).replaceFirst("^\\d+\\s*", ""),
                ChatColor.YELLOW + "Links = +1",
                ChatColor.YELLOW + "Rechts = -1",
-               ChatColor.YELLOW + "Shift-Links = +10",
-               ChatColor.YELLOW + "Shift-Rechts = -10"
+                ChatColor.YELLOW + "Ducken + Links = +10",
+                ChatColor.YELLOW + "Ducken + Rechts = -10"
             )));
          inv.setItem(21, this.named(Material.PAPER, ChatColor.AQUA + "Zeiteinheit",
             List.of(

@@ -459,7 +459,7 @@ Dadurch kann eine Insel atmosphaerisch angepasst werden, ohne dass die Weltzeit 
 
 Ueber die Menues koennen Spieler Biome fuer Inselbereiche bzw. Chunks verwalten. Das erlaubt gestalterische Anpassungen fuer verschiedene Themenbereiche, Farmen oder Bauten.
 
-Der Biom-Shop bietet die vollstaendige verfuegbare Biomliste an, inklusive Nether- und End-Biomen. Die Anzeige ist durchgehend deutsch, zeigt aber zusaetzlich immer den Originalnamen an. Inselweite Aenderungen sind absichtlich nur per `Shift-Rechtsklick` moeglich, damit man sich im Menue nicht verklickt.
+Der Biom-Shop bietet die vollstaendige verfuegbare Biomliste an, inklusive Nether- und End-Biomen. Die Anzeige ist durchgehend deutsch, zeigt aber zusaetzlich immer den Originalnamen an. Inselweite Aenderungen sind absichtlich nur per `Ducken + Rechtsklick` moeglich, damit man sich im Menue nicht verklickt.
 
 Zusammen mit dem Chunk-System und den Insel-Templates entsteht so eine flexible Inselgestaltung.
 
