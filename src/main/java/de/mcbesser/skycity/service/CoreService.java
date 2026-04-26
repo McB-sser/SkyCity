@@ -2854,6 +2854,62 @@ public class CoreService {
       inv.setItem(46, this.named(Material.COMPASS, ChatColor.AQUA + "Filter islands", List.of(ChatColor.GRAY + "Nur Inseln")));
       inv.setItem(47, this.named(Material.NAME_TAG, ChatColor.AQUA + "Filter parcels", List.of(ChatColor.GRAY + "Nur Grundst\u00fccke")));
       inv.setItem(51, this.named(Material.PLAYER_HEAD, ChatColor.AQUA + "Filter mine", List.of(ChatColor.GRAY + "Nur eigene")));
+      inv.setItem(52, this.named(Material.ENDER_PEARL, ChatColor.AQUA + "Filter warps", List.of(ChatColor.GRAY + "Nur Warps")));
+      return inv;
+   }
+
+   public Inventory createIgnoreOptionsMenu(Player viewer, OfflinePlayer target, IslandData island) {
+      String targetName = target == null || target.getName() == null ? "Unbekannt" : target.getName();
+      UUID targetId = target == null ? null : target.getUniqueId();
+      UUID islandOwner = island == null ? null : island.getOwner();
+      Inventory inv = Bukkit.createInventory(new IgnoreOptionsInventoryHolder(targetId, islandOwner), 27, "Ignore: " + targetName);
+      this.fillWithPanes(inv);
+      if (targetId == null) {
+         inv.setItem(13, this.named(Material.BARRIER, ChatColor.RED + "Spieler nicht gefunden", List.of(ChatColor.GRAY + "Bitte versuche es erneut.")));
+         inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Schlie\u00dfen", List.of()));
+         return inv;
+      }
+
+      EnumSet<IslandService.IgnoreType> ignoreTypes = this.islandService.getIgnoreTypes(viewer.getUniqueId(), targetId);
+      boolean chatIgnored = ignoreTypes.contains(IslandService.IgnoreType.CHAT);
+      boolean commandsIgnored = ignoreTypes.contains(IslandService.IgnoreType.COMMANDS);
+      boolean islandBanned = island != null && island.getIslandBanned().contains(targetId);
+
+      inv.setItem(4, createPlayerHead(target, ChatColor.GOLD + targetName, List.of(ChatColor.GRAY + "Verwalte hier Chat, Befehle und Insel-Bann.")));
+      inv.setItem(
+         11,
+         this.named(
+            chatIgnored ? Material.GREEN_DYE : Material.GRAY_DYE,
+            (chatIgnored ? ChatColor.GREEN : ChatColor.RED) + "Chat",
+            List.of(
+               ChatColor.GRAY + (chatIgnored ? "Aktiv: Nachrichten werden blockiert." : "Inaktiv: Nachrichten sind erlaubt."),
+               ChatColor.YELLOW + "Klick = " + (chatIgnored ? "deaktivieren" : "aktivieren")
+            )
+         )
+      );
+      inv.setItem(
+         13,
+         this.named(
+            commandsIgnored ? Material.GREEN_DYE : Material.GRAY_DYE,
+            (commandsIgnored ? ChatColor.GREEN : ChatColor.RED) + "Commands",
+            List.of(
+               ChatColor.GRAY + (commandsIgnored ? "Aktiv: Anfragen/Befehle werden blockiert." : "Inaktiv: Anfragen/Befehle sind erlaubt."),
+               ChatColor.YELLOW + "Klick = " + (commandsIgnored ? "deaktivieren" : "aktivieren")
+            )
+         )
+      );
+      inv.setItem(
+         15,
+         this.named(
+            islandBanned ? Material.BARRIER : Material.IRON_BARS,
+            (islandBanned ? ChatColor.DARK_RED : ChatColor.RED) + "Ban",
+            List.of(
+               ChatColor.GRAY + (islandBanned ? "Aktiv: Spieler ist von der Insel gebannt." : "Inaktiv: Kein Insel-Bann aktiv."),
+               ChatColor.YELLOW + "Klick = " + (islandBanned ? "entbannen" : "von Insel bannen")
+            )
+         )
+      );
+      inv.setItem(22, this.named(Material.ARROW, ChatColor.YELLOW + "Schlie\u00dfen", List.of()));
       return inv;
    }
 
@@ -6392,6 +6448,12 @@ public class CoreService {
    }
 
    public static record TeleportInventoryHolder(UUID viewer, int page, String filter, String backTarget) implements InventoryHolder {
+      public Inventory getInventory() {
+         return null;
+      }
+   }
+
+   public static record IgnoreOptionsInventoryHolder(UUID targetPlayer, UUID islandOwner) implements InventoryHolder {
       public Inventory getInventory() {
          return null;
       }

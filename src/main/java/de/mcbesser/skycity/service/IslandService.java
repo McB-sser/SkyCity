@@ -412,7 +412,7 @@ public class IslandService {
     
     // Map<ActorUUID, Map<TargetUUID, IgnoreType>>
     // Means: actor ignores target with given type
-    private final Map<UUID, Map<UUID, IgnoreType>> playerIgnores = new HashMap<>();
+    private final Map<UUID, Map<UUID, EnumSet<IgnoreType>>> playerIgnores = new HashMap<>();
     private final List<ChunkTemplateDef> templates = new ArrayList<>();
     private final Queue<PregenerationTask> pregenerationQueue = new ArrayDeque<>();
     private final Set<UUID> queuedPregenerationOwners = new HashSet<>();
@@ -643,8 +643,18 @@ public class IslandService {
             try {
                 UUID actor = UUID.fromString(doc.get("actor", String.class));
                 UUID target = UUID.fromString(doc.get("target", String.class));
-                IgnoreType type = IgnoreType.valueOf(doc.get("type", String.class));
-                playerIgnores.computeIfAbsent(actor, k -> new HashMap<>()).put(target, type);
+                EnumSet<IgnoreType> types = EnumSet.noneOf(IgnoreType.class);
+                List<String> storedTypes = (List<String>) doc.get("types", List.class);
+                if (storedTypes != null && !storedTypes.isEmpty()) {
+                    for (String rawType : storedTypes) {
+                        addIgnoreType(types, IgnoreType.valueOf(rawType));
+                    }
+                } else {
+                    addIgnoreType(types, IgnoreType.valueOf(doc.get("type", String.class)));
+                }
+                if (!types.isEmpty()) {
+                    playerIgnores.computeIfAbsent(actor, k -> new HashMap<>()).put(target, types);
+                }
             } catch (Exception ex) {
                 plugin.getLogger().warning("Konnte Ignore-Einstellung nicht laden: " + ex.getMessage());
             }
@@ -653,11 +663,15 @@ public class IslandService {
 
     private void saveIgnores(boolean commit) {
         ignoreCollection.remove(Filter.ALL);
-        for (Map.Entry<UUID, Map<UUID, IgnoreType>> actorEntry : playerIgnores.entrySet()) {
-            for (Map.Entry<UUID, IgnoreType> targetEntry : actorEntry.getValue().entrySet()) {
+        for (Map.Entry<UUID, Map<UUID, EnumSet<IgnoreType>>> actorEntry : playerIgnores.entrySet()) {
+            for (Map.Entry<UUID, EnumSet<IgnoreType>> targetEntry : actorEntry.getValue().entrySet()) {
+                List<String> types = targetEntry.getValue().stream()
+                        .map(Enum::name)
+                        .sorted()
+                        .toList();
                 Document doc = Document.createDocument("actor", actorEntry.getKey().toString())
                         .put("target", targetEntry.getKey().toString())
-                        .put("type", targetEntry.getValue().name());
+                        .put("types", types);
                 ignoreCollection.insert(doc);
             }
         }
@@ -666,22 +680,28 @@ public class IslandService {
 
     public boolean hasIgnore(UUID actor, UUID target, IgnoreType type) {
         if (actor == null || target == null || type == null) return false;
-        Map<UUID, IgnoreType> targets = playerIgnores.get(actor);
+        Map<UUID, EnumSet<IgnoreType>> targets = playerIgnores.get(actor);
         if (targets == null) return false;
-        IgnoreType active = targets.get(target);
-        if (active == null) return false;
-        return active == IgnoreType.ALL || active == type;
+        EnumSet<IgnoreType> active = targets.get(target);
+        if (active == null || active.isEmpty()) return false;
+        if (type == IgnoreType.ALL) {
+            return active.contains(IgnoreType.CHAT) && active.contains(IgnoreType.COMMANDS);
+        }
+        return active.contains(type);
     }
 
     public void setIgnore(UUID actor, UUID target, IgnoreType type) {
-        if (actor == null || target == null) return;
-        playerIgnores.computeIfAbsent(actor, k -> new HashMap<>()).put(target, type);
+        if (actor == null || target == null || type == null) return;
+        EnumSet<IgnoreType> active = playerIgnores
+                .computeIfAbsent(actor, k -> new HashMap<>())
+                .computeIfAbsent(target, k -> EnumSet.noneOf(IgnoreType.class));
+        addIgnoreType(active, type);
         saveIgnores(true);
     }
 
     public void removeIgnore(UUID actor, UUID target) {
         if (actor == null || target == null) return;
-        Map<UUID, IgnoreType> targets = playerIgnores.get(actor);
+        Map<UUID, EnumSet<IgnoreType>> targets = playerIgnores.get(actor);
         if (targets != null) {
             targets.remove(target);
             if (targets.isEmpty()) {
@@ -691,11 +711,54 @@ public class IslandService {
         }
     }
 
+    public void removeIgnore(UUID actor, UUID target, IgnoreType type) {
+        if (actor == null || target == null || type == null) return;
+        if (type == IgnoreType.ALL) {
+            removeIgnore(actor, target);
+            return;
+        }
+        Map<UUID, EnumSet<IgnoreType>> targets = playerIgnores.get(actor);
+        if (targets == null) return;
+        EnumSet<IgnoreType> active = targets.get(target);
+        if (active == null) return;
+        active.remove(type);
+        if (active.isEmpty()) {
+            targets.remove(target);
+            if (targets.isEmpty()) {
+                playerIgnores.remove(actor);
+            }
+        }
+        saveIgnores(true);
+    }
+
     public IgnoreType getIgnoreType(UUID actor, UUID target) {
         if (actor == null || target == null) return null;
-        Map<UUID, IgnoreType> targets = playerIgnores.get(actor);
+        Map<UUID, EnumSet<IgnoreType>> targets = playerIgnores.get(actor);
         if (targets == null) return null;
-        return targets.get(target);
+        EnumSet<IgnoreType> active = targets.get(target);
+        if (active == null || active.isEmpty()) return null;
+        if (active.contains(IgnoreType.CHAT) && active.contains(IgnoreType.COMMANDS)) return IgnoreType.ALL;
+        if (active.contains(IgnoreType.CHAT)) return IgnoreType.CHAT;
+        if (active.contains(IgnoreType.COMMANDS)) return IgnoreType.COMMANDS;
+        return null;
+    }
+
+    public EnumSet<IgnoreType> getIgnoreTypes(UUID actor, UUID target) {
+        if (actor == null || target == null) return EnumSet.noneOf(IgnoreType.class);
+        Map<UUID, EnumSet<IgnoreType>> targets = playerIgnores.get(actor);
+        if (targets == null) return EnumSet.noneOf(IgnoreType.class);
+        EnumSet<IgnoreType> active = targets.get(target);
+        return active == null || active.isEmpty() ? EnumSet.noneOf(IgnoreType.class) : EnumSet.copyOf(active);
+    }
+
+    private void addIgnoreType(EnumSet<IgnoreType> active, IgnoreType type) {
+        if (active == null || type == null) return;
+        if (type == IgnoreType.ALL) {
+            active.add(IgnoreType.CHAT);
+            active.add(IgnoreType.COMMANDS);
+            return;
+        }
+        active.add(type);
     }
 
     private void loadCleanupReservations() {
@@ -3421,21 +3484,29 @@ public class IslandService {
     }
 
     public List<TeleportTarget> getTeleportTargetsFor(UUID playerId) {
-        List<TeleportTarget> out = new ArrayList<>();
+        Map<String, TeleportTarget> targetsById = new LinkedHashMap<>();
         for (IslandData island : islands.values()) {
             if (canTeleportToIsland(island, playerId) && island.getIslandSpawn() != null) {
-                out.add(new TeleportTarget("island:" + island.getOwner(), getIslandTeleportDisplay(island), island.getIslandSpawn(), false));
+                TeleportTarget target = new TeleportTarget("island:" + island.getOwner(), getIslandTeleportDisplay(island), island.getIslandSpawn(), false);
+                targetsById.put(target.id(), target);
             }
             if (canTeleportToIsland(island, playerId) && island.getWarpLocation() != null && island.getWarpName() != null && !island.getWarpName().isBlank()) {
-                out.add(new TeleportTarget("warp:" + island.getOwner(), getWarpTeleportDisplay(island), island.getWarpLocation(), false));
+                TeleportTarget target = new TeleportTarget("warp:" + island.getOwner(), getWarpTeleportDisplay(island), island.getWarpLocation(), false);
+                targetsById.put(target.id(), target);
             }
             for (ParcelData parcel : island.getParcels().values()) {
                 if (parcel.getSpawn() != null && canTeleportToParcel(island, parcel, playerId)) {
-                    out.add(new TeleportTarget("parcel:" + island.getOwner() + ":" + parcel.getChunkKey(), getParcelTeleportDisplay(island, parcel), parcel.getSpawn(), true));
+                    TeleportTarget target = new TeleportTarget("parcel:" + island.getOwner() + ":" + parcel.getChunkKey(), getParcelTeleportDisplay(island, parcel), parcel.getSpawn(), true);
+                    targetsById.put(target.id(), target);
                 }
             }
         }
-        return out;
+        IslandData ownIsland = playerId == null ? null : islands.get(playerId);
+        if (ownIsland != null && ownIsland.getIslandSpawn() != null) {
+            TeleportTarget ownTarget = new TeleportTarget("island:" + ownIsland.getOwner(), getIslandTeleportDisplay(ownIsland), ownIsland.getIslandSpawn(), false);
+            targetsById.put(ownTarget.id(), ownTarget);
+        }
+        return new ArrayList<>(targetsById.values());
     }
 
     public List<TeleportTarget> getWarpTargetsFor(UUID playerId) {

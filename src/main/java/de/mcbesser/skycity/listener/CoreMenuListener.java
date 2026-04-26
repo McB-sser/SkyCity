@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Biome;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -157,6 +158,8 @@ public class CoreMenuListener implements Listener {
             handleParcelPlayerManagementMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.TeleportInventoryHolder holder) {
             handleTeleportMenuClick(event, player, holder);
+        } else if (top.getHolder() instanceof CoreService.IgnoreOptionsInventoryHolder holder) {
+            handleIgnoreOptionsMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.PermissionsHubInventoryHolder holder) {
             handlePermissionsHubMenuClick(event, player, holder);
         } else if (top.getHolder() instanceof CoreService.PermissionsActionInventoryHolder holder) {
@@ -444,7 +447,12 @@ public class CoreMenuListener implements Listener {
         } else if (event.getRawSlot() == 50) {
             player.openInventory(coreService.createAdminQueueMenu(player, holder.page() + 1));
         } else if (event.getRawSlot() == 49) {
-            player.openInventory(coreService.createIslandMenu(player, islandService.getIsland(player.getUniqueId()).orElse(null)));
+            IslandData ownIsland = islandService.getIsland(player.getUniqueId()).orElse(null);
+            if (ownIsland != null) {
+                player.openInventory(coreService.createIslandMenu(player, ownIsland));
+            } else {
+                player.openInventory(coreService.createIslandMenu(player));
+            }
         }
     }
 
@@ -2667,6 +2675,86 @@ public class CoreMenuListener implements Listener {
         }
     }
 
+    private void handleIgnoreOptionsMenuClick(InventoryClickEvent event, Player player, CoreService.IgnoreOptionsInventoryHolder holder) {
+        event.setCancelled(true);
+        UUID targetId = holder.targetPlayer();
+        if (targetId == null) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getRawSlot() == 22) {
+            player.closeInventory();
+            return;
+        }
+
+        IslandData island = null;
+        if (holder.islandOwner() != null) {
+            island = islandService.getIsland(holder.islandOwner()).orElse(null);
+        }
+        if (island == null) {
+            island = islandService.getIslandAt(player.getLocation());
+            if (island != null && !islandService.isIslandOwner(island, player.getUniqueId())) {
+                island = null;
+            }
+        }
+        if (island == null) {
+            island = islandService.getIsland(player.getUniqueId()).orElse(null);
+        }
+
+        OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
+        String targetName = target.getName() == null ? "?" : target.getName();
+        switch (event.getRawSlot()) {
+            case 11 -> {
+                boolean active = islandService.hasIgnore(player.getUniqueId(), targetId, IslandService.IgnoreType.CHAT);
+                if (active) {
+                    islandService.removeIgnore(player.getUniqueId(), targetId, IslandService.IgnoreType.CHAT);
+                    player.sendMessage(ChatColor.YELLOW + targetName + " wird im Chat nicht mehr ignoriert.");
+                } else {
+                    islandService.setIgnore(player.getUniqueId(), targetId, IslandService.IgnoreType.CHAT);
+                    player.sendMessage(ChatColor.GREEN + targetName + " wird nun im Chat ignoriert.");
+                }
+                player.openInventory(coreService.createIgnoreOptionsMenu(player, target, island));
+            }
+            case 13 -> {
+                boolean active = islandService.hasIgnore(player.getUniqueId(), targetId, IslandService.IgnoreType.COMMANDS);
+                if (active) {
+                    islandService.removeIgnore(player.getUniqueId(), targetId, IslandService.IgnoreType.COMMANDS);
+                    player.sendMessage(ChatColor.YELLOW + targetName + " blockiert keine Befehle/Anfragen mehr.");
+                } else {
+                    islandService.setIgnore(player.getUniqueId(), targetId, IslandService.IgnoreType.COMMANDS);
+                    player.sendMessage(ChatColor.GREEN + targetName + " wird nun für Befehle/Anfragen ignoriert.");
+                }
+                player.openInventory(coreService.createIgnoreOptionsMenu(player, target, island));
+            }
+            case 15 -> {
+                if (island == null) {
+                    player.sendMessage(ChatColor.RED + "Du hast aktuell keine Insel für einen Insel-Bann.");
+                    player.openInventory(coreService.createIgnoreOptionsMenu(player, target, null));
+                    return;
+                }
+                if (!islandService.isIslandOwner(island, player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Nur Master oder Owner können Insel-Banns verwalten.");
+                    player.openInventory(coreService.createIgnoreOptionsMenu(player, target, island));
+                    return;
+                }
+                boolean banned = island.getIslandBanned().contains(targetId);
+                islandService.setIslandBan(island, targetId, !banned);
+                if (banned) {
+                    player.sendMessage(ChatColor.YELLOW + targetName + " wurde von der Insel entbannt.");
+                } else {
+                    Player online = Bukkit.getPlayer(targetId);
+                    if (online != null) {
+                        islandService.kickFromIsland(island, online);
+                    }
+                    player.sendMessage(ChatColor.GREEN + targetName + " wurde von der Insel gebannt.");
+                }
+                player.openInventory(coreService.createIgnoreOptionsMenu(player, target, island));
+            }
+            default -> {
+            }
+        }
+    }
+
     private void sendNoIslandHelp(Player player) {
         player.sendMessage(ChatColor.YELLOW + "Du hast aktuell keine Insel.");
         player.sendMessage(ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is create" + ChatColor.GRAY + " zum Erstellen.");
@@ -3070,6 +3158,7 @@ public class CoreMenuListener implements Listener {
                 || top.getHolder() instanceof CoreService.ParcelCombatInventoryHolder
                 || top.getHolder() instanceof CoreService.ParcelPlayerManagementInventoryHolder
                 || top.getHolder() instanceof CoreService.TeleportInventoryHolder
+                || top.getHolder() instanceof CoreService.IgnoreOptionsInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandTrustMembersInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandOwnersInventoryHolder
                 || top.getHolder() instanceof CoreService.IslandMasterMenuInventoryHolder
