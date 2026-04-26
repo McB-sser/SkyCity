@@ -913,6 +913,7 @@ public class PlayerListener implements Listener {
         if (targetType.isEmpty()) return false;
         
         Location targetLoc = null;
+        IslandData warpTargetIsland = null;
         if ("ISLAND".equals(targetType)) {
             if (targetName != null && !targetName.isEmpty()) {
                 try {
@@ -957,6 +958,7 @@ public class PlayerListener implements Listener {
                 for (IslandData otherIsland : islandService.getAllIslands()) {
                     if (targetName.equalsIgnoreCase(otherIsland.getWarpName())) {
                         targetLoc = otherIsland.getWarpLocation();
+                        warpTargetIsland = otherIsland;
                         break;
                     }
                 }
@@ -967,6 +969,9 @@ public class PlayerListener implements Listener {
             targetLoc = orientCartographyTargetLocation(islandService.findSafeLocation(targetLoc));
             linkedCheckpointTeleportUntil.put(player.getUniqueId(), System.currentTimeMillis() + 1_500L);
             player.teleport(targetLoc);
+            if (warpTargetIsland != null) {
+                islandService.sendWarpWelcomeMessage(player, warpTargetIsland);
+            }
             playCheckpointTeleportSound(player, targetLoc);
             return true;
         } else {
